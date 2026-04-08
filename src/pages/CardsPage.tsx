@@ -13,16 +13,20 @@ import { toast } from 'sonner';
 
 export default function CardsPage() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [, setTick] = useState(0);
-  const refresh = useCallback(() => setTick(t => t + 1), []);
+  const [cards, setCards] = useState(getCards);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = useCallback(() => {
+    setCards(getCards());
+    setRefreshKey(k => k + 1);
+  }, []);
 
-  const cards = getCards();
   const installments = getInstallmentsForMonth(month);
 
   const deleteCard = (id: string) => {
-    saveCards(cards.filter(c => c.id !== id));
+    const updated = cards.filter(c => c.id !== id);
+    saveCards(updated);
+    setCards(updated);
     toast.success('Cartão removido');
-    refresh();
   };
 
   return (
