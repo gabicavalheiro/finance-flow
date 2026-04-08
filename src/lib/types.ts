@@ -7,6 +7,7 @@ export interface CreditCard {
   lastDigits: string;
   limit: number;
   closingDay: number;
+  customGradient?: string;
 }
 
 export type ExpenseCategory =

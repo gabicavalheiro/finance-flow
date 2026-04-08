@@ -43,7 +43,7 @@ export default function CardsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
             >
-              <div className={`${BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden`}>
+              <div className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white`} style={card.customGradient ? { background: card.customGradient } : undefined}>
                 <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10" />
                 <div className="flex justify-between items-start mb-6">
                   <div>
