@@ -1,10 +1,12 @@
+import { LucideProps } from 'lucide-react';
 import {
   UtensilsCrossed, Car, Gamepad2, Heart, GraduationCap,
   ShoppingBag, Home, Plane, Repeat, MoreHorizontal,
 } from 'lucide-react';
 import { ExpenseCategory, CATEGORY_CONFIG } from '@/lib/types';
+import React from 'react';
 
-const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const iconMap: Record<string, React.ForwardRefExoticComponent<Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>>> = {
   UtensilsCrossed, Car, Gamepad2, Heart, GraduationCap,
   ShoppingBag, Home, Plane, Repeat, MoreHorizontal,
 };
