@@ -48,13 +48,13 @@ export default function CardsPage() {
               transition={{ delay: idx * 0.05 }}
             >
               <div className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white`} style={card.customGradient ? { background: card.customGradient } : undefined}>
-                <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10" />
-                <div className="flex justify-between items-start mb-6">
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10 pointer-events-none" />
+                <div className="flex justify-between items-start mb-6 relative z-10">
                   <div>
                     <p className="text-sm font-medium opacity-80">{card.name}</p>
                     <p className="text-xs opacity-60 capitalize">{card.brand}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={() => deleteCard(card.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}>
                     <Trash2 size={14} />
                   </Button>
                 </div>
