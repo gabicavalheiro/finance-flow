@@ -12,8 +12,8 @@ import { toast } from 'sonner';
 
 export default function FixedPage() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [, setTick] = useState(0);
-  const refresh = useCallback(() => setTick(t => t + 1), []);
+  const [fixedState, setFixedState] = useState(getFixedExpenses);
+  const refresh = useCallback(() => setFixedState(getFixedExpenses()), []);
 
   const fixedExpenses = getFixedExpenses();
   const totalFixed = fixedExpenses.reduce((s, f) => s + f.amount, 0);

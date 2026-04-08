@@ -17,8 +17,8 @@ const PIE_COLORS = [
 
 export default function Dashboard() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [, setTick] = useState(0);
-  const refresh = useCallback(() => setTick(t => t + 1), []);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
   const cards = getCards();
   const installments = getInstallmentsForMonth(month);
