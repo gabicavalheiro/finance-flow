@@ -12,10 +12,10 @@ import { toast } from 'sonner';
 
 export default function FixedPage() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [, setTick] = useState(0);
-  const refresh = useCallback(() => setTick(t => t + 1), []);
+  const [fixedState, setFixedState] = useState(getFixedExpenses);
+  const refresh = useCallback(() => setFixedState(getFixedExpenses()), []);
 
-  const fixedExpenses = getFixedExpenses();
+  const fixedExpenses = fixedState;
   const totalFixed = fixedExpenses.reduce((s, f) => s + f.amount, 0);
   const paidCount = fixedExpenses.filter(f => f.paidMonths.includes(month)).length;
 
@@ -29,13 +29,14 @@ export default function FixedPage() {
       };
     });
     saveFixedExpenses(updated);
-    refresh();
+    setFixedState(updated);
   };
 
   const deleteFixed = (id: string) => {
-    saveFixedExpenses(fixedExpenses.filter(f => f.id !== id));
+    const updated = fixedExpenses.filter(f => f.id !== id);
+    saveFixedExpenses(updated);
+    setFixedState(updated);
     toast.success('Removido');
-    refresh();
   };
 
   return (
