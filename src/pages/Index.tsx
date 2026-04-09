@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, TrendingDown, TrendingUp, Scale,
@@ -12,11 +12,11 @@ import EditExpenseDialog from '@/components/EditExpenseDialog';
 import CategoryIcon from '@/components/CategoryIcon';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
-  getCards, getInstallmentsForMonth, getFixedExpenses,
-  getCategoryTotalsForMonth, getIncomes, getExpenses, saveExpenses,
-  getVariableForMonth, saveVariableTransactions, getVariableTransactions,
+  getCards, getExpenses, getFixedExpenses, getIncomes,
+  getVariableForMonth, deleteExpense, deleteVariableTransaction,
+  computeInstallmentsForMonth, computeCategoryTotals,
 } from '@/lib/store';
-import { CATEGORY_CONFIG, ExpenseCategory, Expense, PAYMENT_METHOD_CONFIG } from '@/lib/types';
+import { CATEGORY_CONFIG, ExpenseCategory, Expense, CreditCard, FixedExpense, FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -43,111 +43,105 @@ const METHOD_ICONS: Record<string, React.ReactNode> = {
 
 export default function Dashboard() {
   const [month, setMonth]                         = useState(getCurrentMonth());
-  const [refreshKey, setRefreshKey]               = useState(0);
   const [selectedCardId, setSelectedCardId]       = useState<string | null>(null);
   const [editingExpense, setEditingExpense]        = useState<Expense | null>(null);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [deletingVarId, setDeletingVarId]         = useState<string | null>(null);
 
-  const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+  // Data state
+  const [cards, setCards]               = useState<CreditCard[]>([]);
+  const [expenses, setExpenses]         = useState<Expense[]>([]);
+  const [fixedExpenses, setFixed]       = useState<FixedExpense[]>([]);
+  const [incomes, setIncomes]           = useState<FixedIncome[]>([]);
+  const [varTxs, setVarTxs]             = useState<VariableTransaction[]>([]);
+  const [loadingData, setLoadingData]   = useState(true);
 
-  const cards          = getCards();
-  const allInstallments = getInstallmentsForMonth(month);
-  const fixedExpenses  = getFixedExpenses();
-  const incomes        = getIncomes();
-  const varTxs         = getVariableForMonth(month);
-  const categoryTotals = getCategoryTotalsForMonth(month);
+  const loadAll = useCallback(async () => {
+    setLoadingData(true);
+    const [c, e, f, i, v] = await Promise.all([
+      getCards(), getExpenses(), getFixedExpenses(), getIncomes(), getVariableForMonth(month),
+    ]);
+    setCards(c); setExpenses(e); setFixed(f); setIncomes(i); setVarTxs(v);
+    setLoadingData(false);
+  }, [month]);
 
-  const cardMap = new Map(cards.map(c => [c.id, c]));
-  const getExpenseById = (id: string) => getExpenses().find(e => e.id === id);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Apply card filter to installments
-  const installments = selectedCardId
-    ? allInstallments.filter(i => i.cardId === selectedCardId)
-    : allInstallments;
+  // Computed values
+  const allInstallments = computeInstallmentsForMonth(expenses, cards, month);
+  const installments    = selectedCardId ? allInstallments.filter(i => i.cardId === selectedCardId) : allInstallments;
+  const categoryTotals  = computeCategoryTotals(allInstallments, fixedExpenses);
 
-  // Totals (always from all cards for the summary)
-  const totalCard   = allInstallments.reduce((s, i) => s + i.amount, 0);
-  const totalFixed  = fixedExpenses.reduce((s, f) => s + f.amount, 0);
-  const totalVarExp = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalVarInc = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const totalMonth  = totalCard + totalFixed + totalVarExp;
-  const totalIncome = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
-  const balance     = totalIncome - totalMonth;
-  const totalLimit  = cards.reduce((s, c) => s + c.limit, 0);
-  const available   = totalLimit - totalCard;
-  const spentPct    = totalIncome > 0 ? Math.min((totalMonth / totalIncome) * 100, 100) : 0;
+  const totalLimit     = cards.reduce((s, c) => s + c.limit, 0);
+  const totalCardSpent = allInstallments.reduce((s, i) => s + i.amount, 0);
+  const available      = totalLimit - totalCardSpent;
 
-  const chartData = Object.entries(categoryTotals).map(([key, value]) => ({
-    name: CATEGORY_CONFIG[key as ExpenseCategory]?.label || key,
-    value: Math.round(value * 100) / 100,
-  }));
+  const totalVarInc  = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalVarExp  = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalIncome  = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
+  const totalExpense = totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp;
+  const balance      = totalIncome - totalExpense;
 
-  const confirmDeleteCard = () => {
+  const cardMap        = new Map(cards.map(c => [c.id, c]));
+  const getExpenseById = (id: string) => expenses.find(e => e.id === id);
+
+  const pieData = Object.entries(categoryTotals)
+    .filter(([, v]) => v > 0)
+    .map(([key, value]) => ({
+      name: CATEGORY_CONFIG[key as ExpenseCategory]?.label ?? key,
+      value,
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
+  const confirmDeleteExpense = async () => {
     if (!deletingExpenseId) return;
-    saveExpenses(getExpenses().filter(e => e.id !== deletingExpenseId));
-    setDeletingExpenseId(null);
-    refresh();
-    toast.success('Gasto removido');
+    try {
+      await deleteExpense(deletingExpenseId);
+      setDeletingExpenseId(null);
+      toast.success('Gasto removido');
+      loadAll();
+    } catch {
+      toast.error('Erro ao remover gasto');
+    }
   };
 
-  const confirmDeleteVar = () => {
+  const confirmDeleteVar = async () => {
     if (!deletingVarId) return;
-    saveVariableTransactions(getVariableTransactions().filter(t => t.id !== deletingVarId));
-    setDeletingVarId(null);
-    refresh();
-    toast.success('Lançamento removido');
+    try {
+      await deleteVariableTransaction(deletingVarId);
+      setDeletingVarId(null);
+      toast.success('Lançamento removido');
+      loadAll();
+    } catch {
+      toast.error('Erro ao remover lançamento');
+    }
   };
 
   return (
-    <div className="pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">FinanceFlow</h1>
-          <p className="text-xs text-muted-foreground">Seu gestor inteligente</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <AddVariableDialog onAdded={refresh} />
-          <AddExpenseDialog cards={cards} onAdded={refresh} />
-        </div>
-      </div>
-
+    <div className="pb-24 px-4 pt-6 max-w-lg mx-auto space-y-5">
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* Balance hero */}
-      {totalIncome > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="gradient-primary rounded-2xl p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Scale size={16} className="opacity-80" />
-            <span className="text-xs opacity-80 font-medium">Saldo do mês</span>
-          </div>
-          <p className="text-3xl font-bold">{formatCurrency(balance)}</p>
-          <div className="space-y-1">
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-white/70 rounded-full transition-all duration-500" style={{ width: `${spentPct}%` }} />
-            </div>
-            <div className="flex justify-between text-[10px] opacity-70">
-              <span>{formatCurrency(totalMonth)} gasto</span>
-              <span>{formatCurrency(totalIncome)} total</span>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Summary */}
+      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-card rounded-2xl p-4 border border-border col-span-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Scale size={16} className="text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Saldo do mês</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
+            {formatCurrency(balance)}
+          </p>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
           className="bg-card rounded-2xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <TrendingDown size={16} className="text-destructive" />
-            <span className="text-xs text-muted-foreground">Total gasto</span>
+            <span className="text-xs text-muted-foreground">Total gastos</span>
           </div>
-          <p className="text-lg font-bold">{formatCurrency(totalMonth)}</p>
-          {totalVarExp > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">inclui {formatCurrency(totalVarExp)} variável</p>
-          )}
+          <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
@@ -175,106 +169,95 @@ export default function Dashboard() {
             </div>
             <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
               <div className="h-full bg-accent rounded-full transition-all"
-                style={{ width: totalLimit > 0 ? `${(totalCard / totalLimit) * 100}%` : '0%' }} />
+                style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
             </div>
           </motion.div>
         )}
       </div>
 
       {/* Pie chart */}
-      {chartData.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+      {pieData.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="bg-card rounded-2xl p-4 border border-border">
-          <h2 className="text-sm font-semibold mb-3">Gastos por categoria</h2>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={chartData} dataKey="value" nameKey="name"
-                  cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} strokeWidth={0}>
-                  {chartData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip
-                  formatter={(v: number) => formatCurrency(v)}
-                  contentStyle={{ background: 'hsl(240 6% 10%)', border: '1px solid hsl(240 4% 18%)', borderRadius: '12px', fontSize: '12px', color: '#fff' }}
-                  itemStyle={{ color: '#fff' }}
-                  labelStyle={{ color: '#fff' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {chartData.map((d, i) => (
-              <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                {d.name}
-              </div>
-            ))}
+          <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Gastos por categoria</p>
+          <div className="flex gap-4 items-center">
+            <div className="h-36 w-36 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} paddingAngle={2} dataKey="value">
+                    {pieData.map((_, idx) => (
+                      <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 space-y-1.5 min-w-0">
+              {pieData.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                  <span className="truncate text-muted-foreground flex-1">{entry.name}</span>
+                  <span className="font-medium shrink-0">{formatCurrency(entry.value)}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}
 
-      {/* ── Transactions ── */}
+      {/* Transactions */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
-        {/* Header + card filter */}
-        <div className="px-4 pt-4 pb-3 border-b border-border space-y-3">
-          <h2 className="text-sm font-semibold">Lançamentos do mês</h2>
-
-          {/* Card filter pills */}
-          {cards.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
-              {/* All */}
-              <button
-                onClick={() => setSelectedCardId(null)}
-                className={cn(
-                  'shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                  selectedCardId === null
-                    ? 'border-primary text-primary bg-primary/10'
-                    : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                )}
-              >
-                Todos
-              </button>
-
-              {cards.map(card => {
-                const cardSpent = allInstallments
-                  .filter(i => i.cardId === card.id)
-                  .reduce((s, i) => s + i.amount, 0);
-                const isActive = selectedCardId === card.id;
-                return (
-                  <button
-                    key={card.id}
-                    onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                    className={cn(
-                      'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                      isActive
-                        ? 'border-primary text-primary bg-primary/10'
-                        : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                    )}
-                  >
-                    {/* Color dot from card gradient */}
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }}
-                    />
-                    {card.name}
-                    {cardSpent > 0 && (
-                      <span className="opacity-60">{formatCurrency(cardSpent)}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+        <div className="flex items-center justify-between p-4 pb-3">
+          <p className="text-sm font-semibold">Lançamentos</p>
+          <div className="flex gap-2">
+            <AddVariableDialog onAdded={loadAll} />
+            {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} />}
+          </div>
         </div>
 
+        {/* Card filter chips */}
+        {cards.length > 0 && (
+          <div className="flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-hide">
+            <button
+              onClick={() => setSelectedCardId(null)}
+              className={cn(
+                'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+              )}
+            >
+              Todos
+            </button>
+            {cards.map(card => {
+              const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+              const isActive  = selectedCardId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                  className={cn(
+                    'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                    isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                  )}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
+                  {card.name}
+                  {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="p-4 space-y-1">
-          {installments.length === 0 && fixedExpenses.length === 0 && varTxs.length === 0 ? (
+          {loadingData ? (
+            <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
+          ) : installments.length === 0 && fixedExpenses.length === 0 && varTxs.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-6">
               {selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
             </p>
           ) : (
             <>
-              {/* Card installments */}
               <AnimatePresence mode="popLayout">
                 {installments.map((inst, i) => {
                   const orig = getExpenseById(inst.expenseId);
@@ -313,7 +296,6 @@ export default function Dashboard() {
                 })}
               </AnimatePresence>
 
-              {/* Variable transactions — always shown regardless of card filter */}
               {!selectedCardId && varTxs.length > 0 && (
                 <>
                   {installments.length > 0 && (
@@ -335,12 +317,11 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{tx.name}</p>
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          {METHOD_ICONS[tx.paymentMethod]}
-                          <span>{PAYMENT_METHOD_CONFIG[tx.paymentMethod].label}</span>
-                          <span>·</span>
-                          <span>{new Date(tx.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
-                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          {METHOD_ICONS[tx.paymentMethod] ?? null}
+                          {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                          {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
+                        </p>
                       </div>
                       <span className="text-sm font-semibold"
                         style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
@@ -357,7 +338,6 @@ export default function Dashboard() {
                 </>
               )}
 
-              {/* Fixed expenses — always shown when no card filter */}
               {!selectedCardId && fixedExpenses.length > 0 && (
                 <>
                   {(installments.length > 0 || varTxs.length > 0) && (
@@ -384,12 +364,18 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Dialogs */}
+      {/* Edit expense dialog */}
       {editingExpense && (
-        <EditExpenseDialog expense={editingExpense} cards={cards} open={!!editingExpense}
-          onClose={() => setEditingExpense(null)} onSaved={refresh} />
+        <EditExpenseDialog
+          expense={editingExpense}
+          cards={cards}
+          open={!!editingExpense}
+          onClose={() => setEditingExpense(null)}
+          onSaved={loadAll}
+        />
       )}
 
+      {/* Delete expense dialog */}
       <AlertDialog open={!!deletingExpenseId} onOpenChange={v => !v && setDeletingExpenseId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
@@ -398,20 +384,21 @@ export default function Dashboard() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteCard} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete variable dialog */}
       <AlertDialog open={!!deletingVarId} onOpenChange={v => !v && setDeletingVarId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
             <AlertDialogDescription>Este lançamento será removido permanentemente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

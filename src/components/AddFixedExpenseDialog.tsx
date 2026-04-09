@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExpenseCategory, FixedExpense, CATEGORY_CONFIG } from '@/lib/types';
-import { getFixedExpenses, saveFixedExpenses } from '@/lib/store';
+import { addFixedExpense } from '@/lib/store';
 import { generateId } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 
@@ -18,19 +18,26 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
   const [name, setName]         = useState('');
   const [amount, setAmount]     = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('subscription');
+  const [saving, setSaving]     = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !amount) { toast.error('Preencha todos os campos'); return; }
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) { toast.error('Valor inválido'); return; }
+
     const fixed: FixedExpense = { id: generateId(), name, amount: parsed, category, paidMonths: [] };
-    const all = getFixedExpenses();
-    all.push(fixed);
-    saveFixedExpenses(all);
-    toast.success(`${name} adicionado aos gastos fixos!`);
-    setName(''); setAmount(''); setCategory('subscription');
-    setOpen(false);
-    onAdded();
+
+    setSaving(true);
+    try {
+      await addFixedExpense(fixed);
+      toast.success(`${name} adicionado aos gastos fixos!`);
+      setName(''); setAmount(''); setCategory('subscription');
+      setOpen(false);
+      onAdded();
+    } catch {
+      toast.error('Erro ao adicionar gasto fixo');
+    }
+    setSaving(false);
   };
 
   return (
@@ -45,7 +52,8 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
         <div className="space-y-4 mt-2">
           <div>
             <Label>Nome</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Netflix" className="bg-secondary border-border" />
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Internet"
+              className="bg-secondary border-border" />
           </div>
           <div>
             <Label>Valor (R$)</Label>
@@ -62,7 +70,9 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSubmit} className="w-full gradient-primary">Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={saving} className="w-full gradient-primary">
+            {saving ? 'Adicionando...' : 'Adicionar'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

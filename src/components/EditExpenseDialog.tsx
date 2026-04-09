@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
-import { getExpenses, saveExpenses } from '@/lib/store';
+import { updateExpense } from '@/lib/store';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
 
@@ -25,8 +25,9 @@ export default function EditExpenseDialog({ expense, cards, open, onClose, onSav
   const [cardId, setCardId]             = useState(expense.cardId);
   const [date, setDate]                 = useState(expense.date);
   const [installments, setInstallments] = useState(String(expense.installments));
+  const [saving, setSaving]             = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !amount || !cardId) { toast.error('Preencha todos os campos'); return; }
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) { toast.error('Valor inválido'); return; }
@@ -36,10 +37,17 @@ export default function EditExpenseDialog({ expense, cards, open, onClose, onSav
       category, cardId, date,
       installments: parseInt(installments) || 1,
     };
-    saveExpenses(getExpenses().map(e => e.id === expense.id ? updated : e));
-    toast.success('Gasto atualizado!');
-    onSaved();
-    onClose();
+
+    setSaving(true);
+    try {
+      await updateExpense(updated);
+      toast.success('Gasto atualizado!');
+      onSaved();
+      onClose();
+    } catch {
+      toast.error('Erro ao atualizar gasto');
+    }
+    setSaving(false);
   };
 
   return (
@@ -97,7 +105,9 @@ export default function EditExpenseDialog({ expense, cards, open, onClose, onSav
           </div>
           <div className="flex gap-2 pt-1">
             <Button variant="outline" className="flex-1 border-border" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSave} className="flex-1 gradient-primary">Salvar</Button>
+            <Button onClick={handleSave} disabled={saving} className="flex-1 gradient-primary">
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
           </div>
         </div>
       </DialogContent>

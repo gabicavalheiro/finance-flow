@@ -1,57 +1,106 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import BottomNav from "@/components/BottomNav";
 import Index from "./pages/Index";
 import CardsPage from "./pages/CardsPage";
 import FixedPage from "./pages/FixedPage";
 import ReportsPage from "./pages/ReportsPage";
 import AuthPage from "./pages/AuthPage";
+import PasswordResetPage from "./pages/PasswordResetPage";
 import NotFound from "./pages/NotFound";
-import { isLoggedIn, logoutUser } from './lib/auth';
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  const [authed, setAuthed] = useState(isLoggedIn());
+const Providers = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      {children}
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
-  if (!authed) {
+const App = () => {
+  const [session, setSession]               = useState<Session | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+
+  useEffect(() => {
+    // Verifica sessão inicial (inclui tokens de recovery na URL)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Escuta mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      } else if (event === 'USER_UPDATED') {
+        setIsPasswordRecovery(false);
+      }
+      setSession(session);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AuthPage onSuccess={() => setAuthed(true)} />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <Providers>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+            <p className="text-sm text-muted-foreground">Carregando...</p>
+          </div>
+        </div>
+      </Providers>
     );
   }
 
+  // Usuário clicou no link de recuperação de senha
+  if (isPasswordRecovery) {
+    return (
+      <Providers>
+        <PasswordResetPage onDone={() => setIsPasswordRecovery(false)} />
+      </Providers>
+    );
+  }
+
+  // Não autenticado
+  if (!session) {
+    return (
+      <Providers>
+        <AuthPage />
+      </Providers>
+    );
+  }
+
+  // Autenticado
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/cards" element={<CardsPage />} />
-            <Route path="/fixed" element={<FixedPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <BottomNav
-            onLogout={() => {
-              logoutUser();
-              setAuthed(false);
-            }}
-          />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <Providers>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/cards" element={<CardsPage />} />
+          <Route path="/fixed" element={<FixedPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <BottomNav />
+      </BrowserRouter>
+    </Providers>
   );
 };
 

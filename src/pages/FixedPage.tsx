@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Trash2, ArrowDownCircle, ArrowUpCircle, CalendarDays } from 'lucide-react';
+import { Trash2, ArrowDownCircle, ArrowUpCircle, CalendarDays } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddFixedExpenseDialog from '@/components/AddFixedExpenseDialog';
 import AddIncomeDialog from '@/components/AddIncomeDialog';
@@ -8,23 +8,28 @@ import CategoryIcon from '@/components/CategoryIcon';
 import IncomeIcon from '@/components/IncomeIcon';
 import MonthSelector from '@/components/MonthSelector';
 import {
-  getFixedExpenses, saveFixedExpenses,
-  getIncomes, saveIncomes,
+  getFixedExpenses, updateFixedExpense, deleteFixedExpense,
+  getIncomes, updateIncome, deleteIncome,
 } from '@/lib/store';
 import { formatCurrency, getCurrentMonth } from '@/lib/helpers';
-import { INCOME_CATEGORY_CONFIG } from '@/lib/types';
+import { INCOME_CATEGORY_CONFIG, FixedExpense, FixedIncome } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 export default function FixedPage() {
-  const [month, setMonth] = useState(getCurrentMonth());
-  const [fixedState, setFixedState] = useState(getFixedExpenses);
-  const [incomeState, setIncomeState] = useState(getIncomes);
+  const [month, setMonth]           = useState(getCurrentMonth());
+  const [fixedState, setFixedState] = useState<FixedExpense[]>([]);
+  const [incomeState, setIncomeState] = useState<FixedIncome[]>([]);
+  const [loading, setLoading]       = useState(true);
 
-  const refresh = useCallback(() => {
-    setFixedState(getFixedExpenses());
-    setIncomeState(getIncomes());
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [f, i] = await Promise.all([getFixedExpenses(), getIncomes()]);
+    setFixedState(f); setIncomeState(i);
+    setLoading(false);
   }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const totalIncome  = incomeState.reduce((s, i) => s + i.amount, 0);
   const totalExpense = fixedState.reduce((s, f) => s + f.amount, 0);
@@ -34,40 +39,57 @@ export default function FixedPage() {
   const paidCount     = fixedState.filter(f => f.paidMonths.includes(month)).length;
   const receivedCount = incomeState.filter(i => i.receivedMonths.includes(month)).length;
 
-  /* ── expense handlers ── */
-  const togglePaid = (id: string) => {
-    const updated = fixedState.map(f => {
-      if (f.id !== id) return f;
-      const paid = f.paidMonths.includes(month);
-      return { ...f, paidMonths: paid ? f.paidMonths.filter(m => m !== month) : [...f.paidMonths, month] };
-    });
-    saveFixedExpenses(updated);
-    setFixedState(updated);
+  /* ── Expense handlers ── */
+  const togglePaid = async (id: string) => {
+    const item = fixedState.find(f => f.id === id);
+    if (!item) return;
+    const paid = item.paidMonths.includes(month);
+    const newPaidMonths = paid
+      ? item.paidMonths.filter(m => m !== month)
+      : [...item.paidMonths, month];
+    // Optimistic update
+    setFixedState(prev => prev.map(f => f.id === id ? { ...f, paidMonths: newPaidMonths } : f));
+    try {
+      await updateFixedExpense(id, { paidMonths: newPaidMonths });
+    } catch {
+      toast.error('Erro ao atualizar'); loadAll();
+    }
   };
 
-  const deleteFixed = (id: string) => {
-    const updated = fixedState.filter(f => f.id !== id);
-    saveFixedExpenses(updated);
-    setFixedState(updated);
-    toast.success('Removido');
+  const handleDeleteFixed = async (id: string) => {
+    setFixedState(prev => prev.filter(f => f.id !== id));
+    try {
+      await deleteFixedExpense(id);
+      toast.success('Removido');
+    } catch {
+      toast.error('Erro ao remover'); loadAll();
+    }
   };
 
-  /* ── income handlers ── */
-  const toggleReceived = (id: string) => {
-    const updated = incomeState.map(i => {
-      if (i.id !== id) return i;
-      const got = i.receivedMonths.includes(month);
-      return { ...i, receivedMonths: got ? i.receivedMonths.filter(m => m !== month) : [...i.receivedMonths, month] };
-    });
-    saveIncomes(updated);
-    setIncomeState(updated);
+  /* ── Income handlers ── */
+  const toggleReceived = async (id: string) => {
+    const item = incomeState.find(i => i.id === id);
+    if (!item) return;
+    const got = item.receivedMonths.includes(month);
+    const newReceivedMonths = got
+      ? item.receivedMonths.filter(m => m !== month)
+      : [...item.receivedMonths, month];
+    setIncomeState(prev => prev.map(i => i.id === id ? { ...i, receivedMonths: newReceivedMonths } : i));
+    try {
+      await updateIncome(id, { receivedMonths: newReceivedMonths });
+    } catch {
+      toast.error('Erro ao atualizar'); loadAll();
+    }
   };
 
-  const deleteIncome = (id: string) => {
-    const updated = incomeState.filter(i => i.id !== id);
-    saveIncomes(updated);
-    setIncomeState(updated);
-    toast.success('Removido');
+  const handleDeleteIncome = async (id: string) => {
+    setIncomeState(prev => prev.filter(i => i.id !== id));
+    try {
+      await deleteIncome(id);
+      toast.success('Removido');
+    } catch {
+      toast.error('Erro ao remover'); loadAll();
+    }
   };
 
   return (
@@ -76,20 +98,15 @@ export default function FixedPage() {
 
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* ── Balance card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-card rounded-2xl p-5 border border-border space-y-3"
-      >
+      {/* Balance card */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-card rounded-2xl p-5 border border-border space-y-3">
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Saldo mensal fixo</p>
 
         <div className="flex justify-between items-end">
           <div>
-            <p
-              className="text-2xl font-bold"
-              style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}
-            >
+            <p className="text-2xl font-bold"
+              style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
               {formatCurrency(balance)}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -101,28 +118,22 @@ export default function FixedPage() {
           </div>
         </div>
 
-        {/* Progress bar */}
         <div className="h-2.5 bg-secondary rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${balancePct}%`,
-              background: balancePct > 90
-                ? 'hsl(0 72% 51%)'
-                : balancePct > 70
-                  ? 'hsl(38 92% 50%)'
-                  : 'hsl(152 69% 45%)',
+              background: balancePct > 90 ? 'hsl(0 72% 51%)' : balancePct > 70 ? 'hsl(38 92% 50%)' : 'hsl(152 69% 45%)',
             }}
           />
         </div>
 
-        {/* Income / Expense row */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           <div className="flex items-center gap-2">
             <ArrowUpCircle size={16} className="text-success shrink-0" />
             <div>
               <p className="text-[10px] text-muted-foreground">Ganhos</p>
-              <p className="text-sm font-semibold text-success">{formatCurrency(totalIncome)}</p>
+              <p className="text-sm font-semibold" style={{ color: 'hsl(152 69% 45%)' }}>{formatCurrency(totalIncome)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -135,34 +146,31 @@ export default function FixedPage() {
         </div>
       </motion.div>
 
-      {/* ── Incomes section ── */}
+      {/* ── Incomes ── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">Ganhos Fixos</h2>
             <p className="text-[10px] text-muted-foreground">{receivedCount}/{incomeState.length} recebidos</p>
           </div>
-          <AddIncomeDialog onAdded={refresh} />
+          <AddIncomeDialog onAdded={loadAll} />
         </div>
 
-        {incomeState.length === 0 && (
+        {loading && <p className="text-xs text-muted-foreground text-center py-4">Carregando...</p>}
+
+        {!loading && incomeState.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">Nenhum ganho cadastrado</p>
         )}
 
-        {/* Sort by receiveDay */}
         {[...incomeState]
           .sort((a, b) => (a.receiveDay ?? 1) - (b.receiveDay ?? 1))
           .map((income, idx) => {
             const isReceived = income.receivedMonths.includes(month);
-            const cfg = INCOME_CATEGORY_CONFIG[income.category];
+            const cfg        = INCOME_CATEGORY_CONFIG[income.category];
             return (
-              <motion.div
-                key={income.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+              <motion.div key={income.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isReceived ? 'opacity-60' : ''}`}
-              >
+                className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isReceived ? 'opacity-60' : ''}`}>
                 <Checkbox
                   checked={isReceived}
                   onCheckedChange={() => toggleReceived(income.id)}
@@ -170,67 +178,63 @@ export default function FixedPage() {
                 />
                 <IncomeIcon category={income.category} size={16} />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${isReceived ? 'line-through' : ''}`}>
+                  <p className={`text-sm font-medium truncate ${isReceived ? 'line-through text-muted-foreground' : ''}`}>
                     {income.name}
                   </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{cfg.label}</span>
-                    {income.receiveDay && (
-                      <>
-                        <span className="text-[10px] text-muted-foreground">·</span>
-                        <CalendarDays size={10} className="text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground">
-                          Todo dia {income.receiveDay}
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  {income.receiveDay && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <CalendarDays size={10} /> Dia {income.receiveDay}
+                    </p>
+                  )}
                 </div>
-                <span className="text-sm font-semibold text-success">{formatCurrency(income.amount)}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteIncome(income.id)}>
-                  <Trash2 size={13} className="text-muted-foreground" />
+                <span className="text-sm font-semibold" style={{ color: 'hsl(152 69% 45%)' }}>
+                  +{formatCurrency(income.amount)}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => handleDeleteIncome(income.id)}>
+                  <Trash2 size={13} />
                 </Button>
               </motion.div>
             );
           })}
       </section>
 
-      {/* ── Fixed expenses section ── */}
+      {/* ── Fixed Expenses ── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">Gastos Fixos</h2>
             <p className="text-[10px] text-muted-foreground">{paidCount}/{fixedState.length} pagos</p>
           </div>
-          <AddFixedExpenseDialog onAdded={refresh} />
+          <AddFixedExpenseDialog onAdded={loadAll} />
         </div>
 
-        {fixedState.length === 0 && (
+        {!loading && fixedState.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-6">Nenhum gasto fixo cadastrado</p>
         )}
 
-        {fixedState.map((f, idx) => {
-          const isPaid = f.paidMonths.includes(month);
+        {fixedState.map((fixed, idx) => {
+          const isPaid = fixed.paidMonths.includes(month);
           return (
-            <motion.div
-              key={f.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+            <motion.div key={fixed.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03 }}
-              className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isPaid ? 'opacity-60' : ''}`}
-            >
+              className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isPaid ? 'opacity-60' : ''}`}>
               <Checkbox
                 checked={isPaid}
-                onCheckedChange={() => togglePaid(f.id)}
-                className="border-muted-foreground data-[state=checked]:bg-success data-[state=checked]:border-success"
+                onCheckedChange={() => togglePaid(fixed.id)}
+                className="border-muted-foreground data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
               />
-              <CategoryIcon category={f.category} size={16} />
+              <CategoryIcon category={fixed.category} />
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isPaid ? 'line-through' : ''}`}>{f.name}</p>
+                <p className={`text-sm font-medium truncate ${isPaid ? 'line-through text-muted-foreground' : ''}`}>
+                  {fixed.name}
+                </p>
+                <p className="text-xs text-muted-foreground">Fixo mensal</p>
               </div>
-              <span className="text-sm font-semibold text-destructive">{formatCurrency(f.amount)}</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteFixed(f.id)}>
-                <Trash2 size={13} className="text-muted-foreground" />
+              <span className="text-sm font-semibold text-destructive">{formatCurrency(fixed.amount)}</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => handleDeleteFixed(fixed.id)}>
+                <Trash2 size={13} />
               </Button>
             </motion.div>
           );

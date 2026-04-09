@@ -1,149 +1,320 @@
-import { CreditCard, Expense, FixedExpense, FixedIncome, MonthlyInstallment } from './types';
+import { supabase } from './supabase';
+import { CreditCard, Expense, FixedExpense, FixedIncome, MonthlyInstallment, VariableTransaction } from './types';
 
-const KEYS = {
-  cards:        'ff_cards',
-  expenses:     'ff_expenses',
-  fixedExpenses:'ff_fixed',
-  incomes:      'ff_incomes',
-};
-
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
+// ─── Helper: get current user id ────────────────────────────────────────────
+async function uid(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado');
+  return user.id;
 }
 
-function save(key: string, data: unknown) {
-  localStorage.setItem(key, JSON.stringify(data));
+// ─── Mappers ─────────────────────────────────────────────────────────────────
+function dbToCard(r: any): CreditCard {
+  return {
+    id: r.id,
+    name: r.name,
+    brand: r.brand,
+    lastDigits: r.last_digits,
+    limit: r.limit,
+    closingDay: r.closing_day,
+    customGradient: r.custom_gradient ?? undefined,
+  };
+}
+function cardToDb(c: CreditCard, userId: string) {
+  return {
+    id: c.id,
+    user_id: userId,
+    name: c.name,
+    brand: c.brand,
+    last_digits: c.lastDigits,
+    limit: c.limit,
+    closing_day: c.closingDay,
+    custom_gradient: c.customGradient ?? null,
+  };
 }
 
-export function getCards(): CreditCard[]            { return load(KEYS.cards, []); }
-export function saveCards(c: CreditCard[])           { save(KEYS.cards, c); }
+function dbToExpense(r: any): Expense {
+  return {
+    id: r.id,
+    cardId: r.card_id,
+    name: r.name,
+    totalAmount: r.total_amount,
+    installments: r.installments,
+    category: r.category,
+    date: r.date,
+  };
+}
+function expenseToDb(e: Expense, userId: string) {
+  return {
+    id: e.id,
+    user_id: userId,
+    card_id: e.cardId,
+    name: e.name,
+    total_amount: e.totalAmount,
+    installments: e.installments,
+    category: e.category,
+    date: e.date,
+  };
+}
 
-export function getExpenses(): Expense[]             { return load(KEYS.expenses, []); }
-export function saveExpenses(e: Expense[])           { save(KEYS.expenses, e); }
+function dbToFixedExpense(r: any): FixedExpense {
+  return {
+    id: r.id,
+    name: r.name,
+    amount: r.amount,
+    category: r.category,
+    paidMonths: r.paid_months ?? [],
+  };
+}
+function fixedExpenseToDb(f: FixedExpense, userId: string) {
+  return {
+    id: f.id,
+    user_id: userId,
+    name: f.name,
+    amount: f.amount,
+    category: f.category,
+    paid_months: f.paidMonths,
+  };
+}
 
-export function getFixedExpenses(): FixedExpense[]   { return load(KEYS.fixedExpenses, []); }
-export function saveFixedExpenses(f: FixedExpense[]) { save(KEYS.fixedExpenses, f); }
+function dbToIncome(r: any): FixedIncome {
+  return {
+    id: r.id,
+    name: r.name,
+    amount: r.amount,
+    category: r.category,
+    receiveDay: r.receive_day ?? undefined,
+    receivedMonths: r.received_months ?? [],
+  };
+}
+function incomeToDb(i: FixedIncome, userId: string) {
+  return {
+    id: i.id,
+    user_id: userId,
+    name: i.name,
+    amount: i.amount,
+    category: i.category,
+    receive_day: i.receiveDay ?? null,
+    received_months: i.receivedMonths,
+  };
+}
 
-export function getIncomes(): FixedIncome[]          { return load(KEYS.incomes, []); }
-export function saveIncomes(i: FixedIncome[])        { save(KEYS.incomes, i); }
+function dbToVariable(r: any): VariableTransaction {
+  return {
+    id: r.id,
+    name: r.name,
+    amount: r.amount,
+    type: r.type,
+    paymentMethod: r.payment_method,
+    category: r.category,
+    date: r.date,
+  };
+}
+function variableToDb(t: VariableTransaction, userId: string) {
+  return {
+    id: t.id,
+    user_id: userId,
+    name: t.name,
+    amount: t.amount,
+    type: t.type,
+    payment_method: t.paymentMethod,
+    category: t.category,
+    date: t.date,
+  };
+}
 
-/**
- * Determines the billing month for a purchase given the card's closing day.
- *
- * Rule: if the purchase day is AFTER the closing day, it falls into the
- * NEXT month's bill. Otherwise it stays in the current month's bill.
- *
- * Example — closing day 10:
- *   • purchase on 2026-03-05  →  March bill  (05 ≤ 10)
- *   • purchase on 2026-03-15  →  April bill  (15 > 10)
- */
+// ─── Cards ───────────────────────────────────────────────────────────────────
+export async function getCards(): Promise<CreditCard[]> {
+  const { data, error } = await supabase.from('cards').select('*').order('created_at');
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToCard);
+}
+
+export async function addCard(card: CreditCard): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('cards').insert(cardToDb(card, userId));
+  if (error) throw error;
+}
+
+export async function updateCard(card: CreditCard): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('cards').update(cardToDb(card, userId)).eq('id', card.id);
+  if (error) throw error;
+}
+
+export async function deleteCard(id: string): Promise<void> {
+  const { error } = await supabase.from('cards').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+export async function getExpenses(): Promise<Expense[]> {
+  const { data, error } = await supabase.from('expenses').select('*').order('created_at');
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToExpense);
+}
+
+export async function addExpense(expense: Expense): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('expenses').insert(expenseToDb(expense, userId));
+  if (error) throw error;
+}
+
+export async function updateExpense(expense: Expense): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('expenses').update(expenseToDb(expense, userId)).eq('id', expense.id);
+  if (error) throw error;
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  const { error } = await supabase.from('expenses').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Fixed Expenses ──────────────────────────────────────────────────────────
+export async function getFixedExpenses(): Promise<FixedExpense[]> {
+  const { data, error } = await supabase.from('fixed_expenses').select('*').order('created_at');
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToFixedExpense);
+}
+
+export async function addFixedExpense(expense: FixedExpense): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('fixed_expenses').insert(fixedExpenseToDb(expense, userId));
+  if (error) throw error;
+}
+
+export async function updateFixedExpense(id: string, fields: Partial<FixedExpense>): Promise<void> {
+  const dbFields: any = {};
+  if (fields.name !== undefined)        dbFields.name        = fields.name;
+  if (fields.amount !== undefined)      dbFields.amount      = fields.amount;
+  if (fields.category !== undefined)    dbFields.category    = fields.category;
+  if (fields.paidMonths !== undefined)  dbFields.paid_months = fields.paidMonths;
+  const { error } = await supabase.from('fixed_expenses').update(dbFields).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteFixedExpense(id: string): Promise<void> {
+  const { error } = await supabase.from('fixed_expenses').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Fixed Incomes ───────────────────────────────────────────────────────────
+export async function getIncomes(): Promise<FixedIncome[]> {
+  const { data, error } = await supabase.from('fixed_incomes').select('*').order('created_at');
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToIncome);
+}
+
+export async function addIncome(income: FixedIncome): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('fixed_incomes').insert(incomeToDb(income, userId));
+  if (error) throw error;
+}
+
+export async function updateIncome(id: string, fields: Partial<FixedIncome>): Promise<void> {
+  const dbFields: any = {};
+  if (fields.name !== undefined)            dbFields.name             = fields.name;
+  if (fields.amount !== undefined)          dbFields.amount           = fields.amount;
+  if (fields.category !== undefined)        dbFields.category         = fields.category;
+  if (fields.receiveDay !== undefined)      dbFields.receive_day      = fields.receiveDay;
+  if (fields.receivedMonths !== undefined)  dbFields.received_months  = fields.receivedMonths;
+  const { error } = await supabase.from('fixed_incomes').update(dbFields).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteIncome(id: string): Promise<void> {
+  const { error } = await supabase.from('fixed_incomes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Variable Transactions ───────────────────────────────────────────────────
+export async function getVariableTransactions(): Promise<VariableTransaction[]> {
+  const { data, error } = await supabase.from('variable_transactions').select('*').order('date', { ascending: false });
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToVariable);
+}
+
+export async function getVariableForMonth(month: string): Promise<VariableTransaction[]> {
+  const { data, error } = await supabase
+    .from('variable_transactions')
+    .select('*')
+    .like('date', `${month}%`)
+    .order('date', { ascending: false });
+  if (error) { console.error(error); return []; }
+  return (data ?? []).map(dbToVariable);
+}
+
+export async function addVariableTransaction(tx: VariableTransaction): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('variable_transactions').insert(variableToDb(tx, userId));
+  if (error) throw error;
+}
+
+export async function deleteVariableTransaction(id: string): Promise<void> {
+  const { error } = await supabase.from('variable_transactions').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Pure computation helpers (sem async) ────────────────────────────────────
+
 function getBillingMonth(purchaseDate: Date, closingDay: number): { year: number; month: number } {
   const day   = purchaseDate.getDate();
   let   year  = purchaseDate.getFullYear();
-  let   month = purchaseDate.getMonth(); // 0-indexed
-
+  let   month = purchaseDate.getMonth();
   if (day > closingDay) {
     month += 1;
     if (month > 11) { month = 0; year += 1; }
   }
-
   return { year, month };
 }
 
-export function getInstallmentsForMonth(month: string): MonthlyInstallment[] {
-  const expenses = getExpenses();
-  const cards    = getCards();
-  const cardMap  = new Map(cards.map(c => [c.id, c]));
+export function computeInstallmentsForMonth(
+  expenses: Expense[],
+  cards: CreditCard[],
+  month: string,
+): MonthlyInstallment[] {
+  const cardMap = new Map(cards.map(c => [c.id, c]));
   const results: MonthlyInstallment[] = [];
 
   for (const exp of expenses) {
-    // Use noon to avoid UTC offset shifting the date
     const expDate    = new Date(exp.date + 'T12:00:00');
     const card       = cardMap.get(exp.cardId);
     const closingDay = card?.closingDay ?? 1;
-
     const { year: billingYear, month: billingMonth } = getBillingMonth(expDate, closingDay);
 
     for (let i = 0; i < exp.installments; i++) {
       const d         = new Date(billingYear, billingMonth + i, 1);
       const instMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
       if (instMonth === month) {
         results.push({
-          expenseId:          exp.id,
-          expenseName:        exp.name,
-          cardId:             exp.cardId,
-          amount:             exp.totalAmount / exp.installments,
-          installmentNumber:  i + 1,
-          totalInstallments:  exp.installments,
-          category:           exp.category,
+          expenseId:         exp.id,
+          expenseName:       exp.name,
+          cardId:            exp.cardId,
+          amount:            exp.totalAmount / exp.installments,
+          installmentNumber: i + 1,
+          totalInstallments: exp.installments,
+          category:          exp.category,
           month,
         });
       }
     }
   }
-
   return results;
 }
 
-export function getTotalForMonth(month: string): number {
-  const installments = getInstallmentsForMonth(month);
-  const fixed        = getFixedExpenses();
-  return installments.reduce((s, i) => s + i.amount, 0)
-       + fixed.reduce((s, f) => s + f.amount, 0);
-}
-
-export function getTotalIncomeForMonth(_month: string): number {
-  return getIncomes().reduce((s, i) => s + i.amount, 0);
-}
-
-export function getBalanceForMonth(month: string): number {
-  return getTotalIncomeForMonth(month) - getTotalForMonth(month);
-}
-
-export function getCategoryTotalsForMonth(month: string): Record<string, number> {
+export function computeCategoryTotals(
+  installments: MonthlyInstallment[],
+  fixedExpenses: FixedExpense[],
+): Record<string, number> {
   const totals: Record<string, number> = {};
-  for (const i of getInstallmentsForMonth(month))
-    totals[i.category] = (totals[i.category] || 0) + i.amount;
-  for (const f of getFixedExpenses())
-    totals[f.category] = (totals[f.category] || 0) + f.amount;
+  for (const i of installments) totals[i.category] = (totals[i.category] || 0) + i.amount;
+  for (const f of fixedExpenses) totals[f.category] = (totals[f.category] || 0) + f.amount;
   return totals;
 }
 
-export function getIncomeCategoryTotals(): Record<string, number> {
+export function computeIncomeCategoryTotals(incomes: FixedIncome[]): Record<string, number> {
   const totals: Record<string, number> = {};
-  for (const i of getIncomes())
-    totals[i.category] = (totals[i.category] || 0) + i.amount;
+  for (const i of incomes) totals[i.category] = (totals[i.category] || 0) + i.amount;
   return totals;
-}
-
-// ── Variable transactions ──────────────────────────────────────────────────
-import { VariableTransaction } from './types';
-
-const VAR_KEY = 'ff_variable';
-
-export function getVariableTransactions(): VariableTransaction[] {
-  return load(VAR_KEY, []);
-}
-export function saveVariableTransactions(t: VariableTransaction[]) {
-  save(VAR_KEY, t);
-}
-
-export function getVariableForMonth(month: string): VariableTransaction[] {
-  return getVariableTransactions().filter(t => t.date.startsWith(month));
-}
-
-export function getVariableIncomeForMonth(month: string): number {
-  return getVariableForMonth(month)
-    .filter(t => t.type === 'income')
-    .reduce((s, t) => s + t.amount, 0);
-}
-
-export function getVariableExpenseForMonth(month: string): number {
-  return getVariableForMonth(month)
-    .filter(t => t.type === 'expense')
-    .reduce((s, t) => s + t.amount, 0);
 }
