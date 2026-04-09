@@ -45,6 +45,12 @@ export const BANK_CATALOG: BankInfo[] = [
   { name: 'BMG', color: '25 85% 50%', gradient: 'linear-gradient(135deg, hsl(25 85% 50%), hsl(15 80% 40%))' },
   { name: 'Daycoval', color: '210 55% 38%', gradient: 'linear-gradient(135deg, hsl(210 55% 38%), hsl(220 50% 28%))' },
   { name: 'Agibank', color: '275 65% 50%', gradient: 'linear-gradient(135deg, hsl(275 65% 50%), hsl(285 60% 40%))' },
+  { name: 'Renner',    color: '0 80% 45%',    gradient: 'linear-gradient(135deg, hsl(0 80% 42%), hsl(0 70% 30%))' },
+  { name: 'C&A',       color: '220 70% 28%',  gradient: 'linear-gradient(135deg, hsl(220 70% 32%), hsl(220 60% 18%))' },
+  { name: 'Riachuelo', color: '210 65% 38%',  gradient: 'linear-gradient(135deg, hsl(210 65% 38%), hsl(210 55% 25%))' },
+  { name: 'Marisa',    color: '330 70% 48%',  gradient: 'linear-gradient(135deg, hsl(330 70% 48%), hsl(340 65% 35%))' },
+  { name: 'Carrefour', color: '210 85% 48%',  gradient: 'linear-gradient(135deg, hsl(210 85% 48%), hsl(0 80% 50%))' },
+  { name: 'Magazine Luiza', color: '210 75% 45%', gradient: 'linear-gradient(135deg, hsl(210 75% 45%), hsl(45 90% 50%))' },
 
   // Internacionais populares
   { name: 'Wise', color: '155 70% 42%', gradient: 'linear-gradient(135deg, hsl(155 70% 42%), hsl(165 65% 32%))' },

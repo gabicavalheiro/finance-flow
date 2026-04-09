@@ -34,15 +34,15 @@ export default function AddCardDialog({ onAdded }: Props) {
   };
 
   const handleSubmit = () => {
-    if (!name || !lastDigits || !limit) {
-      toast.error('Preencha todos os campos');
+    if (!name || !limit) {
+      toast.error('Preencha o nome e o limite');
       return;
     }
     const card: CreditCard = {
       id: generateId(),
       name,
       brand,
-      lastDigits: lastDigits.slice(-4),
+      lastDigits: lastDigits.slice(-4) || '••••',
       limit: parseFloat(limit),
       closingDay: parseInt(closingDay),
       customGradient: selectedBank?.gradient,
@@ -102,7 +102,6 @@ export default function AddCardDialog({ onAdded }: Props) {
                 ))}
               </div>
             )}
-            {/* Preview */}
             {selectedBank && (
               <div className="mt-2 rounded-xl p-3 flex items-center gap-3" style={{ background: selectedBank.gradient }}>
                 <div className="w-6 h-4 rounded bg-white/20" />
@@ -124,20 +123,46 @@ export default function AddCardDialog({ onAdded }: Props) {
               </SelectContent>
             </Select>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Últimos 4 dígitos</Label>
-              <Input maxLength={4} value={lastDigits} onChange={(e) => setLastDigits(e.target.value.replace(/\D/g, ''))} placeholder="1234" className="bg-secondary border-border" />
+              <Label>
+                Últimos 4 dígitos
+                <span className="text-muted-foreground font-normal ml-1 text-[10px]">(opcional)</span>
+              </Label>
+              <Input
+                maxLength={4}
+                value={lastDigits}
+                onChange={(e) => setLastDigits(e.target.value.replace(/\D/g, ''))}
+                placeholder="1234"
+                className="bg-secondary border-border"
+              />
             </div>
             <div>
               <Label>Dia fechamento</Label>
-              <Input type="number" min={1} max={31} value={closingDay} onChange={(e) => setClosingDay(e.target.value)} className="bg-secondary border-border" />
+              <Input
+                type="number"
+                min={1}
+                max={31}
+                value={closingDay}
+                onChange={(e) => setClosingDay(e.target.value)}
+                className="bg-secondary border-border"
+              />
             </div>
           </div>
+
           <div>
             <Label>Limite (R$)</Label>
-            <Input type="number" step="0.01" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="5000" className="bg-secondary border-border" />
+            <Input
+              type="number"
+              step="0.01"
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              placeholder="5000"
+              className="bg-secondary border-border"
+            />
           </div>
+
           <Button onClick={handleSubmit} className="w-full gradient-primary">Adicionar</Button>
         </div>
       </DialogContent>
