@@ -4,6 +4,7 @@ import {
   Wallet, TrendingDown, TrendingUp, Scale,
   Pencil, Trash2, ArrowDownCircle, ArrowUpCircle,
   Zap, Banknote, ArrowLeftRight, CreditCard as DebitIcon, FileText,
+  Menu, LogOut, UserRound, Mail, RefreshCw, ChevronRight,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
@@ -16,8 +17,13 @@ import {
   getVariableForMonth, deleteExpense, deleteVariableTransaction,
   computeInstallmentsForMonth, computeCategoryTotals,
 } from '@/lib/store';
-import { CATEGORY_CONFIG, ExpenseCategory, Expense, CreditCard, FixedExpense, FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG } from '@/lib/types';
+import { getUser, logoutUser } from '@/lib/auth';
+import {
+  CATEGORY_CONFIG, ExpenseCategory, Expense, CreditCard,
+  FixedExpense, FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG,
+} from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -41,12 +47,23 @@ const METHOD_ICONS: Record<string, React.ReactNode> = {
   boleto:   <FileText size={11} />,
 };
 
+// Gera as iniciais do nome para o avatar
+function getInitials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
 export default function Dashboard() {
   const [month, setMonth]                         = useState(getCurrentMonth());
   const [selectedCardId, setSelectedCardId]       = useState<string | null>(null);
   const [editingExpense, setEditingExpense]        = useState<Expense | null>(null);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [deletingVarId, setDeletingVarId]         = useState<string | null>(null);
+
+  // Menu sheet
+  const [menuOpen, setMenuOpen]     = useState(false);
+  const [logoutDialog, setLogout]   = useState(false);
+  const [userName, setUserName]     = useState('');
+  const [userEmail, setUserEmail]   = useState('');
 
   // Data state
   const [cards, setCards]               = useState<CreditCard[]>([]);
@@ -55,6 +72,13 @@ export default function Dashboard() {
   const [incomes, setIncomes]           = useState<FixedIncome[]>([]);
   const [varTxs, setVarTxs]             = useState<VariableTransaction[]>([]);
   const [loadingData, setLoadingData]   = useState(true);
+
+  // Carrega usuário uma vez
+  useEffect(() => {
+    getUser().then(u => {
+      if (u) { setUserName(u.name); setUserEmail(u.email); }
+    });
+  }, []);
 
   const loadAll = useCallback(async () => {
     setLoadingData(true);
@@ -67,7 +91,7 @@ export default function Dashboard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // Computed values
+  // ── Computed ──────────────────────────────────────────────────────────────
   const allInstallments = computeInstallmentsForMonth(expenses, cards, month);
   const installments    = selectedCardId ? allInstallments.filter(i => i.cardId === selectedCardId) : allInstallments;
   const categoryTotals  = computeCategoryTotals(allInstallments, fixedExpenses);
@@ -78,7 +102,15 @@ export default function Dashboard() {
 
   const totalVarInc  = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalVarExp  = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalIncome  = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
+
+  const receivedFixedIncome = incomes
+    .filter(i => i.receivedMonths.includes(month))
+    .reduce((s, i) => s + i.amount, 0);
+  const pendingFixedIncome = incomes
+    .filter(i => !i.receivedMonths.includes(month))
+    .reduce((s, i) => s + i.amount, 0);
+
+  const totalIncome  = receivedFixedIncome + totalVarInc;
   const totalExpense = totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp;
   const balance      = totalIncome - totalExpense;
 
@@ -94,6 +126,7 @@ export default function Dashboard() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const confirmDeleteExpense = async () => {
     if (!deletingExpenseId) return;
     try {
@@ -101,9 +134,7 @@ export default function Dashboard() {
       setDeletingExpenseId(null);
       toast.success('Gasto removido');
       loadAll();
-    } catch {
-      toast.error('Erro ao remover gasto');
-    }
+    } catch { toast.error('Erro ao remover gasto'); }
   };
 
   const confirmDeleteVar = async () => {
@@ -113,16 +144,137 @@ export default function Dashboard() {
       setDeletingVarId(null);
       toast.success('Lançamento removido');
       loadAll();
-    } catch {
-      toast.error('Erro ao remover lançamento');
-    }
+    } catch { toast.error('Erro ao remover lançamento'); }
   };
 
+  const handleLogout = async () => {
+    await logoutUser();
+    // App.tsx detecta via onAuthStateChange
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-24 px-4 pt-6 max-w-lg mx-auto space-y-5">
+    <div className="pb-24 px-4 pt-5 max-w-lg mx-auto space-y-5">
+
+      {/* ── App header ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))',
+              boxShadow: '0 4px 12px hsl(263 70% 58% / 0.4)',
+            }}
+          >
+            <Wallet size={17} className="text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold leading-tight">Finanças</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Controle pessoal</p>
+          </div>
+        </div>
+
+        {/* Menu hambúrguer → abre Sheet de perfil */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-secondary"
+          style={{ color: 'hsl(240 5% 65%)' }}
+        >
+          <Menu size={18} />
+        </button>
+      </div>
+
+      {/* ── Sheet de perfil ── */}
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent
+          side="right"
+          className="w-72 bg-card border-border p-0 flex flex-col"
+        >
+          {/* Cabeçalho com avatar + dados */}
+          <div
+            className="px-6 pt-8 pb-6"
+            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58% / 0.15), hsl(220 70% 55% / 0.08))' }}
+          >
+            {/* Avatar com iniciais */}
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg mb-4 select-none"
+              style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            >
+              {userName ? getInitials(userName) : <UserRound size={24} />}
+            </div>
+
+            <p className="text-base font-semibold leading-tight">
+              {userName || 'Usuário'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              <Mail size={11} />
+              {userEmail || '—'}
+            </p>
+          </div>
+
+          {/* Divisor */}
+          <div className="h-px bg-border mx-6" />
+
+          {/* Opções */}
+          <div className="flex-1 px-4 py-4 space-y-1">
+
+            {/* Trocar de conta */}
+            <button
+              onClick={async () => {
+                setMenuOpen(false);
+                await logoutUser();
+                // App.tsx redireciona para AuthPage automaticamente
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-secondary group"
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary group-hover:bg-secondary/60">
+                <RefreshCw size={15} className="text-muted-foreground" />
+              </div>
+              <span className="flex-1 text-left">Trocar de conta</span>
+              <ChevronRight size={14} className="text-muted-foreground" />
+            </button>
+
+            {/* Sair */}
+            <button
+              onClick={() => { setMenuOpen(false); setLogout(true); }}
+              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors hover:bg-destructive/10 group"
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary group-hover:bg-destructive/15">
+                <LogOut size={15} className="text-destructive" />
+              </div>
+              <span className="flex-1 text-left text-destructive">Sair</span>
+              <ChevronRight size={14} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Rodapé */}
+          <div className="px-6 pb-8 pt-2">
+            <p className="text-[10px] text-muted-foreground/50 text-center">Finanças · Controle pessoal</p>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Diálogo de confirmação de logout ── */}
+      <AlertDialog open={logoutDialog} onOpenChange={setLogout}>
+        <AlertDialogContent className="bg-card border-border max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair da conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              {userName ? `Até logo, ${userName.split(' ')[0]}!` : 'Deseja sair?'} Você precisará fazer login novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive hover:bg-destructive/90">
+              Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* Summary cards */}
+      {/* ── Summary cards ── */}
       <div className="grid grid-cols-2 gap-3">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-card rounded-2xl p-4 border border-border col-span-2">
@@ -133,6 +285,11 @@ export default function Dashboard() {
           <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
             {formatCurrency(balance)}
           </p>
+          {pendingFixedIncome > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              + {formatCurrency(pendingFixedIncome)} em ganhos fixos pendentes
+            </p>
+          )}
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
@@ -154,6 +311,11 @@ export default function Dashboard() {
           {totalVarInc > 0 && (
             <p className="text-[10px] text-muted-foreground mt-0.5">inclui {formatCurrency(totalVarInc)} variável</p>
           )}
+          {pendingFixedIncome > 0 && (
+            <p className="text-[10px] mt-0.5" style={{ color: 'hsl(38 92% 50%)' }}>
+              {formatCurrency(pendingFixedIncome)} pendente
+            </p>
+          )}
         </motion.div>
 
         {cards.length > 0 && (
@@ -168,14 +330,17 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">de {formatCurrency(totalLimit)}</p>
             </div>
             <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-accent rounded-full transition-all"
-                style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
+              <div className="h-full rounded-full transition-all"
+                style={{
+                  width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%',
+                  background: 'linear-gradient(90deg, hsl(263 70% 58%), hsl(220 70% 55%))',
+                }} />
             </div>
           </motion.div>
         )}
       </div>
 
-      {/* Pie chart */}
+      {/* ── Pie chart ── */}
       {pieData.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="bg-card rounded-2xl p-4 border border-border">
@@ -206,48 +371,69 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {/* Transactions */}
+      {/* ── Transactions ── */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between p-4 pb-3">
-          <p className="text-sm font-semibold">Lançamentos</p>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <div>
+            <p className="text-sm font-semibold">Lançamentos</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {installments.length + varTxs.length} registro{installments.length + varTxs.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <AddVariableDialog onAdded={loadAll} />
-            {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} />}
+            {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} iconOnly />}
           </div>
         </div>
 
-        {/* Card filter chips */}
         {cards.length > 0 && (
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-hide">
-            <button
-              onClick={() => setSelectedCardId(null)}
-              className={cn(
-                'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-              )}
-            >
-              Todos
-            </button>
-            {cards.map(card => {
-              const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-              const isActive  = selectedCardId === card.id;
-              return (
-                <button
-                  key={card.id}
-                  onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                  className={cn(
-                    'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                    isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                  )}
-                >
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
-                  {card.name}
-                  {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
-                </button>
-              );
-            })}
+          <div className="px-4 pb-3">
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setSelectedCardId(null)}
+                className={cn(
+                  'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap',
+                  !selectedCardId ? 'text-white' : 'bg-secondary/70 text-muted-foreground hover:text-foreground hover:bg-secondary',
+                )}
+                style={!selectedCardId ? {
+                  background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(280 65% 50%))',
+                  boxShadow: '0 0 10px hsl(263 70% 58% / 0.35)',
+                } : {}}
+              >
+                Todos
+              </button>
+              {cards.map(card => {
+                const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+                const isActive  = selectedCardId === card.id;
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                    className={cn(
+                      'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap',
+                      isActive ? 'text-white' : 'bg-secondary/70 text-muted-foreground hover:text-foreground hover:bg-secondary',
+                    )}
+                    style={isActive ? {
+                      background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))',
+                      boxShadow: '0 0 10px hsl(263 70% 58% / 0.35)',
+                    } : {}}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: isActive ? 'rgba(255,255,255,0.7)' : (card.customGradient ?? 'hsl(263 70% 58%)') }}
+                    />
+                    {card.name}
+                    {cardSpent > 0 && (
+                      <span className={isActive ? 'opacity-70' : 'opacity-50'}>{formatCurrency(cardSpent)}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
+
+        {cards.length > 0 && <div className="mx-4 h-px bg-border" />}
 
         <div className="p-4 space-y-1">
           {loadingData ? (
@@ -364,7 +550,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Edit expense dialog */}
       {editingExpense && (
         <EditExpenseDialog
           expense={editingExpense}
@@ -375,30 +560,28 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Delete expense dialog */}
       <AlertDialog open={!!deletingExpenseId} onOpenChange={v => !v && setDeletingExpenseId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir gasto?</AlertDialogTitle>
-            <AlertDialogDescription>Todas as parcelas serão removidas de todos os meses.</AlertDialogDescription>
+            <AlertDialogTitle>Remover gasto?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete variable dialog */}
       <AlertDialog open={!!deletingVarId} onOpenChange={v => !v && setDeletingVarId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
-            <AlertDialogDescription>Este lançamento será removido permanentemente.</AlertDialogDescription>
+            <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -64,8 +64,10 @@ function dbToFixedExpense(r: any): FixedExpense {
     amount: r.amount,
     category: r.category,
     paidMonths: r.paid_months ?? [],
+    paymentMethod: r.payment_method ?? 'pix',   // ← novo campo
   };
 }
+
 function fixedExpenseToDb(f: FixedExpense, userId: string) {
   return {
     id: f.id,
@@ -74,9 +76,9 @@ function fixedExpenseToDb(f: FixedExpense, userId: string) {
     amount: f.amount,
     category: f.category,
     paid_months: f.paidMonths,
+    payment_method: f.paymentMethod ?? 'pix',   // ← novo campo
   };
 }
-
 function dbToIncome(r: any): FixedIncome {
   return {
     id: r.id,
@@ -186,10 +188,11 @@ export async function addFixedExpense(expense: FixedExpense): Promise<void> {
 
 export async function updateFixedExpense(id: string, fields: Partial<FixedExpense>): Promise<void> {
   const dbFields: any = {};
-  if (fields.name !== undefined)        dbFields.name        = fields.name;
-  if (fields.amount !== undefined)      dbFields.amount      = fields.amount;
-  if (fields.category !== undefined)    dbFields.category    = fields.category;
-  if (fields.paidMonths !== undefined)  dbFields.paid_months = fields.paidMonths;
+  if (fields.name !== undefined)           dbFields.name           = fields.name;
+  if (fields.amount !== undefined)         dbFields.amount         = fields.amount;
+  if (fields.category !== undefined)       dbFields.category       = fields.category;
+  if (fields.paidMonths !== undefined)     dbFields.paid_months    = fields.paidMonths;
+  if (fields.paymentMethod !== undefined)  dbFields.payment_method = fields.paymentMethod; // ← novo
   const { error } = await supabase.from('fixed_expenses').update(dbFields).eq('id', id);
   if (error) throw error;
 }

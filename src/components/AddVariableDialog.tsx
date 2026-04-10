@@ -67,13 +67,16 @@ export default function AddVariableDialog({ onAdded }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="rounded-full h-12 w-12 p-0 border-2 border-success/60 hover:bg-success/10"
-          style={{ color: 'hsl(152 69% 45%)' }}
+        <button
+          className="rounded-full h-9 w-9 flex items-center justify-center shrink-0 transition-all hover:scale-105 active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(280 65% 50%))',
+            boxShadow: '0 0 14px hsl(263 70% 58% / 0.45)',
+            color: '#fff',
+          }}
         >
-          <Plus size={22} />
-        </Button>
+          <Plus size={17} />
+        </button>
       </DialogTrigger>
 
       <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
@@ -117,23 +120,27 @@ export default function AddVariableDialog({ onAdded }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">
-                {type === 'expense' ? 'Forma de pagamento' : 'Forma de recebimento'}
+                {type === 'expense' ? 'Categoria' : 'Tipo de ganho'}
               </Label>
-              <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)}>
-                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+              <Select value={category} onValueChange={v => setCategory(v as ExpenseCategory | IncomeCategory)}>
+                <SelectTrigger className="bg-secondary border-border mt-1 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PAYMENT_METHOD_CONFIG).map(([key, cfg]) => (
+                  {(type === 'expense' ? expenseCategories : incomeCategories).map(([key, cfg]) => (
                     <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as any)}>
-                <SelectTrigger className="bg-secondary border-border mt-1"><SelectValue /></SelectTrigger>
+              <Label className="text-xs text-muted-foreground">Forma de pagamento</Label>
+              <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)}>
+                <SelectTrigger className="bg-secondary border-border mt-1 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {(type === 'expense' ? expenseCategories : incomeCategories).map(([key, cfg]) => (
+                  {Object.entries(PAYMENT_METHOD_CONFIG).map(([key, cfg]) => (
                     <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -146,16 +153,15 @@ export default function AddVariableDialog({ onAdded }: Props) {
             <DatePicker value={date} onChange={setDate} />
           </div>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="w-full h-11 rounded-xl font-semibold text-sm"
-            style={{
-              background: type === 'expense' ? 'hsl(0 72% 51%)' : 'hsl(152 69% 45%)',
-            }}
-          >
-            {saving ? 'Registrando...' : type === 'expense' ? 'Registrar gasto' : 'Registrar ganho'}
-          </Button>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1 border-border" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving} className="flex-1"
+              style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(280 65% 50%))' }}>
+              {saving ? 'Salvando...' : 'Registrar'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

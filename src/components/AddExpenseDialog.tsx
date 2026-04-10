@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ArrowLeftRight } from 'lucide-react';
+import { Plus, ArrowLeftRight, CreditCard as CreditCardIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
 import { addExpense } from '@/lib/store';
@@ -15,6 +15,8 @@ import DatePicker from '@/components/DatePicker';
 interface Props {
   cards: CreditCard[];
   onAdded: () => void;
+  /** Compact gradient icon trigger (e.g. dashboard header). */
+  iconOnly?: boolean;
 }
 
 function purchaseDateForBillingMonth(billingMonth: string): string {
@@ -25,7 +27,7 @@ function centsToDisplay(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }
 
-export default function AddExpenseDialog({ cards, onAdded }: Props) {
+export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
   const [open, setOpen]               = useState(false);
   const [name, setName]               = useState('');
   const [category, setCategory]       = useState<ExpenseCategory>('other');
@@ -128,9 +130,23 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl border-border gap-2 text-sm">
-          <Plus size={16} /> Gasto no cartão
-        </Button>
+        {iconOnly ? (
+          <button
+            type="button"
+            className="rounded-full h-9 w-9 flex items-center justify-center shrink-0 transition-all hover:scale-105 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, hsl(220 70% 55%), hsl(263 70% 58%), hsl(300 65% 55%))',
+              boxShadow: '0 0 16px hsl(263 70% 58% / 0.5)',
+              color: '#fff',
+            }}
+          >
+            <CreditCardIcon size={16} />
+          </button>
+        ) : (
+          <Button variant="outline" className="rounded-xl border-border gap-2 text-sm">
+            <Plus size={16} /> Gasto no cartão
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader><DialogTitle>Novo Gasto no Cartão</DialogTitle></DialogHeader>
