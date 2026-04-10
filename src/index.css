@@ -61,6 +61,17 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
   }
+
+  /* Esconder spinners nativos de input[type=number] em todos os browsers */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer utilities {
@@ -92,14 +103,5 @@
     background: hsl(240 6% 10% / 0.8);
     backdrop-filter: blur(12px);
     border: 1px solid hsl(240 4% 18% / 0.5);
-  }
-
-  /* Hide scrollbar across all browsers */
-  .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE / Edge */
-    scrollbar-width: none;     /* Firefox */
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;             /* Chrome / Safari / Opera */
   }
 }

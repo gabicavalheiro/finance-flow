@@ -11,6 +11,7 @@ import { addExpense } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
+import NumberStepper from '@/components/ui/number-stepper';
 
 interface Props {
   cards: CreditCard[];
@@ -28,17 +29,17 @@ function centsToDisplay(cents: number): string {
 }
 
 export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
-  const [open, setOpen]               = useState(false);
-  const [name, setName]               = useState('');
-  const [category, setCategory]       = useState<ExpenseCategory>('other');
-  const [cardId, setCardId]           = useState('');
-  const [date, setDate]               = useState(new Date().toISOString().split('T')[0]);
+  const [open, setOpen]                 = useState(false);
+  const [name, setName]                 = useState('');
+  const [category, setCategory]         = useState<ExpenseCategory>('other');
+  const [cardId, setCardId]             = useState('');
+  const [date, setDate]                 = useState(new Date().toISOString().split('T')[0]);
   const [installments, setInstallments] = useState('1');
   const [currentInst, setCurrentInst]   = useState('1');
   const [useInstRef, setUseInstRef]     = useState(false);
   const [totalCents, setTotalCents]     = useState(0);
   const [instCents, setInstCents]       = useState(0);
-  const lastEdited = useRef<'total' | 'inst'>('total');
+  const lastEdited                      = useRef<'total' | 'inst'>('total');
   const [saving, setSaving]             = useState(false);
 
   const totalInst = parseInt(installments) || 1;
@@ -65,7 +66,11 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
   }, [installments]); // eslint-disable-line
 
   useEffect(() => {
-    if (totalInst === 1) { setUseInstRef(false); setCurrentInst('1'); setDate(new Date().toISOString().split('T')[0]); }
+    if (totalInst === 1) {
+      setUseInstRef(false);
+      setCurrentInst('1');
+      setDate(new Date().toISOString().split('T')[0]);
+    }
   }, [installments]);
 
   useEffect(() => {
@@ -148,19 +153,27 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
           </Button>
         )}
       </DialogTrigger>
+
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader><DialogTitle>Novo Gasto no Cartão</DialogTitle></DialogHeader>
+
         <div className="space-y-4 mt-2">
           <div>
             <Label>Nome</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Assinatura Netflix"
-              className="bg-secondary border-border" />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex: Assinatura Netflix"
+              className="bg-secondary border-border"
+            />
           </div>
 
           <div>
             <Label>Cartão</Label>
             <Select value={cardId} onValueChange={setCardId}>
-              <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder="Selecione um cartão" /></SelectTrigger>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue placeholder="Selecione um cartão" />
+              </SelectTrigger>
               <SelectContent>
                 {cards.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.name} •••• {c.lastDigits}</SelectItem>
@@ -172,7 +185,9 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
           <div>
             <Label>Categoria</Label>
             <Select value={category} onValueChange={v => setCategory(v as ExpenseCategory)}>
-              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                   <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
@@ -184,13 +199,18 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Valor total (R$)</Label>
-              <CurrencyInput value={totalCents ? (totalCents / 100).toFixed(2) : ''} onChange={handleTotalChange}
-                className="bg-secondary border-border" />
+              <CurrencyInput
+                value={totalCents ? (totalCents / 100).toFixed(2) : ''}
+                onChange={handleTotalChange}
+                className="bg-secondary border-border"
+              />
             </div>
             <div>
               <Label>Parcelas</Label>
               <Select value={installments} onValueChange={setInstallments}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">À vista</SelectItem>
                   {[2,3,4,5,6,7,8,9,10,11,12].map(n => (
@@ -205,19 +225,31 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Label className="text-xs">Valor por parcela</Label>
-                <button type="button" onClick={() => setUseInstRef(s => !s)}
-                  className="flex items-center gap-1 text-[10px] text-primary hover:underline">
-                  <ArrowLeftRight size={10} /> {useInstRef ? 'Usar data da compra' : 'Já estou na parcela X'}
+                <button
+                  type="button"
+                  onClick={() => setUseInstRef(s => !s)}
+                  className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                >
+                  <ArrowLeftRight size={10} />
+                  {useInstRef ? 'Usar data da compra' : 'Já estou na parcela X'}
                 </button>
               </div>
-              <CurrencyInput value={instCents ? (instCents / 100).toFixed(2) : ''} onChange={handleInstChange}
-                className="bg-secondary border-border" />
+
+              <CurrencyInput
+                value={instCents ? (instCents / 100).toFixed(2) : ''}
+                onChange={handleInstChange}
+                className="bg-secondary border-border"
+              />
+
               {useInstRef && (
                 <div className="mt-2 flex items-center gap-2">
                   <Label className="text-xs text-muted-foreground shrink-0">Parcela atual:</Label>
-                  <Input type="number" min={1} max={totalInst} value={currentInst}
-                    onChange={e => setCurrentInst(e.target.value)}
-                    className="bg-secondary border-border h-8 text-sm w-20" />
+                  <NumberStepper
+                    value={currInst}
+                    min={1}
+                    max={totalInst}
+                    onChange={v => setCurrentInst(String(v))}
+                  />
                   <span className="text-xs text-muted-foreground">de {totalInst}</span>
                 </div>
               )}
