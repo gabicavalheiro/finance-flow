@@ -70,7 +70,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     } else {
       setTotalCents(instCents * totalInst);
     }
-  }, [installments]); // eslint-disable-line
+  }, [totalInst, totalCents, instCents]);
 
   // When installments changes, reset currentInst
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
       setCurrentInst('1');
       setDate(new Date().toISOString().split('T')[0]);
     }
-  }, [installments]);
+  }, [totalInst]);
 
   // Recalculate purchase date in ref mode
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     const thisMonth = getCurrentMonth();
     const firstBillingMonth = addMonths(thisMonth, -(currInst - 1));
     setDate(purchaseDateForBillingMonth(firstBillingMonth));
-  }, [currentInst, useInstRef, installments]);
+  }, [useInstRef, totalInst, currInst]);
 
   const reset = () => {
     setName(''); setTotalCents(0); setInstCents(0);

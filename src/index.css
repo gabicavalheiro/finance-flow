@@ -6,6 +6,15 @@
 
 @layer base {
   :root {
+    --radius: 0.75rem;
+    --gradient-start: 263 70% 58%;
+    --gradient-end: 220 70% 55%;
+    --success: 152 69% 45%;
+    --warning: 38 92% 50%;
+  }
+
+  /* ── DARK (padrão) ── */
+  .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
@@ -34,13 +43,6 @@
     --input: 240 4% 18%;
     --ring: 263 70% 58%;
 
-    --radius: 0.75rem;
-
-    --gradient-start: 263 70% 58%;
-    --gradient-end: 220 70% 55%;
-    --success: 152 69% 45%;
-    --warning: 38 92% 50%;
-
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 263 70% 58%;
@@ -49,6 +51,46 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 4% 18%;
     --sidebar-ring: 263 70% 58%;
+  }
+
+  /* ── LIGHT ── */
+  .light {
+    --background: 240 20% 97%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+
+    --primary: 263 70% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 10% 91%;
+    --secondary-foreground: 240 10% 20%;
+
+    --muted: 240 8% 88%;
+    --muted-foreground: 240 5% 42%;
+
+    --accent: 220 70% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 8% 82%;
+    --input: 240 8% 82%;
+    --ring: 263 70% 55%;
+
+    --sidebar-background: 240 15% 95%;
+    --sidebar-foreground: 240 10% 10%;
+    --sidebar-primary: 263 70% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 10% 88%;
+    --sidebar-accent-foreground: 240 10% 20%;
+    --sidebar-border: 240 8% 82%;
+    --sidebar-ring: 263 70% 55%;
   }
 }
 
@@ -60,6 +102,17 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+  }
+
+  /* Esconder spinners nativos de input[type=number] em todos os browsers */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
   }
 }
 
@@ -88,9 +141,17 @@
     background: linear-gradient(135deg, hsl(263 70% 58%), hsl(280 60% 45%));
   }
 
+  /* ── Dark glass ── */
   .glass {
-    background: hsl(240 6% 10% / 0.8);
+    background: hsl(240 6% 10% / 0.85);
     backdrop-filter: blur(12px);
     border: 1px solid hsl(240 4% 18% / 0.5);
+  }
+
+  /* ── Light glass ── */
+  .light .glass {
+    background: hsl(0 0% 100% / 0.88);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(240 8% 82% / 0.7);
   }
 }

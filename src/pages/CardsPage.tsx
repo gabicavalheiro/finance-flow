@@ -1,14 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Pencil } from 'lucide-react';
 import AddCardDialog from '@/components/AddCardDialog';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
 import EditCardDialog from '@/components/EditCardDialog';
 import MonthSelector from '@/components/MonthSelector';
-import { getCards, saveCards, getInstallmentsForMonth } from '@/lib/store';
-import { BRAND_GRADIENTS, CreditCard } from '@/lib/types';
+import { getCards, deleteCard, getExpenses, computeInstallmentsForMonth } from '@/lib/store';
+import { BRAND_GRADIENTS, CreditCard, Expense } from '@/lib/types';
 import { formatCurrency, getCurrentMonth } from '@/lib/helpers';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -17,31 +16,49 @@ import {
 import { toast } from 'sonner';
 
 export default function CardsPage() {
-  const [month, setMonth]           = useState(getCurrentMonth());
-  const [cards, setCards]           = useState(getCards);
+  const [month, setMonth]                   = useState(getCurrentMonth());
+  const [cards, setCards]                   = useState<CreditCard[]>([]);
+  const [expenses, setExpenses]             = useState<Expense[]>([]);
   const [editingCard, setEditingCard]       = useState<CreditCard | null>(null);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
+  const [loading, setLoading]               = useState(true);
 
-  const refresh = useCallback(() => setCards(getCards()), []);
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [c, e] = await Promise.all([getCards(), getExpenses()]);
+    setCards(c); setExpenses(e);
+    setLoading(false);
+  }, []);
 
-  const installments = getInstallmentsForMonth(month);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  const confirmDelete = () => {
+  const installments = computeInstallmentsForMonth(expenses, cards, month);
+
+  const confirmDelete = async () => {
     if (!deletingCardId) return;
-    saveCards(cards.filter(c => c.id !== deletingCardId));
-    setCards(getCards());
-    setDeletingCardId(null);
-    toast.success('Cartão removido');
+    try {
+      await deleteCard(deletingCardId);
+      setDeletingCardId(null);
+      toast.success('Cartão removido');
+      loadAll();
+    } catch {
+      toast.error('Erro ao remover cartão');
+    }
   };
 
   return (
-    <div className="pb-24 px-4 pt-6 max-w-lg mx-auto space-y-6">
+    <div className="pb-24 md:pb-10 px-4 md:px-8 pt-6 md:pt-8 max-w-5xl mx-auto space-y-6">
       <h1 className="text-xl font-bold">Meus Cartões</h1>
       <MonthSelector month={month} onChange={setMonth} />
 
-      <div className="space-y-4">
-        {cards.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-10">Nenhum cartão cadastrado</p>
+      {/* Grid de cartões — 1 col mobile, 2 cols em md, 3 cols em xl */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {loading && (
+          <p className="text-xs text-muted-foreground text-center py-10 col-span-full">Carregando...</p>
+        )}
+
+        {!loading && cards.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-10 col-span-full">Nenhum cartão cadastrado</p>
         )}
 
         {cards.map((card, idx) => {
@@ -49,103 +66,110 @@ export default function CardsPage() {
           const usedPct = Math.min((spent / card.limit) * 100, 100);
 
           return (
-            <motion.div key={card.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06 }}>
-
+            <motion.div key={card.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
               <div
                 className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white`}
                 style={card.customGradient ? { background: card.customGradient } : undefined}
               >
-                {/* orbs */}
-                <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/5 -mr-12 -mt-12 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-black/10 -ml-8 -mb-8 pointer-events-none" />
+                {/* Decorative circles */}
+                <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
+                <div className="absolute -right-2 top-8 w-16 h-16 rounded-full bg-white/10" />
 
-                {/* Top row */}
-                <div className="flex justify-between items-start mb-8 relative z-10">
-                  <div>
-                    <p className="text-base font-semibold">{card.name}</p>
-                    <p className="text-xs opacity-60 capitalize mt-0.5">{card.brand}</p>
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <p className="text-xs font-medium opacity-80 mb-0.5">{card.brand.toUpperCase()}</p>
+                      <p className="text-base font-bold">{card.name}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setEditingCard(card)}
+                        className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => setDeletingCardId(card.id)}
+                        className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  {/* Edit + Delete */}
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon"
-                      className="h-8 w-8 hover:bg-white/15 rounded-xl"
-                      onClick={() => setEditingCard(card)}>
-                      <Pencil size={13} />
-                    </Button>
-                    <Button variant="ghost" size="icon"
-                      className="h-8 w-8 hover:bg-white/15 rounded-xl"
-                      onClick={() => setDeletingCardId(card.id)}>
-                      <Trash2 size={13} />
-                    </Button>
+
+                  <p className="text-lg font-mono tracking-widest opacity-80 mb-4">•••• •••• •••• {card.lastDigits}</p>
+
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] opacity-70 mb-0.5">Limite disponível</p>
+                      <p className="text-base font-bold">{formatCurrency(card.limit - spent)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] opacity-70 mb-0.5">Fatura {month.split('-').reverse().join('/')}</p>
+                      <p className="text-base font-semibold">{formatCurrency(spent)}</p>
+                    </div>
                   </div>
+
+                  {/* Progress */}
+                  <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white/80 rounded-full transition-all duration-500"
+                      style={{ width: `${usedPct}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] opacity-60 mt-1">{Math.round(usedPct)}% do limite utilizado</p>
                 </div>
+              </div>
 
-                {/* Card number */}
-                <p className="text-lg tracking-[0.22em] font-mono mb-6 opacity-90">
-                  •••• •••• •••• {card.lastDigits}
-                </p>
-
-                {/* Stats */}
-                <div className="flex justify-between text-xs mb-3">
-                  <div>
-                    <p className="opacity-60 mb-0.5">Fatura atual</p>
-                    <p className="font-bold text-sm">{formatCurrency(spent)}</p>
+              {/* Lançamentos do cartão */}
+              {installments.filter(i => i.cardId === card.id).length > 0 && (
+                <div className="mt-2 bg-card border border-border rounded-xl overflow-hidden">
+                  <div className="px-4 py-2 border-b border-border">
+                    <p className="text-xs font-medium text-muted-foreground">Lançamentos do mês</p>
                   </div>
-                  <div className="text-center">
-                    <p className="opacity-60 mb-0.5">Limite total</p>
-                    <p className="font-bold text-sm">{formatCurrency(card.limit)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="opacity-60 mb-0.5">Disponível</p>
-                    <p className="font-bold text-sm">{formatCurrency(card.limit - spent)}</p>
-                  </div>
+                  {installments.filter(i => i.cardId === card.id).map((inst, ii) => (
+                    <div key={ii} className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{inst.expenseName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
+                    </div>
+                  ))}
                 </div>
+              )}
 
-                {/* Usage bar */}
-                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${usedPct}%`,
-                      background: usedPct > 85 ? 'hsl(0 90% 70%)' : 'rgba(255,255,255,0.75)',
-                    }} />
-                </div>
-
-                <p className="text-[10px] opacity-45 mt-2">
-                  Fecha dia {card.closingDay} · {Math.round(usedPct)}% utilizado
-                </p>
+              {/* Botão de adicionar gasto */}
+              <div className="mt-2">
+                <AddExpenseDialog cards={[card]} onAdded={loadAll} />
               </div>
             </motion.div>
           );
         })}
 
-        <AddCardDialog onAdded={refresh} />
+        {/* Botão adicionar cartão */}
+        {!loading && <AddCardDialog onAdded={loadAll} />}
       </div>
 
-      {/* FAB */}
-      <div className="fixed bottom-20 right-4">
-        <AddExpenseDialog cards={cards} onAdded={refresh} />
-      </div>
-
-      {/* Edit dialog */}
+      {/* Edit card dialog */}
       {editingCard && (
         <EditCardDialog
           card={editingCard}
           open={!!editingCard}
           onClose={() => setEditingCard(null)}
-          onSaved={refresh}
+          onSaved={loadAll}
         />
       )}
 
-      {/* Delete confirm */}
+      {/* Delete card dialog */}
       <AlertDialog open={!!deletingCardId} onOpenChange={v => !v && setDeletingCardId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
             <AlertDialogTitle>Remover cartão?</AlertDialogTitle>
             <AlertDialogDescription>
-              O cartão será removido. Os gastos vinculados continuam salvos.
+              Todos os gastos associados a este cartão também serão removidos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

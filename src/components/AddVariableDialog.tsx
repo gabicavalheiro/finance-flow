@@ -136,7 +136,12 @@ export default function AddVariableDialog({ onAdded }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as any)}>
+              <Select
+                value={category}
+                onValueChange={(v) =>
+                  setCategory(v as ExpenseCategory | IncomeCategory)
+                }
+              >
                 <SelectTrigger className="bg-secondary border-border rounded-xl h-11">
                   <SelectValue />
                 </SelectTrigger>
