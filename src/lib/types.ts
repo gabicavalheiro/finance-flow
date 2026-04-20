@@ -69,7 +69,7 @@ export interface FixedIncome {
   name: string;
   amount: number;
   category: IncomeCategory;
-  receiveDay: number;
+  receiveDay?: number;
   receivedMonths: string[];
 }
 
