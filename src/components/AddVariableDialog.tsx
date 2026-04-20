@@ -12,7 +12,7 @@ import {
   PaymentMethod, PAYMENT_METHOD_CONFIG,
   VariableTransaction,
 } from '@/lib/types';
-import { getVariableTransactions, saveVariableTransactions } from '@/lib/store';
+import { addVariableTransaction } from '@/lib/store';
 import { generateId } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
@@ -38,7 +38,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
     setCategory(t === 'expense' ? 'other' : 'salary');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !amount) { toast.error('Preencha todos os campos'); return; }
     const parsed = parseFloat(amount);
     if (isNaN(parsed) || parsed <= 0) { toast.error('Valor inválido'); return; }
@@ -47,11 +47,15 @@ export default function AddVariableDialog({ onAdded }: Props) {
       id: generateId(), name, amount: parsed,
       type, paymentMethod: method, category, date,
     };
-    saveVariableTransactions([...getVariableTransactions(), tx]);
-    toast.success(`${name} ${type === 'income' ? 'recebido' : 'registrado'}!`);
-    reset();
-    setOpen(false);
-    onAdded();
+    try {
+      await addVariableTransaction(tx);
+      toast.success(`${name} ${type === 'income' ? 'recebido' : 'registrado'}!`);
+      reset();
+      setOpen(false);
+      onAdded();
+    } catch {
+      toast.error('Erro ao registrar lançamento');
+    }
   };
 
   const expenseCategories = Object.entries(CATEGORY_CONFIG);
@@ -163,7 +167,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
 
         <div className="px-6 pb-6">
           <Button
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             className="w-full h-12 rounded-2xl font-semibold text-sm"
             style={{
               background: type === 'expense'

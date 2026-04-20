@@ -81,8 +81,7 @@ const App = () => {
   if (!session) {
     return (
       <Providers>
-        {/* onSuccess é um no-op: o login já é detectado via onAuthStateChange acima */}
-        <AuthPage onSuccess={() => {}} />
+        <AuthPage />
       </Providers>
     );
   }

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
-import { getExpenses, saveExpenses } from '@/lib/store';
+import { addExpense } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
@@ -70,7 +70,9 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     } else {
       setTotalCents(instCents * totalInst);
     }
-  }, [totalInst, totalCents, instCents]);
+  // Recalculate only when installment count changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalInst]);
 
   // When installments changes, reset currentInst
   useEffect(() => {
@@ -111,7 +113,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     return months.join(', ') + (totalInst > 4 ? ` ... ${last[1]}/${last[0].slice(2)}` : '');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !totalCents || !cardId) {
       toast.error(!totalCents ? 'Informe um valor' : 'Preencha todos os campos obrigatórios');
       return;
@@ -122,14 +124,18 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
       category, date,
       installments: totalInst,
     };
-    saveExpenses([...getExpenses(), expense]);
-    const desc = totalInst > 1
-      ? `${totalInst}x de R$ ${centsToDisplay(instCents)}${useInstRef ? ` · parcela ${currInst}/${totalInst} este mês` : ''}`
-      : undefined;
-    toast.success(`${name} adicionado!`, { description: desc });
-    reset();
-    setOpen(false);
-    onAdded();
+    try {
+      await addExpense(expense);
+      const desc = totalInst > 1
+        ? `${totalInst}x de R$ ${centsToDisplay(instCents)}${useInstRef ? ` · parcela ${currInst}/${totalInst} este mês` : ''}`
+        : undefined;
+      toast.success(`${name} adicionado!`, { description: desc });
+      reset();
+      setOpen(false);
+      onAdded();
+    } catch {
+      toast.error('Erro ao salvar gasto');
+    }
   };
 
   const showInstField = totalInst > 1;
@@ -302,7 +308,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
         </div>
 
         <div className="px-6 pb-6 pt-2 border-t border-border">
-          <Button onClick={handleSubmit} className="w-full gradient-primary h-12 rounded-2xl font-semibold text-sm">
+          <Button onClick={() => void handleSubmit()} className="w-full gradient-primary h-12 rounded-2xl font-semibold text-sm">
             Adicionar gasto
           </Button>
         </div>

@@ -7,23 +7,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardBrand, CreditCard } from '@/lib/types';
-import { getCards, saveCards } from '@/lib/store';
-import { generateId } from '@/lib/helpers';
+import { addCard } from '@/lib/store';
 import { BankInfo, searchBanks } from '@/lib/banks';
+import { generateId } from '@/lib/helpers';
+import CurrencyInput from '@/components/CurrencyInput';
 
-interface Props {
-  onAdded: () => void;
-}
+interface Props { onAdded: () => void; }
 
 export default function AddCardDialog({ onAdded }: Props) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState<CardBrand>('visa');
-  const [lastDigits, setLastDigits] = useState('');
-  const [limit, setLimit] = useState('');
-  const [closingDay, setClosingDay] = useState('10');
+  const [open, setOpen]               = useState(false);
+  const [name, setName]               = useState('');
+  const [brand, setBrand]             = useState<CardBrand>('visa');
+  const [lastDigits, setLastDigits]   = useState('');
+  const [limit, setLimit]             = useState('');
+  const [closingDay, setClosingDay]   = useState('10');
   const [selectedBank, setSelectedBank] = useState<BankInfo | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading]         = useState(false);
 
   const suggestions = useMemo(() => searchBanks(name).slice(0, 6), [name]);
 
@@ -33,27 +33,35 @@ export default function AddCardDialog({ onAdded }: Props) {
     setShowSuggestions(false);
   };
 
-  const handleSubmit = () => {
-    if (!name || !limit) {
-      toast.error('Preencha o nome e o limite');
-      return;
-    }
+  const handleSubmit = async () => {
+    if (!name || !limit) { toast.error('Preencha o nome e o limite'); return; }
+    const parsedLimit = parseFloat(limit);
+    if (isNaN(parsedLimit) || parsedLimit <= 0) { toast.error('Limite inválido'); return; }
+    const day = parseInt(closingDay);
+    if (!day || day < 1 || day > 31) { toast.error('Dia de fechamento inválido (1–31)'); return; }
+
     const card: CreditCard = {
       id: generateId(),
       name,
       brand,
       lastDigits: lastDigits.slice(-4) || '••••',
-      limit: parseFloat(limit),
-      closingDay: parseInt(closingDay),
+      limit: parsedLimit,
+      closingDay: day,
       customGradient: selectedBank?.gradient,
     };
-    const all = getCards();
-    all.push(card);
-    saveCards(all);
-    toast.success(`Cartão ${name} adicionado!`);
-    setName(''); setLastDigits(''); setLimit(''); setBrand('visa'); setSelectedBank(null);
-    setOpen(false);
-    onAdded();
+
+    setLoading(true);
+    try {
+      await addCard(card);
+      toast.success(`Cartão ${name} adicionado!`);
+      setName(''); setLastDigits(''); setLimit(''); setBrand('visa');
+      setSelectedBank(null); setClosingDay('10');
+      setOpen(false);
+      onAdded();
+    } catch {
+      toast.error('Erro ao adicionar cartão');
+    }
+    setLoading(false);
   };
 
   return (
@@ -64,106 +72,69 @@ export default function AddCardDialog({ onAdded }: Props) {
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-card border-border max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Adicionar Cartão</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Adicionar Cartão</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
-          {/* Bank name with autocomplete */}
+          {/* Bank autocomplete */}
           <div className="relative">
             <Label>Banco / Apelido</Label>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setSelectedBank(null);
-                  setShowSuggestions(true);
-                }}
+                onChange={e => { setName(e.target.value); setSelectedBank(null); setShowSuggestions(true); }}
                 onFocus={() => setShowSuggestions(true)}
                 placeholder="Digite o nome do banco..."
                 className="bg-secondary border-border pl-9"
               />
             </div>
-            {showSuggestions && suggestions.length > 0 && !selectedBank && (
-              <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-xl overflow-hidden shadow-xl max-h-52 overflow-y-auto">
-                {suggestions.map((bank) => (
-                  <button
-                    key={bank.name}
-                    onClick={() => selectBank(bank)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary transition-colors text-left"
-                  >
-                    <div
-                      className="w-8 h-5 rounded-md flex-shrink-0"
-                      style={{ background: bank.gradient }}
-                    />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                {suggestions.map(bank => (
+                  <button key={bank.name} onClick={() => selectBank(bank)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary transition-colors text-left">
+                    <div className="w-6 h-6 rounded-md flex-shrink-0"
+                      style={{ background: bank.gradient ?? 'hsl(263 70% 58%)' }} />
                     <span className="text-sm">{bank.name}</span>
                   </button>
                 ))}
-              </div>
-            )}
-            {selectedBank && (
-              <div className="mt-2 rounded-xl p-3 flex items-center gap-3" style={{ background: selectedBank.gradient }}>
-                <div className="w-6 h-4 rounded bg-white/20" />
-                <span className="text-xs font-medium text-white/90">{selectedBank.name}</span>
               </div>
             )}
           </div>
 
           <div>
             <Label>Bandeira</Label>
-            <Select value={brand} onValueChange={(v) => setBrand(v as CardBrand)}>
+            <Select value={brand} onValueChange={v => setBrand(v as CardBrand)}>
               <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="visa">Visa</SelectItem>
-                <SelectItem value="mastercard">Mastercard</SelectItem>
-                <SelectItem value="elo">Elo</SelectItem>
-                <SelectItem value="amex">American Express</SelectItem>
-                <SelectItem value="other">Outra</SelectItem>
+                {(['visa', 'mastercard', 'elo', 'amex', 'other'] as CardBrand[]).map(b => (
+                  <SelectItem key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>
-                Últimos 4 dígitos
-                <span className="text-muted-foreground font-normal ml-1 text-[10px]">(opcional)</span>
-              </Label>
-              <Input
-                maxLength={4}
-                value={lastDigits}
-                onChange={(e) => setLastDigits(e.target.value.replace(/\D/g, ''))}
-                placeholder="1234"
-                className="bg-secondary border-border"
-              />
+              <Label>Últimos 4 dígitos</Label>
+              <Input value={lastDigits} onChange={e => setLastDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="1234" maxLength={4} className="bg-secondary border-border" />
             </div>
             <div>
-              <Label>Dia fechamento</Label>
-              <Input
-                type="number"
-                min={1}
-                max={31}
-                value={closingDay}
-                onChange={(e) => setClosingDay(e.target.value)}
-                className="bg-secondary border-border"
-              />
+              <Label>Fechamento (dia)</Label>
+              <Input type="number" min={1} max={31} value={closingDay}
+                onChange={e => setClosingDay(e.target.value)} placeholder="10"
+                className="bg-secondary border-border" />
             </div>
           </div>
 
           <div>
             <Label>Limite (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={limit}
-              onChange={(e) => setLimit(e.target.value)}
-              placeholder="5000"
-              className="bg-secondary border-border"
-            />
+            <CurrencyInput value={limit} onChange={setLimit} className="bg-secondary border-border" />
           </div>
 
-          <Button onClick={handleSubmit} className="w-full gradient-primary">Adicionar</Button>
+          <Button onClick={handleSubmit} disabled={loading} className="w-full gradient-primary">
+            {loading ? 'Adicionando...' : 'Adicionar cartão'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

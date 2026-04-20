@@ -1,60 +1,52 @@
-const AUTH_KEY = 'ff_auth';
-const USER_KEY = 'ff_user';
+import { supabase } from './supabase';
 
 export interface AuthUser {
+  id: string;
   name: string;
   email: string;
-  passwordHash: string;
 }
 
-// Simple hash (not cryptographic, just obfuscation for local storage)
-function simpleHash(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
+export async function registerUser(name: string, email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name } },
+  });
+  if (error) return { ok: false, error: error.message };
+  if (!data.user) return { ok: false, error: 'Erro ao criar conta' };
+  return { ok: true };
 }
 
-export function registerUser(name: string, email: string, password: string): boolean {
-  if (getUser()) return false; // already registered
-  const user: AuthUser = {
-    name,
-    email: email.toLowerCase(),
-    passwordHash: simpleHash(password),
+export async function loginUser(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function logoutUser(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+export async function sendPasswordReset(email: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function updatePassword(newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function getUser(): Promise<AuthUser | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Usuário',
+    email: user.email ?? '',
   };
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  return true;
-}
-
-export function loginUser(email: string, password: string): boolean {
-  const user = getUser();
-  if (!user) return false;
-  if (user.email !== email.toLowerCase()) return false;
-  if (user.passwordHash !== simpleHash(password)) return false;
-  localStorage.setItem(AUTH_KEY, 'true');
-  return true;
-}
-
-export function logoutUser() {
-  localStorage.removeItem(AUTH_KEY);
-}
-
-export function isLoggedIn(): boolean {
-  return localStorage.getItem(AUTH_KEY) === 'true';
-}
-
-export function getUser(): AuthUser | null {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function hasRegistered(): boolean {
-  return !!getUser();
 }

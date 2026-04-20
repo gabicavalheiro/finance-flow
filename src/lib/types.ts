@@ -41,6 +41,8 @@ export interface FixedExpense {
   amount: number;
   category: ExpenseCategory;
   paidMonths: string[];
+  /** Forma de pagamento do gasto fixo (PIX, débito, boleto…) */
+  paymentMethod: PaymentMethod;
 }
 
 export interface MonthlyInstallment {
