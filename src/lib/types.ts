@@ -6,7 +6,10 @@ export interface CreditCard {
   brand: CardBrand;
   lastDigits: string;
   limit: number;
+  /** Dia do mês em que a fatura fecha (ex: 10) */
   closingDay: number;
+  /** Dia do mês em que a fatura vence (ex: 17) */
+  dueDay: number;
   customGradient?: string;
 }
 
@@ -41,7 +44,6 @@ export interface FixedExpense {
   amount: number;
   category: ExpenseCategory;
   paidMonths: string[];
-  /** Forma de pagamento do gasto fixo (PIX, débito, boleto…) */
   paymentMethod: PaymentMethod;
 }
 
@@ -114,7 +116,7 @@ export interface VariableTransaction {
   type: 'income' | 'expense';
   paymentMethod: PaymentMethod;
   category: ExpenseCategory | IncomeCategory;
-  date: string; // YYYY-MM-DD
+  date: string;
 }
 
 export const PAYMENT_METHOD_CONFIG: Record<PaymentMethod, { label: string; icon: string }> = {

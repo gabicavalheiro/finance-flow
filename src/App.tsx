@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import CardsPage from "./pages/CardsPage";
 import FixedPage from "./pages/FixedPage";
 import ReportsPage from "./pages/ReportsPage";
+import FaturaPage from "./pages/FaturaPage";
 import AuthPage from "./pages/AuthPage";
 import PasswordResetPage from "./pages/PasswordResetPage";
 import NotFound from "./pages/NotFound";
@@ -81,6 +82,7 @@ const App = () => {
   if (!session) {
     return (
       <Providers>
+        {/* onSuccess é detectado automaticamente via onAuthStateChange */}
         <AuthPage />
       </Providers>
     );
@@ -96,6 +98,7 @@ const App = () => {
               <Route path="/"        element={<Index />} />
               <Route path="/cards"   element={<CardsPage />} />
               <Route path="/fixed"   element={<FixedPage />} />
+              <Route path="/faturas" element={<FaturaPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="*"        element={<NotFound />} />
             </Routes>

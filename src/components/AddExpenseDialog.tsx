@@ -4,29 +4,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ArrowLeftRight } from 'lucide-react';
+import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
 import { addExpense } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
+import NumberStepper from '@/components/ui/number-stepper';
 
 interface Props {
   cards: CreditCard[];
   onAdded: () => void;
+  /** Botão compacto com ícone de cartão (usado no header do dashboard) */
+  iconOnly?: boolean;
 }
 
 function purchaseDateForBillingMonth(billingMonth: string): string {
   return `${billingMonth}-01`;
 }
 
-// cents → display string "300,00"
 function centsToDisplay(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }
 
-export default function AddExpenseDialog({ cards, onAdded }: Props) {
+export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
   const [open, setOpen]               = useState(false);
   const [name, setName]               = useState('');
   const [category, setCategory]       = useState<ExpenseCategory>('other');
@@ -35,16 +37,14 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
   const [installments, setInstallments] = useState('1');
   const [currentInst, setCurrentInst]   = useState('1');
   const [useInstRef, setUseInstRef]     = useState(false);
-
-  // Two-way value: store as cents integers
-  const [totalCents, setTotalCents]       = useState(0);
-  const [instCents, setInstCents]         = useState(0);
-  const lastEdited = useRef<'total' | 'inst'>('total');
+  const [totalCents, setTotalCents]     = useState(0);
+  const [instCents, setInstCents]       = useState(0);
+  const lastEdited                      = useRef<'total' | 'inst'>('total');
+  const [saving, setSaving]             = useState(false);
 
   const totalInst = parseInt(installments) || 1;
   const currInst  = Math.min(parseInt(currentInst) || 1, totalInst);
 
-  // Sync the other field whenever one changes
   const handleTotalChange = (raw: string) => {
     lastEdited.current = 'total';
     const cents = raw ? Math.round(parseFloat(raw) * 100) : 0;
@@ -59,58 +59,36 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     setTotalCents(cents * totalInst);
   };
 
-  // When installment count changes, recalculate from the last-edited field
   useEffect(() => {
-    if (totalInst === 1) {
-      setInstCents(totalCents);
-      return;
-    }
+    if (totalInst === 1) { setInstCents(totalCents); return; }
     if (lastEdited.current === 'total') {
       setInstCents(Math.round(totalCents / totalInst));
     } else {
       setTotalCents(instCents * totalInst);
     }
-  // Recalculate only when installment count changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalInst]);
-
-  // When installments changes, reset currentInst
-  useEffect(() => {
-    if (totalInst === 1) {
-      setUseInstRef(false);
-      setCurrentInst('1');
-      setDate(new Date().toISOString().split('T')[0]);
-    }
-  }, [totalInst]);
-
-  // Recalculate purchase date in ref mode
-  useEffect(() => {
-    if (!useInstRef || totalInst <= 1) return;
-    const thisMonth = getCurrentMonth();
-    const firstBillingMonth = addMonths(thisMonth, -(currInst - 1));
-    setDate(purchaseDateForBillingMonth(firstBillingMonth));
-  }, [useInstRef, totalInst, currInst]);
 
   const reset = () => {
-    setName(''); setTotalCents(0); setInstCents(0);
-    setCategory('other'); setCardId('');
-    setInstallments('1'); setCurrentInst('1'); setUseInstRef(false);
+    setName(''); setCategory('other'); setCardId('');
     setDate(new Date().toISOString().split('T')[0]);
+    setInstallments('1'); setCurrentInst('1');
+    setUseInstRef(false); setTotalCents(0); setInstCents(0);
     lastEdited.current = 'total';
   };
 
-  const previewMonths = () => {
-    if (totalInst <= 1) return null;
-    const thisMonth = getCurrentMonth();
-    const firstBillingMonth = useInstRef
-      ? addMonths(thisMonth, -(currInst - 1))
-      : thisMonth;
-    const months = Array.from({ length: Math.min(totalInst, 4) }, (_, i) => {
-      const m = addMonths(firstBillingMonth, i).split('-');
-      return `${m[1]}/${m[0].slice(2)}`;
-    });
-    const last = addMonths(firstBillingMonth, totalInst - 1).split('-');
-    return months.join(', ') + (totalInst > 4 ? ` ... ${last[1]}/${last[0].slice(2)}` : '');
+  // Calcula a data da compra com base na referência de parcela
+  const computePurchaseDate = (): string => {
+    if (!useInstRef || totalInst <= 1) return date;
+    const card      = cards.find(c => c.id === cardId);
+    const closing   = card?.closingDay ?? 10;
+    const cur       = getCurrentMonth();
+    const monthsBack = currInst - 1;
+    const billing   = addMonths(cur, -monthsBack);
+    const [y, m]    = billing.split('-').map(Number);
+    const purchaseDay = closing + 1;
+    const d = new Date(y, m - 1, purchaseDay);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
   const handleSubmit = async () => {
@@ -118,12 +96,14 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
       toast.error(!totalCents ? 'Informe um valor' : 'Preencha todos os campos obrigatórios');
       return;
     }
+    const finalDate = useInstRef ? computePurchaseDate() : date;
     const expense: Expense = {
       id: generateId(), cardId, name,
       totalAmount: totalCents / 100,
-      category, date,
+      category, date: finalDate,
       installments: totalInst,
     };
+    setSaving(true);
     try {
       await addExpense(expense);
       const desc = totalInst > 1
@@ -136,6 +116,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
     } catch {
       toast.error('Erro ao salvar gasto');
     }
+    setSaving(false);
   };
 
   const showInstField = totalInst > 1;
@@ -143,10 +124,28 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button className="rounded-full h-12 w-12 p-0 shadow-lg shadow-destructive/30"
-          style={{ background: 'hsl(0 72% 51%)' }}>
-          <Plus size={24} />
-        </Button>
+        {iconOnly ? (
+          /* Botão compacto com ícone de cartão — usado no header do dashboard */
+          <button
+            className="relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-150 hover:scale-105 active:scale-95"
+            style={{
+              borderColor: 'hsl(0 72% 51% / 0.6)',
+              background: 'hsl(0 72% 51% / 0.08)',
+              color: 'hsl(0 72% 51%)',
+            }}
+            title="Adicionar gasto no cartão"
+          >
+            <CreditCardIcon size={20} />
+          </button>
+        ) : (
+          /* Botão padrão usado nas páginas de cartão */
+          <Button
+            variant="outline"
+            className="w-full border-dashed border-muted-foreground/30 rounded-xl"
+          >
+            <CreditCardIcon size={15} className="mr-2" /> Adicionar gasto
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
@@ -157,16 +156,15 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
         </div>
 
         <div className="px-6 py-5 space-y-4 max-h-[72vh] overflow-y-auto">
-          {/* Name */}
+          {/* Nome */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Nome</Label>
             <Input value={name} onChange={e => setName(e.target.value)}
               placeholder="Ex: Supermercado" className="bg-secondary border-border rounded-xl h-11" />
           </div>
 
-          {/* Value fields */}
+          {/* Valor */}
           <div className={showInstField ? 'grid grid-cols-[1fr_auto_1fr] items-end gap-2' : ''}>
-            {/* Total */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
                 {showInstField ? 'Valor total' : 'Valor (R$)'}
@@ -177,28 +175,22 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
                 className="bg-secondary border-border rounded-xl h-11"
               />
             </div>
-
-            {/* Arrow icon between fields */}
             {showInstField && (
-              <div className="flex items-center justify-center h-11 w-8">
-                <ArrowLeftRight size={14} className="text-muted-foreground" />
-              </div>
-            )}
-
-            {/* Per installment */}
-            {showInstField && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Valor parcela</Label>
-                <CurrencyInput
-                  value={instCents ? String(instCents / 100) : ''}
-                  onChange={handleInstChange}
-                  className="bg-secondary border-border rounded-xl h-11"
-                />
-              </div>
+              <>
+                <ArrowLeftRight size={14} className="text-muted-foreground mb-3 shrink-0" />
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Valor por parcela</Label>
+                  <CurrencyInput
+                    value={instCents ? String(instCents / 100) : ''}
+                    onChange={handleInstChange}
+                    className="bg-secondary border-border rounded-xl h-11"
+                  />
+                </div>
+              </>
             )}
           </div>
 
-          {/* Card + Category */}
+          {/* Cartão + Categoria */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Cartão</Label>
@@ -226,7 +218,7 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
             </div>
           </div>
 
-          {/* Installments */}
+          {/* Parcelas */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Parcelas</Label>
             <Select value={installments} onValueChange={setInstallments}>
@@ -242,74 +234,48 @@ export default function AddExpenseDialog({ cards, onAdded }: Props) {
             </Select>
           </div>
 
-          {/* Installment reference box */}
+          {/* Referência de parcela */}
           {totalInst > 1 && (
-            <div className="bg-secondary/60 rounded-2xl p-4 space-y-3">
+            <div className="rounded-xl bg-secondary/60 p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium">Já está pagando?</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Informe em qual parcela você está</p>
-                </div>
+                <Label className="text-xs text-muted-foreground">Qual parcela cai este mês?</Label>
                 <button
-                  onClick={() => {
-                    const next = !useInstRef;
-                    setUseInstRef(next);
-                    if (!next) {
-                      setCurrentInst('1');
-                      setDate(new Date().toISOString().split('T')[0]);
-                    }
-                  }}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                  style={{ background: useInstRef ? 'hsl(263 70% 58%)' : 'hsl(240 5% 25%)' }}
+                  type="button"
+                  onClick={() => setUseInstRef(v => !v)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                    useInstRef ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                  }`}
                 >
-                  <span className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform"
-                    style={{ transform: useInstRef ? 'translateX(22px)' : 'translateX(4px)' }} />
+                  {useInstRef ? 'ativo' : 'inativo'}
                 </button>
               </div>
-
-              {useInstRef ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentInst(String(Math.max(1, currInst - 1)))}
-                      className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors shrink-0">
-                      −
-                    </button>
-                    <div className="flex-1 bg-card rounded-xl h-9 flex items-center justify-center text-sm font-semibold border border-border">
-                      Parcela {currInst} de {totalInst}
-                    </div>
-                    <button onClick={() => setCurrentInst(String(Math.min(totalInst, currInst + 1)))}
-                      className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center text-lg font-bold hover:bg-muted transition-colors shrink-0">
-                      +
-                    </button>
-                  </div>
-                  {previewMonths() && (
-                    <div className="bg-card rounded-xl p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground font-medium mb-1">Lançamentos nos meses:</p>
-                      <p className="text-xs font-medium text-primary">{previewMonths()}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Data da compra</Label>
-                  <DatePicker value={date} onChange={setDate} />
+              {useInstRef && (
+                <div className="flex items-center gap-3">
+                  <NumberStepper value={currInst} min={1} max={totalInst}
+                    onChange={v => setCurrentInst(String(v))} />
+                  <span className="text-xs text-muted-foreground">de {totalInst} parcelas</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Date for à vista */}
-          {totalInst === 1 && (
+          {/* Data */}
+          {!useInstRef && (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Data</Label>
+              <Label className="text-xs text-muted-foreground">Data da compra</Label>
               <DatePicker value={date} onChange={setDate} />
             </div>
           )}
         </div>
 
-        <div className="px-6 pb-6 pt-2 border-t border-border">
-          <Button onClick={() => void handleSubmit()} className="w-full gradient-primary h-12 rounded-2xl font-semibold text-sm">
-            Adicionar gasto
+        <div className="px-6 pb-6 pt-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="w-full h-12 rounded-2xl font-semibold text-sm text-white"
+            style={{ background: 'hsl(0 72% 51%)' }}
+          >
+            {saving ? 'Salvando...' : 'Adicionar gasto'}
           </Button>
         </div>
       </DialogContent>

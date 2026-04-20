@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Banknote, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ExpenseCategory, IncomeCategory,
@@ -20,13 +20,13 @@ import DatePicker from '@/components/DatePicker';
 interface Props { onAdded: () => void; }
 
 export default function AddVariableDialog({ onAdded }: Props) {
-  const [open, setOpen]           = useState(false);
-  const [type, setType]           = useState<'expense' | 'income'>('expense');
-  const [name, setName]           = useState('');
-  const [amount, setAmount]       = useState('');
-  const [method, setMethod]       = useState<PaymentMethod>('pix');
-  const [category, setCategory]   = useState<ExpenseCategory | IncomeCategory>('other');
-  const [date, setDate]           = useState(new Date().toISOString().split('T')[0]);
+  const [open, setOpen]         = useState(false);
+  const [type, setType]         = useState<'expense' | 'income'>('expense');
+  const [name, setName]         = useState('');
+  const [amount, setAmount]     = useState('');
+  const [method, setMethod]     = useState<PaymentMethod>('pix');
+  const [category, setCategory] = useState<ExpenseCategory | IncomeCategory>('other');
+  const [date, setDate]         = useState(new Date().toISOString().split('T')[0]);
 
   const reset = () => {
     setName(''); setAmount(''); setMethod('pix');
@@ -64,13 +64,18 @@ export default function AddVariableDialog({ onAdded }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="rounded-full h-12 w-12 p-0 border-2 border-success/60 hover:bg-success/10 text-success hover:border-success"
-          style={{ color: 'hsl(152 69% 45%)' }}
+        {/* Botão — ícone de dinheiro/Pix, indica gastos/ganhos variáveis */}
+        <button
+          className="relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-150 hover:scale-105 active:scale-95"
+          style={{
+            borderColor: 'hsl(152 69% 45% / 0.6)',
+            background: 'hsl(152 69% 45% / 0.08)',
+            color: 'hsl(152 69% 45%)',
+          }}
+          title="Adicionar ganho / gasto variável"
         >
-          <Plus size={22} />
-        </Button>
+          <Banknote size={20} />
+        </button>
       </DialogTrigger>
 
       <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
@@ -82,7 +87,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
         </div>
 
         <div className="px-6 py-5 space-y-4">
-          {/* Type toggle */}
+          {/* Tipo */}
           <div className="grid grid-cols-2 gap-2 bg-secondary rounded-xl p-1">
             <button
               onClick={() => handleTypeChange('expense')}
@@ -102,53 +107,29 @@ export default function AddVariableDialog({ onAdded }: Props) {
                 : { color: 'hsl(240 5% 55%)' }
               }
             >
-              <ArrowUpCircle size={15} /> Recebido
+              <ArrowUpCircle size={15} /> Ganho
             </button>
           </div>
 
-          {/* Amount */}
+          {/* Nome */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Nome</Label>
+            <Input value={name} onChange={e => setName(e.target.value)}
+              placeholder="Ex: Mercado, Freelance..." className="bg-secondary border-border" />
+          </div>
+
+          {/* Valor */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
-            <CurrencyInput value={amount} onChange={setAmount} className="bg-secondary border-border rounded-xl h-11" />
+            <CurrencyInput value={amount} onChange={setAmount} className="bg-secondary border-border" />
           </div>
 
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Descrição</Label>
-            <Input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder={type === 'expense' ? 'Ex: Almoço, Feira...' : 'Ex: Freela, Venda...'}
-              className="bg-secondary border-border rounded-xl h-11"
-            />
-          </div>
-
-          {/* Method + Category */}
+          {/* Categoria + Método */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Forma de pagamento</Label>
-              <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)}>
-                <SelectTrigger className="bg-secondary border-border rounded-xl h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PAYMENT_METHOD_CONFIG).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select
-                value={category}
-                onValueChange={(v) =>
-                  setCategory(v as ExpenseCategory | IncomeCategory)
-                }
-              >
-                <SelectTrigger className="bg-secondary border-border rounded-xl h-11">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={category} onValueChange={v => setCategory(v as any)}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(type === 'expense' ? expenseCategories : incomeCategories).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v.label}</SelectItem>
@@ -156,9 +137,20 @@ export default function AddVariableDialog({ onAdded }: Props) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Método</Label>
+              <Select value={method} onValueChange={v => setMethod(v as PaymentMethod)}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(PAYMENT_METHOD_CONFIG) as [PaymentMethod, { label: string }][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Date */}
+          {/* Data */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Data</Label>
             <DatePicker value={date} onChange={setDate} />
@@ -168,11 +160,9 @@ export default function AddVariableDialog({ onAdded }: Props) {
         <div className="px-6 pb-6">
           <Button
             onClick={() => void handleSubmit()}
-            className="w-full h-12 rounded-2xl font-semibold text-sm"
+            className="w-full h-12 rounded-2xl font-semibold text-sm text-white"
             style={{
-              background: type === 'expense'
-                ? 'hsl(0 72% 51%)'
-                : 'hsl(152 69% 45%)',
+              background: type === 'expense' ? 'hsl(0 72% 51%)' : 'hsl(152 69% 45%)',
             }}
           >
             {type === 'expense' ? 'Registrar gasto' : 'Registrar recebimento'}

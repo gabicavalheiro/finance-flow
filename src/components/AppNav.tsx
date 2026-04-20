@@ -1,4 +1,4 @@
-import { LayoutDashboard, CreditCard, CalendarCheck, BarChart3, LogOut, Sun, Moon, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch, LogOut, Sun, Moon, TrendingUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { logoutUser } from '@/lib/auth';
@@ -15,6 +15,7 @@ const tabs = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },
   { path: '/cards',   label: 'Cartões',    icon: CreditCard      },
   { path: '/fixed',   label: 'Fixos',      icon: CalendarCheck   },
+  { path: '/faturas', label: 'Faturas',    icon: FileSearch      },
   { path: '/reports', label: 'Relatórios', icon: BarChart3       },
 ];
 

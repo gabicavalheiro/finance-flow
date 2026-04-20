@@ -1,12 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, ArrowDownCircle, ArrowUpCircle, CalendarDays } from 'lucide-react';
+import { Trash2, ArrowDownCircle, ArrowUpCircle, CalendarDays, Pencil } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import AddFixedExpenseDialog from '@/components/AddFixedExpenseDialog';
 import AddIncomeDialog from '@/components/AddIncomeDialog';
+import EditFixedExpenseDialog from '@/components/EditFixedExpenseDialog';
+import EditFixedIncomeDialog from '@/components/EditFixedIncomeDialog';
 import CategoryIcon from '@/components/CategoryIcon';
 import IncomeIcon from '@/components/IncomeIcon';
 import MonthSelector from '@/components/MonthSelector';
+import ShowMoreButton from '@/components/ShowMoreButton';
+import { useCollapse } from '@/hooks/useCollapse';
 import {
   getFixedExpenses, updateFixedExpense, deleteFixedExpense,
   getIncomes, updateIncome, deleteIncome,
@@ -21,6 +25,10 @@ export default function FixedPage() {
   const [fixedState, setFixedState]     = useState<FixedExpense[]>([]);
   const [incomeState, setIncomeState]   = useState<FixedIncome[]>([]);
   const [loading, setLoading]           = useState(true);
+
+  // estados de edição
+  const [editingFixed, setEditingFixed]   = useState<FixedExpense | null>(null);
+  const [editingIncome, setEditingIncome] = useState<FixedIncome | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -38,6 +46,10 @@ export default function FixedPage() {
 
   const paidCount     = fixedState.filter(f => f.paidMonths.includes(month)).length;
   const receivedCount = incomeState.filter(i => i.receivedMonths.includes(month)).length;
+
+  // ── Collapses ──
+  const collapseIncome = useCollapse(incomeState.length);
+  const collapseFixed  = useCollapse(fixedState.length);
 
   /* ── Expense handlers ── */
   const togglePaid = async (id: string) => {
@@ -97,7 +109,7 @@ export default function FixedPage() {
 
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* Cartão de saldo fixo */}
+      {/* Cartão de saldo */}
       <motion.div
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         className="bg-card rounded-2xl p-5 border border-border space-y-3"
@@ -146,7 +158,7 @@ export default function FixedPage() {
         </div>
       </motion.div>
 
-      {/* ── Grid lado-a-lado no desktop ── */}
+      {/* Grid lado a lado no desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* ── Ganhos Fixos ── */}
@@ -167,6 +179,7 @@ export default function FixedPage() {
 
           {[...incomeState]
             .sort((a, b) => (a.receiveDay ?? 1) - (b.receiveDay ?? 1))
+            .slice(0, collapseIncome.visible)
             .map((income, idx) => {
               const isReceived = income.receivedMonths.includes(month);
               return (
@@ -174,12 +187,12 @@ export default function FixedPage() {
                   key={income.id}
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
-                  className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isReceived ? 'opacity-60' : ''}`}
+                  className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity group ${isReceived ? 'opacity-60' : ''}`}
                 >
                   <Checkbox
                     checked={isReceived}
                     onCheckedChange={() => toggleReceived(income.id)}
-                    className="border-muted-foreground data-[state=checked]:bg-success data-[state=checked]:border-success"
+                    className="border-muted-foreground data-[state=checked]:bg-success data-[state=checked]:border-success shrink-0"
                   />
                   <IncomeIcon category={income.category} size={16} />
                   <div className="flex-1 min-w-0">
@@ -195,16 +208,27 @@ export default function FixedPage() {
                   <span className="text-sm font-semibold" style={{ color: 'hsl(152 69% 45%)' }}>
                     +{formatCurrency(income.amount)}
                   </span>
-                  <Button
-                    variant="ghost" size="icon"
-                    className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => handleDeleteIncome(income.id)}
-                  >
-                    <Trash2 size={13} />
-                  </Button>
+                  {/* Botões editar + deletar */}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                      onClick={() => setEditingIncome(income)}
+                    >
+                      <Pencil size={12} />
+                    </Button>
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDeleteIncome(income.id)}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
+                  </div>
                 </motion.div>
               );
             })}
+          <ShowMoreButton expanded={collapseIncome.expanded} hidden={collapseIncome.hidden} onToggle={collapseIncome.toggle} />
         </section>
 
         {/* ── Gastos Fixos ── */}
@@ -221,19 +245,19 @@ export default function FixedPage() {
             <p className="text-xs text-muted-foreground text-center py-6">Nenhum gasto fixo cadastrado</p>
           )}
 
-          {fixedState.map((fixed, idx) => {
+          {fixedState.slice(0, collapseFixed.visible).map((fixed, idx) => {
             const isPaid = fixed.paidMonths.includes(month);
             return (
               <motion.div
                 key={fixed.id}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
-                className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity ${isPaid ? 'opacity-60' : ''}`}
+                className={`bg-card rounded-xl p-3 border border-border flex items-center gap-3 transition-opacity group ${isPaid ? 'opacity-60' : ''}`}
               >
                 <Checkbox
                   checked={isPaid}
                   onCheckedChange={() => togglePaid(fixed.id)}
-                  className="border-muted-foreground data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                  className="border-muted-foreground data-[state=checked]:bg-destructive data-[state=checked]:border-destructive shrink-0"
                 />
                 <CategoryIcon category={fixed.category} />
                 <div className="flex-1 min-w-0">
@@ -243,18 +267,47 @@ export default function FixedPage() {
                   <p className="text-xs text-muted-foreground">Fixo mensal</p>
                 </div>
                 <span className="text-sm font-semibold text-destructive">{formatCurrency(fixed.amount)}</span>
-                <Button
-                  variant="ghost" size="icon"
-                  className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => handleDeleteFixed(fixed.id)}
-                >
-                  <Trash2 size={13} />
-                </Button>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                    onClick={() => setEditingFixed(fixed)}
+                  >
+                    <Pencil size={12} />
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => handleDeleteFixed(fixed.id)}
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                </div>
               </motion.div>
             );
           })}
+          <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
         </section>
       </div>
+
+      {/* Dialogs de edição */}
+      {editingFixed && (
+        <EditFixedExpenseDialog
+          expense={editingFixed}
+          open={!!editingFixed}
+          onClose={() => setEditingFixed(null)}
+          onSaved={() => { setEditingFixed(null); loadAll(); }}
+        />
+      )}
+
+      {editingIncome && (
+        <EditFixedIncomeDialog
+          income={editingIncome}
+          open={!!editingIncome}
+          onClose={() => setEditingIncome(null)}
+          onSaved={() => { setEditingIncome(null); loadAll(); }}
+        />
+      )}
     </div>
   );
 }

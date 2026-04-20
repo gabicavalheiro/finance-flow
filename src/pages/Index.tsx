@@ -3,13 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, TrendingDown, TrendingUp, Scale,
   Pencil, Trash2, ArrowDownCircle, ArrowUpCircle,
-  Zap, Banknote, ArrowLeftRight, CreditCard as DebitIcon, FileText,
+  Zap, Banknote, ArrowLeftRight, CreditCard as CreditCardIcon, FileText,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
 import AddVariableDialog from '@/components/AddVariableDialog';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
+import EditVariableDialog from '@/components/EditVariableDialog';
 import CategoryIcon from '@/components/CategoryIcon';
+import ShowMoreButton from '@/components/ShowMoreButton';
+import { useCollapse } from '@/hooks/useCollapse';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
   getCards, getExpenses, getFixedExpenses, getIncomes,
@@ -42,7 +45,7 @@ const METHOD_ICONS: Record<string, React.ReactNode> = {
   pix:      <Zap size={11} />,
   cash:     <Banknote size={11} />,
   transfer: <ArrowLeftRight size={11} />,
-  debit:    <DebitIcon size={11} />,
+  debit:    <CreditCardIcon size={11} />,
   boleto:   <FileText size={11} />,
 };
 
@@ -50,6 +53,7 @@ export default function Dashboard() {
   const [month, setMonth]                         = useState(getCurrentMonth());
   const [selectedCardId, setSelectedCardId]       = useState<string | null>(null);
   const [editingExpense, setEditingExpense]        = useState<Expense | null>(null);
+  const [editingVar, setEditingVar]               = useState<VariableTransaction | null>(null);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [deletingVarId, setDeletingVarId]         = useState<string | null>(null);
 
@@ -95,6 +99,11 @@ export default function Dashboard() {
   const cardMap        = new Map(cards.map(c => [c.id, c]));
   const getExpenseById = (id: string) => expenses.find(e => e.id === id);
 
+  // ── Collapses por seção ──
+  const collapseInst  = useCollapse(installments.length);
+  const collapseVar   = useCollapse(varTxs.length);
+  const collapseFixed = useCollapse(fixedExpenses.length);
+
   const pieData = Object.entries(categoryTotals)
     .filter(([, v]) => v > 0)
     .map(([key, value]) => ({
@@ -125,10 +134,9 @@ export default function Dashboard() {
   };
 
   return (
-    /* ── Padding-bottom maior no mobile (bottom nav), removido no desktop ── */
     <div className="pb-24 md:pb-10 max-w-5xl mx-auto">
 
-      {/* ── Cabeçalho da página ── */}
+      {/* Cabeçalho */}
       <header className="px-4 md:px-8 pt-5 md:pt-8 pb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">
@@ -137,22 +145,20 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Gasto/ganho variável — ícone de dinheiro/pix */}
           <AddVariableDialog onAdded={loadAll} />
-          {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} />}
+          {/* Gasto de cartão — ícone de cartão */}
+          {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} iconOnly />}
         </div>
       </header>
 
-      {/* ── Conteúdo principal ── */}
       <div className="px-4 md:px-8 space-y-5">
         <MonthSelector month={month} onChange={setMonth} />
 
-        {/* ── Grid de resumo — 2 cols mobile / 4 cols desktop ── */}
+        {/* Cards de resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Saldo */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-2xl p-4 border border-border col-span-2"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-card rounded-2xl p-4 border border-border col-span-2">
             <div className="flex items-center gap-2 mb-1">
               <Scale size={16} className="text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Saldo do mês</span>
@@ -162,11 +168,8 @@ export default function Dashboard() {
             </p>
           </motion.div>
 
-          {/* Total gastos */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="bg-card rounded-2xl p-4 border border-border"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl p-4 border border-border">
             <div className="flex items-center gap-2 mb-2">
               <TrendingDown size={16} className="text-destructive" />
               <span className="text-xs text-muted-foreground">Total gastos</span>
@@ -174,11 +177,8 @@ export default function Dashboard() {
             <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
           </motion.div>
 
-          {/* Total ganhos */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="bg-card rounded-2xl p-4 border border-border"
-          >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="bg-card rounded-2xl p-4 border border-border">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp size={16} className="text-success" />
               <span className="text-xs text-muted-foreground">Total ganhos</span>
@@ -189,12 +189,9 @@ export default function Dashboard() {
             )}
           </motion.div>
 
-          {/* Limite disponível — ocupa col-span-2 se existirem cartões */}
           {cards.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="col-span-2 bg-card rounded-2xl p-4 border border-border"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="col-span-2 bg-card rounded-2xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <Wallet size={16} className="text-accent" />
                 <span className="text-xs text-muted-foreground">Limite disponível (cartões)</span>
@@ -204,24 +201,20 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground">de {formatCurrency(totalLimit)}</p>
               </div>
               <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent rounded-full transition-all"
-                  style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }}
-                />
+                <div className="h-full bg-accent rounded-full transition-all"
+                  style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
               </div>
             </motion.div>
           )}
         </div>
 
-        {/* ── Layout principal: gráfico + transações side-by-side no desktop ── */}
+        {/* Grid principal */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* Pie chart */}
           {pieData.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-              className="bg-card rounded-2xl p-4 border border-border"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+              className="bg-card rounded-2xl p-4 border border-border">
               <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Gastos por categoria</p>
               <div className="flex gap-4 items-center">
                 <div className="h-36 w-36 shrink-0">
@@ -253,10 +246,6 @@ export default function Dashboard() {
           <div className={cn('bg-card rounded-2xl border border-border overflow-hidden', pieData.length === 0 ? 'md:col-span-2' : '')}>
             <div className="flex items-center justify-between p-4 pb-3">
               <p className="text-sm font-semibold">Lançamentos</p>
-              <div className="flex gap-2">
-                <AddVariableDialog onAdded={loadAll} />
-                {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} />}
-              </div>
             </div>
 
             {/* Filtro por cartão */}
@@ -306,16 +295,15 @@ export default function Dashboard() {
                 </p>
               ) : (
                 <>
+                  {/* ── Parcelas de cartão ── */}
                   <AnimatePresence mode="popLayout">
-                    {installments.map((inst, i) => {
+                    {installments.slice(0, collapseInst.visible).map((inst, i) => {
                       const orig = getExpenseById(inst.expenseId);
                       return (
                         <motion.div
                           key={`${inst.expenseId}-${i}`}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.15 }}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
                           className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
                         >
                           <CategoryIcon category={inst.category} />
@@ -343,7 +331,9 @@ export default function Dashboard() {
                       );
                     })}
                   </AnimatePresence>
+                  <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
 
+                  {/* ── Transações variáveis ── */}
                   {!selectedCardId && varTxs.length > 0 && (
                     <>
                       {installments.length > 0 && (
@@ -353,7 +343,7 @@ export default function Dashboard() {
                           <div className="flex-1 h-px bg-border" />
                         </div>
                       )}
-                      {varTxs.sort((a, b) => b.date.localeCompare(a.date)).map(tx => (
+                      {varTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
                         <div key={tx.id}
                           className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
                           <div className="flex items-center justify-center rounded-xl w-8 h-8 shrink-0"
@@ -375,7 +365,12 @@ export default function Dashboard() {
                             style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
                             {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
                           </span>
+                          {/* ── Botões editar + deletar ── */}
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                              onClick={() => setEditingVar(tx)}>
+                              <Pencil size={12} />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => setDeletingVarId(tx.id)}>
                               <Trash2 size={12} />
@@ -383,9 +378,11 @@ export default function Dashboard() {
                           </div>
                         </div>
                       ))}
+                      <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
                     </>
                   )}
 
+                  {/* ── Gastos fixos ── */}
                   {!selectedCardId && fixedExpenses.length > 0 && (
                     <>
                       {(installments.length > 0 || varTxs.length > 0) && (
@@ -395,7 +392,7 @@ export default function Dashboard() {
                           <div className="flex-1 h-px bg-border" />
                         </div>
                       )}
-                      {fixedExpenses.map(f => (
+                      {fixedExpenses.slice(0, collapseFixed.visible).map(f => (
                         <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
                           <CategoryIcon category={f.category} />
                           <div className="flex-1 min-w-0">
@@ -405,6 +402,7 @@ export default function Dashboard() {
                           <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
                         </div>
                       ))}
+                      <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
                     </>
                   )}
                 </>
@@ -414,7 +412,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Dialogs */}
+      {/* ── Dialogs ── */}
+
+      {/* Editar gasto de cartão */}
       {editingExpense && (
         <EditExpenseDialog
           expense={editingExpense}
@@ -425,6 +425,17 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Editar transação variável */}
+      {editingVar && (
+        <EditVariableDialog
+          transaction={editingVar}
+          open={!!editingVar}
+          onClose={() => setEditingVar(null)}
+          onSaved={() => { setEditingVar(null); loadAll(); }}
+        />
+      )}
+
+      {/* Confirmar exclusão de gasto */}
       <AlertDialog open={!!deletingExpenseId} onOpenChange={v => !v && setDeletingExpenseId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
@@ -438,6 +449,7 @@ export default function Dashboard() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Confirmar exclusão de variável */}
       <AlertDialog open={!!deletingVarId} onOpenChange={v => !v && setDeletingVarId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
