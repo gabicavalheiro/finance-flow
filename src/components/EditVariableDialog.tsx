@@ -10,9 +10,9 @@ import {
   PAYMENT_METHOD_CONFIG,
 } from '@/lib/types';
 import { updateVariableTransaction } from '@/lib/store';
+import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
-import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   transaction: VariableTransaction;
@@ -26,7 +26,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
   const [amount, setAmount]     = useState(String(transaction.amount));
   const [type, setType]         = useState<'expense' | 'income'>(transaction.type);
   const [method, setMethod]     = useState<PaymentMethod>(transaction.paymentMethod);
-  const [category, setCategory] = useState<string>(transaction.category);
+  const [category, setCategory] = useState<ExpenseCategory | IncomeCategory>(transaction.category);
   const [date, setDate]         = useState(transaction.date);
   const [saving, setSaving]     = useState(false);
 
@@ -56,7 +56,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
         amount: parsed,
         type,
         paymentMethod: method,
-        category: category as ExpenseCategory | IncomeCategory,
+        category,
         date,
       });
       toast.success('Lançamento atualizado!');
@@ -76,6 +76,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
+
           {/* Tipo */}
           <div className="flex bg-secondary rounded-xl p-1">
             {(['expense', 'income'] as const).map(t => (
@@ -96,22 +97,31 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
           {/* Nome */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Nome</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} className="bg-secondary border-border" />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Descrição do lançamento"
+              className="bg-secondary border-border"
+            />
           </div>
 
           {/* Valor */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
-            <CurrencyInput value={amount} onChange={setAmount} className="bg-secondary border-border" />
+            <CurrencyInput
+              value={amount}
+              onChange={setAmount}
+              className="bg-secondary border-border"
+            />
           </div>
 
           {/* Categoria */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Categoria</Label>
             <CategorySelect
-              value={category}
-              onChange={setCategory}
               type={type}
+              value={category}
+              onChange={v => setCategory(v as any)}
             />
           </div>
 
@@ -138,7 +148,12 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
 
           {/* Botões */}
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" className="flex-1 border-border" onClick={onClose} disabled={saving}>
+            <Button
+              variant="outline"
+              className="flex-1 border-border"
+              onClick={onClose}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button

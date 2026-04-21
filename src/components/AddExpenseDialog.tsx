@@ -6,18 +6,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
+import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
 import { addExpense } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
+import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
 import NumberStepper from '@/components/ui/number-stepper';
-import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   cards: CreditCard[];
   onAdded: () => void;
+  /** Botão compacto com ícone de cartão (usado no header do dashboard) */
   iconOnly?: boolean;
+}
+
+function purchaseDateForBillingMonth(billingMonth: string): string {
+  return `${billingMonth}-01`;
 }
 
 function centsToDisplay(cents: number): string {
@@ -25,11 +30,11 @@ function centsToDisplay(cents: number): string {
 }
 
 export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
-  const [open, setOpen]               = useState(false);
-  const [name, setName]               = useState('');
-  const [category, setCategory]       = useState<string>('other');
-  const [cardId, setCardId]           = useState('');
-  const [date, setDate]               = useState(new Date().toISOString().split('T')[0]);
+  const [open, setOpen]                 = useState(false);
+  const [name, setName]                 = useState('');
+  const [category, setCategory]         = useState<ExpenseCategory>('other');
+  const [cardId, setCardId]             = useState('');
+  const [date, setDate]                 = useState(new Date().toISOString().split('T')[0]);
   const [installments, setInstallments] = useState('1');
   const [currentInst, setCurrentInst]   = useState('1');
   const [useInstRef, setUseInstRef]     = useState(false);
@@ -95,7 +100,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
     const expense: Expense = {
       id: generateId(), cardId, name,
       totalAmount: totalCents / 100,
-      category: category as ExpenseCategory, date: finalDate,
+      category, date: finalDate,
       installments: totalInst,
     };
     setSaving(true);
@@ -132,7 +137,10 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             <CreditCardIcon size={20} />
           </button>
         ) : (
-          <Button variant="outline" className="w-full border-dashed border-muted-foreground/30 rounded-xl">
+          <Button
+            variant="outline"
+            className="w-full border-dashed border-muted-foreground/30 rounded-xl"
+          >
             <CreditCardIcon size={15} className="mr-2" /> Adicionar gasto
           </Button>
         )}
@@ -198,10 +206,10 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
               <CategorySelect
-                value={category}
-                onChange={setCategory}
                 type="expense"
-                className="rounded-xl h-11"
+                value={category}
+                onChange={v => setCategory(v as ExpenseCategory)}
+                className="h-11"
               />
             </div>
           </div>

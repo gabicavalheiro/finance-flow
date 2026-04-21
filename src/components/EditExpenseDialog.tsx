@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
+import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
 import { updateExpense } from '@/lib/store';
+import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
-import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   expense: Expense;
@@ -22,7 +22,7 @@ interface Props {
 export default function EditExpenseDialog({ expense, cards, open, onClose, onSaved }: Props) {
   const [name, setName]                 = useState(expense.name);
   const [amount, setAmount]             = useState(String(expense.totalAmount));
-  const [category, setCategory]         = useState<string>(expense.category);
+  const [category, setCategory]         = useState<ExpenseCategory>(expense.category);
   const [cardId, setCardId]             = useState(expense.cardId);
   const [date, setDate]                 = useState(expense.date);
   const [installments, setInstallments] = useState(String(expense.installments));
@@ -35,7 +35,7 @@ export default function EditExpenseDialog({ expense, cards, open, onClose, onSav
 
     const updated: Expense = {
       ...expense, name, totalAmount: parsed,
-      category: category as ExpenseCategory, cardId, date,
+      category, cardId, date,
       installments: parseInt(installments) || 1,
     };
 
@@ -77,11 +77,13 @@ export default function EditExpenseDialog({ expense, cards, open, onClose, onSav
           </div>
           <div>
             <Label>Categoria</Label>
-            <CategorySelect
-              value={category}
-              onChange={setCategory}
-              type="expense"
-            />
+            <div className="mt-1">
+              <CategorySelect
+                type="expense"
+                value={category}
+                onChange={v => setCategory(v as ExpenseCategory)}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

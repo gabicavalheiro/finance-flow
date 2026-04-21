@@ -4,139 +4,106 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { saveCustomCategory, CustomCategory } from '@/lib/customCategories';
-import { generateId } from '@/lib/helpers';
 import {
   UtensilsCrossed, Car, Gamepad2, Heart, GraduationCap,
-  ShoppingBag, Home, Plane, Repeat, Landmark, Zap,
-  Briefcase, Laptop, Building2, TrendingUp, Gift,
-  Star, Music, Coffee, Dumbbell, Wrench, Camera,
-  Baby, PawPrint, MoreHorizontal,
+  ShoppingBag, Home, Plane, Repeat, MoreHorizontal,
+  Landmark, Zap, Wallet, Coffee, Dog, Dumbbell, Music,
+  Shirt, Scissors, Baby, Pill, Gift, Briefcase,
 } from 'lucide-react';
+import { generateId } from '@/lib/helpers';
+import { saveCustomCategory, CustomCategory } from '@/lib/customCategories';
+import { cn } from '@/lib/utils';
 
 const ICON_OPTIONS = [
   { name: 'UtensilsCrossed', Icon: UtensilsCrossed },
-  { name: 'ShoppingBag',     Icon: ShoppingBag     },
-  { name: 'Car',             Icon: Car             },
-  { name: 'Home',            Icon: Home            },
-  { name: 'Heart',           Icon: Heart           },
-  { name: 'Gamepad2',        Icon: Gamepad2        },
-  { name: 'GraduationCap',   Icon: GraduationCap   },
-  { name: 'Plane',           Icon: Plane           },
-  { name: 'Repeat',          Icon: Repeat          },
-  { name: 'Landmark',        Icon: Landmark        },
-  { name: 'Zap',             Icon: Zap             },
-  { name: 'Briefcase',       Icon: Briefcase       },
-  { name: 'Laptop',          Icon: Laptop          },
-  { name: 'Building2',       Icon: Building2       },
-  { name: 'TrendingUp',      Icon: TrendingUp      },
-  { name: 'Gift',            Icon: Gift            },
-  { name: 'Star',            Icon: Star            },
-  { name: 'Music',           Icon: Music           },
-  { name: 'Coffee',          Icon: Coffee          },
-  { name: 'Dumbbell',        Icon: Dumbbell        },
-  { name: 'Wrench',          Icon: Wrench          },
-  { name: 'Camera',          Icon: Camera          },
-  { name: 'Baby',            Icon: Baby            },
-  { name: 'PawPrint',        Icon: PawPrint        },
-  { name: 'MoreHorizontal',  Icon: MoreHorizontal  },
+  { name: 'Car',             Icon: Car },
+  { name: 'Gamepad2',        Icon: Gamepad2 },
+  { name: 'Heart',           Icon: Heart },
+  { name: 'GraduationCap',   Icon: GraduationCap },
+  { name: 'ShoppingBag',     Icon: ShoppingBag },
+  { name: 'Home',            Icon: Home },
+  { name: 'Plane',           Icon: Plane },
+  { name: 'Repeat',          Icon: Repeat },
+  { name: 'Landmark',        Icon: Landmark },
+  { name: 'Zap',             Icon: Zap },
+  { name: 'Wallet',          Icon: Wallet },
+  { name: 'Coffee',          Icon: Coffee },
+  { name: 'Dog',             Icon: Dog },
+  { name: 'Dumbbell',        Icon: Dumbbell },
+  { name: 'Music',           Icon: Music },
+  { name: 'Shirt',           Icon: Shirt },
+  { name: 'Scissors',        Icon: Scissors },
+  { name: 'Baby',            Icon: Baby },
+  { name: 'Pill',            Icon: Pill },
+  { name: 'Gift',            Icon: Gift },
+  { name: 'Briefcase',       Icon: Briefcase },
+  { name: 'MoreHorizontal',  Icon: MoreHorizontal },
 ];
 
 const COLOR_OPTIONS = [
-  '30 90% 55%',
-  '0 72% 51%',
-  '320 70% 55%',
-  '280 70% 58%',
-  '263 70% 58%',
-  '210 70% 55%',
-  '200 80% 50%',
-  '152 69% 45%',
-  '155 70% 42%',
-  '45 90% 50%',
-  '38 92% 50%',
-  '240 5% 55%',
+  '263 70% 58%', '220 70% 55%', '30 90% 55%',  '152 69% 45%',
+  '0 72% 51%',   '280 70% 58%', '320 70% 55%', '45 90% 50%',
+  '200 80% 50%', '210 70% 55%', '38 92% 50%',  '155 70% 42%',
+  '340 80% 50%', '145 75% 40%', '25 95% 50%',  '0 0% 55%',
 ];
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  defaultType?: 'expense' | 'income';
-  onCreated: (category: CustomCategory) => void;
+  defaultType: 'expense' | 'income';
+  onCreated: (cat: CustomCategory) => void;
 }
 
-export default function CreateCategoryDialog({ open, onClose, defaultType = 'expense', onCreated }: Props) {
-  const [label, setLabel]                 = useState('');
-  const [selectedIcon, setSelectedIcon]   = useState('Star');
-  const [selectedColor, setSelectedColor] = useState('263 70% 58%');
-  const [categoryType, setCategoryType]   = useState<'expense' | 'income' | 'both'>(defaultType);
-  const [saving, setSaving]               = useState(false);
+export default function CreateCategoryDialog({ open, onClose, defaultType, onCreated }: Props) {
+  const [label, setLabel]           = useState('');
+  const [icon, setIcon]             = useState('MoreHorizontal');
+  const [color, setColor]           = useState('263 70% 58%');
+  const [categoryType, setCatType]  = useState<'expense' | 'income' | 'both'>(defaultType);
 
   const reset = () => {
-    setLabel('');
-    setSelectedIcon('Star');
-    setSelectedColor('263 70% 58%');
-    setCategoryType(defaultType);
+    setLabel(''); setIcon('MoreHorizontal'); setColor('263 70% 58%');
+    setCatType(defaultType);
   };
 
-  const handleClose = () => { reset(); onClose(); };
+  const handleSave = () => {
+    if (!label.trim()) { toast.error('Informe o nome da categoria'); return; }
 
-  const handleCreate = async () => {
-    if (!label.trim()) { toast.error('Digite um nome para a categoria'); return; }
-    setSaving(true);
-    const newCat: CustomCategory = {
+    const cat: CustomCategory = {
       id: `custom_${generateId()}`,
       label: label.trim(),
-      icon: selectedIcon,
-      color: selectedColor,
+      icon,
+      color,
       categoryType,
     };
-    try {
-      await saveCustomCategory(newCat);
-      toast.success(`Categoria "${newCat.label}" criada!`);
-      onCreated(newCat);
-      reset();
-      onClose();
-    } catch {
-      toast.error('Erro ao salvar categoria');
-    }
-    setSaving(false);
+
+    saveCustomCategory(cat);
+    toast.success(`Categoria "${cat.label}" criada!`);
+    onCreated(cat);
+    reset();
+    onClose();
   };
 
-  const IconComponent = ICON_OPTIONS.find(i => i.name === selectedIcon)?.Icon ?? Star;
+  const SelectedIcon = ICON_OPTIONS.find(o => o.name === icon)?.Icon ?? MoreHorizontal;
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && handleClose()}>
-      <DialogContent
-        className="bg-card border-border w-[calc(100vw-32px)] max-w-sm rounded-3xl p-0 overflow-hidden mx-auto"
-      >
-        {/* Header fixo */}
-        <div className="px-5 pt-5 pb-4 border-b border-border">
+    <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
+      <DialogContent className="bg-card border-border rounded-3xl w-[calc(100vw-32px)] max-w-sm mx-auto p-0 overflow-hidden">
+        <div className="px-5 pt-5 pb-3 border-b border-border">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">Nova Categoria</DialogTitle>
+            <DialogTitle className="text-base font-semibold">Nova categoria</DialogTitle>
           </DialogHeader>
         </div>
 
-        {/* Conteúdo com scroll */}
-        <div className="overflow-y-auto max-h-[70vh] px-5 py-4 space-y-4">
-
-          {/* Preview */}
-          <div className="flex items-center gap-3 bg-secondary/50 rounded-2xl px-4 py-3">
+        <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Prévia */}
+          <div className="flex items-center gap-3 p-3 bg-secondary rounded-xl">
             <div
-              className="flex items-center justify-center rounded-xl shrink-0"
-              style={{
-                width: 40, height: 40,
-                background: `hsl(${selectedColor} / 0.15)`,
-                color: `hsl(${selectedColor})`,
-              }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `hsl(${color} / 0.2)`, color: `hsl(${color})` }}
             >
-              <IconComponent size={18} />
+              <SelectedIcon size={18} />
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{label || 'Nome da categoria'}</p>
-              <p className="text-xs text-muted-foreground">
-                {categoryType === 'expense' ? 'Gastos' : categoryType === 'income' ? 'Ganhos' : 'Gastos & Ganhos'}
-              </p>
-            </div>
+            <span className="text-sm font-medium">{label || 'Nome da categoria'}</span>
           </div>
 
           {/* Nome */}
@@ -145,10 +112,9 @@ export default function CreateCategoryDialog({ open, onClose, defaultType = 'exp
             <Input
               value={label}
               onChange={e => setLabel(e.target.value)}
-              placeholder="Ex: Pet, Academia, Streaming…"
+              placeholder="Ex: Pet, Farmácia, Academia…"
               className="bg-secondary border-border"
               maxLength={30}
-              autoFocus
             />
           </div>
 
@@ -156,17 +122,17 @@ export default function CreateCategoryDialog({ open, onClose, defaultType = 'exp
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Usar em</Label>
             <div className="grid grid-cols-3 gap-1.5 bg-secondary rounded-xl p-1">
-              {(['expense', 'income', 'both'] as const).map(t => (
+              {([['expense', 'Gastos'], ['income', 'Ganhos'], ['both', 'Ambos']] as const).map(([v, lbl]) => (
                 <button
-                  key={t}
-                  onClick={() => setCategoryType(t)}
-                  className="py-2 rounded-lg text-xs font-medium transition-all"
+                  key={v}
+                  onClick={() => setCatType(v)}
+                  className="py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: categoryType === t ? `hsl(${selectedColor})` : 'transparent',
-                    color: categoryType === t ? '#fff' : 'hsl(240 5% 55%)',
+                    background: categoryType === v ? `hsl(${color})` : 'transparent',
+                    color: categoryType === v ? '#fff' : 'hsl(var(--muted-foreground))',
                   }}
                 >
-                  {t === 'expense' ? 'Gastos' : t === 'income' ? 'Ganhos' : 'Ambos'}
+                  {lbl}
                 </button>
               ))}
             </div>
@@ -175,19 +141,13 @@ export default function CreateCategoryDialog({ open, onClose, defaultType = 'exp
           {/* Cor */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Cor</Label>
-            <div className="flex flex-wrap gap-2.5">
-              {COLOR_OPTIONS.map(color => (
+            <div className="grid grid-cols-8 gap-1.5">
+              {COLOR_OPTIONS.map(c => (
                 <button
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
-                  className="w-8 h-8 rounded-full transition-all"
-                  style={{
-                    background: `hsl(${color})`,
-                    outline: selectedColor === color ? `2.5px solid hsl(${color})` : 'none',
-                    outlineOffset: 2,
-                    opacity: selectedColor === color ? 1 : 0.55,
-                    transform: selectedColor === color ? 'scale(1.18)' : 'scale(1)',
-                  }}
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={cn('w-7 h-7 rounded-lg transition-all', color === c && 'ring-2 ring-offset-2 ring-offset-card ring-white/60 scale-110')}
+                  style={{ background: `hsl(${c})` }}
                 />
               ))}
             </div>
@@ -196,39 +156,37 @@ export default function CreateCategoryDialog({ open, onClose, defaultType = 'exp
           {/* Ícone */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Ícone</Label>
-            <div className="grid grid-cols-7 gap-1.5">
+            <div className="grid grid-cols-6 gap-1.5">
               {ICON_OPTIONS.map(({ name, Icon }) => (
                 <button
                   key={name}
-                  onClick={() => setSelectedIcon(name)}
-                  className="flex items-center justify-center rounded-xl h-9 w-full transition-all"
-                  style={{
-                    background: selectedIcon === name ? `hsl(${selectedColor} / 0.2)` : 'hsl(240 5% 12%)',
-                    color: selectedIcon === name ? `hsl(${selectedColor})` : 'hsl(240 5% 55%)',
-                    border: selectedIcon === name
-                      ? `1.5px solid hsl(${selectedColor} / 0.5)`
-                      : '1.5px solid transparent',
-                  }}
+                  onClick={() => setIcon(name)}
+                  className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center transition-all',
+                    icon === name ? 'ring-2 ring-offset-1 ring-offset-card scale-105' : 'bg-secondary hover:bg-secondary/80'
+                  )}
+                  style={icon === name
+                    ? { background: `hsl(${color} / 0.2)`, color: `hsl(${color})` }
+                    : { color: 'hsl(var(--muted-foreground))' }
+                  }
                 >
-                  <Icon size={15} />
+                  <Icon size={16} />
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Botões fixos no rodapé */}
         <div className="px-5 pb-5 pt-3 border-t border-border flex gap-2">
-          <Button variant="outline" className="flex-1 border-border" onClick={handleClose}>
+          <Button variant="outline" className="flex-1 border-border" onClick={() => { reset(); onClose(); }}>
             Cancelar
           </Button>
           <Button
             className="flex-1 text-white"
-            style={{ background: `hsl(${selectedColor})` }}
-            onClick={handleCreate}
-            disabled={saving}
+            style={{ background: `hsl(${color})` }}
+            onClick={handleSave}
           >
-            {saving ? 'Salvando...' : 'Criar categoria'}
+            Criar categoria
           </Button>
         </div>
       </DialogContent>

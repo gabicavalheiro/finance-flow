@@ -1,70 +1,64 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Check } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG, ExpenseCategory, IncomeCategory } from '@/lib/types';
-import { CustomCategory, isCustomCategory } from '@/lib/customCategories';
-import { useCustomCategories } from '@/contexts/CustomCategoryContext';
+import {
+  getCustomCategoriesForType, resolveCategoryInfo, CustomCategory,
+} from '@/lib/customCategories';
 import CreateCategoryDialog from '@/components/CreateCategoryDialog';
+import { cn } from '@/lib/utils';
 
 interface Props {
-  value: string;
-  onChange: (value: string) => void;
   type: 'expense' | 'income';
+  value: string;
+  onChange: (v: string) => void;
   className?: string;
 }
 
-export default function CategorySelect({ value, onChange, type, className }: Props) {
-  const { customCategories, reload } = useCustomCategories();
-  const [open, setOpen]               = useState(false);
-  const [createOpen, setCreateOpen]   = useState(false);
-  const listRef                        = useRef<HTMLDivElement>(null);
+export default function CategorySelect({ type, value, onChange, className }: Props) {
+  const [open, setOpen]           = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [customCats, setCustomCats] = useState<CustomCategory[]>(() => getCustomCategoriesForType(type));
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
-  const filtered = customCategories.filter(
-    c => c.categoryType === 'both' || c.categoryType === type
-  );
+  // Recarrega custom cats quando o tipo muda
+  useEffect(() => {
+    setCustomCats(getCustomCategoriesForType(type));
+  }, [type]);
+
+  // Scroll para o item selecionado ao abrir
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => selectedRef.current?.scrollIntoView({ block: 'nearest' }), 50);
+    }
+  }, [open]);
 
   const standardEntries = type === 'expense'
-    ? Object.entries(CATEGORY_CONFIG) as [ExpenseCategory, { label: string }][]
-    : Object.entries(INCOME_CATEGORY_CONFIG) as [IncomeCategory, { label: string }][];
+    ? Object.entries(CATEGORY_CONFIG) as [string, { label: string; color: string }][]
+    : Object.entries(INCOME_CATEGORY_CONFIG) as [string, { label: string; color: string }][];
 
-  const getDisplayLabel = () => {
-    if (isCustomCategory(value)) {
-      return customCategories.find(c => c.id === value)?.label ?? value;
-    }
-    if (type === 'expense') return CATEGORY_CONFIG[value as ExpenseCategory]?.label ?? value;
-    return INCOME_CATEGORY_CONFIG[value as IncomeCategory]?.label ?? value;
-  };
+  const allItems = [
+    ...standardEntries.map(([id, cfg]) => ({ id, label: cfg.label, color: cfg.color })),
+    ...customCats.map(c => ({ id: c.id, label: c.label, color: c.color })),
+  ];
 
-  const handleSelect = (val: string) => {
-    onChange(val);
+  const selectedLabel = resolveCategoryInfo(value).label;
+  const selectedColor = resolveCategoryInfo(value).color;
+
+  const handleSelect = (id: string) => {
+    onChange(id);
     setOpen(false);
   };
 
   const handleCreateClick = () => {
     setOpen(false);
-    setTimeout(() => setCreateOpen(true), 120);
+    setCreateOpen(true);
   };
 
-  const handleCategoryCreated = async (cat: CustomCategory) => {
-    await reload();
+  const handleCategoryCreated = (cat: CustomCategory) => {
+    setCustomCats(getCustomCategoriesForType(type));
     onChange(cat.id);
   };
-
-  // Scroll o item selecionado para a view quando abrir
-  useEffect(() => {
-    if (open && listRef.current) {
-      const selected = listRef.current.querySelector('[data-selected="true"]') as HTMLElement | null;
-      if (selected) {
-        selected.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [open]);
-
-  const itemClass = (itemValue: string) =>
-    `flex items-center justify-between px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors
-     ${value === itemValue
-       ? 'bg-primary/10 text-primary font-medium'
-       : 'hover:bg-accent text-foreground'}`;
 
   return (
     <>
@@ -72,69 +66,64 @@ export default function CategorySelect({ value, onChange, type, className }: Pro
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={`
-              flex items-center justify-between w-full px-3 h-10 mt-1
-              bg-secondary border border-border rounded-md text-sm
-              hover:bg-secondary/80 transition-colors focus:outline-none
-              focus:ring-2 focus:ring-ring focus:ring-offset-1
-              ${className ?? ''}
-            `}
+            className={cn(
+              'flex h-10 w-full items-center justify-between rounded-xl border border-border/60 bg-secondary px-3 py-2 text-sm',
+              'hover:border-border transition-colors',
+              'focus:outline-none focus:ring-2 focus:ring-ring/40',
+              open && 'border-primary/60 ring-2 ring-ring/30',
+              className,
+            )}
           >
-            <span className="truncate">{getDisplayLabel()}</span>
-            <ChevronDown size={14} className="text-muted-foreground shrink-0 ml-2" />
+            <span className="flex items-center gap-2 min-w-0">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ background: `hsl(${selectedColor})` }}
+              />
+              <span className="truncate">{selectedLabel}</span>
+            </span>
+            <ChevronDown size={14} className="text-muted-foreground shrink-0 ml-1" />
           </button>
         </PopoverTrigger>
 
         <PopoverContent
-          className="p-0 w-[--radix-popover-trigger-width] overflow-hidden rounded-xl border border-border bg-popover shadow-lg"
+          className="p-0 w-[var(--radix-popover-trigger-width)] bg-[hsl(240_8%_15%)] border border-white/8 rounded-2xl shadow-2xl overflow-hidden"
           align="start"
           sideOffset={4}
           avoidCollisions
         >
           {/* Lista scrollável */}
-          <div
-            ref={listRef}
-            className="overflow-y-auto overscroll-contain p-1"
-            style={{ maxHeight: 220 }}
-          >
-            {standardEntries.map(([key, cfg]) => (
-              <div
-                key={key}
-                data-selected={value === key}
-                className={itemClass(key)}
-                onClick={() => handleSelect(key)}
+          <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 220 }}>
+            {allItems.map(item => (
+              <button
+                key={item.id}
+                ref={item.id === value ? selectedRef : undefined}
+                type="button"
+                onClick={() => handleSelect(item.id)}
+                className={cn(
+                  'flex items-center gap-2.5 w-full px-3 py-2.5 text-sm transition-colors text-left',
+                  item.id === value
+                    ? 'bg-white/8 text-foreground font-medium'
+                    : 'text-foreground/80 hover:bg-white/5'
+                )}
               >
-                <span>{cfg.label}</span>
-                {value === key && <Check size={13} className="text-primary shrink-0" />}
-              </div>
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ background: `hsl(${item.color})` }}
+                />
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.id === value && (
+                  <Check size={13} className="shrink-0 text-primary" />
+                )}
+              </button>
             ))}
-
-            {filtered.length > 0 && (
-              <>
-                <div className="px-2 pt-2 pb-1 text-[10px] text-muted-foreground uppercase tracking-wide font-medium border-t border-border mt-1">
-                  Personalizadas
-                </div>
-                {filtered.map(cat => (
-                  <div
-                    key={cat.id}
-                    data-selected={value === cat.id}
-                    className={itemClass(cat.id)}
-                    onClick={() => handleSelect(cat.id)}
-                  >
-                    <span>{cat.label}</span>
-                    {value === cat.id && <Check size={13} className="text-primary shrink-0" />}
-                  </div>
-                ))}
-              </>
-            )}
           </div>
 
-          {/* Botão fixo fora do scroll */}
-          <div className="border-t border-border p-1">
+          {/* Botão fixo "Criar nova categoria" */}
+          <div className="border-t border-white/8 p-1">
             <button
               type="button"
               onClick={handleCreateClick}
-              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent"
+              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
               style={{ color: 'hsl(263 70% 68%)' }}
             >
               <Plus size={14} />

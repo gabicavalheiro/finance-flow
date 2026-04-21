@@ -34,6 +34,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { resolveCategoryInfo } from '@/lib/customCategories';
 
 const PIE_COLORS = [
   'hsl(263 70% 58%)', 'hsl(220 70% 55%)', 'hsl(30 90% 55%)', 'hsl(152 69% 45%)',
@@ -84,9 +85,15 @@ export default function Dashboard() {
 
   const allInstallments = computeInstallmentsForMonth(expenses, cards, month);
   const installments    = selectedCardId ? allInstallments.filter(i => i.cardId === selectedCardId) : allInstallments;
-  const categoryTotals  = computeCategoryTotals(allInstallments, fixedExpenses);
+  const categoryTotals = computeCategoryTotals(allInstallments, fixedExpenses);
 
-  const totalLimit     = cards.reduce((s, c) => s + c.limit, 0);
+  // Inclui gastos variáveis no totalizador de categorias
+  const allCategoryTotals = { ...categoryTotals };
+  for (const tx of varTxs) {
+    if (tx.type === 'expense') {
+      allCategoryTotals[tx.category] = (allCategoryTotals[tx.category] || 0) + tx.amount;
+    }
+  }  const totalLimit     = cards.reduce((s, c) => s + c.limit, 0);
   const totalCardSpent = allInstallments.reduce((s, i) => s + i.amount, 0);
   const available      = totalLimit - totalCardSpent;
 
@@ -104,14 +111,14 @@ export default function Dashboard() {
   const collapseVar   = useCollapse(varTxs.length);
   const collapseFixed = useCollapse(fixedExpenses.length);
 
-  const pieData = Object.entries(categoryTotals)
-    .filter(([, v]) => v > 0)
-    .map(([key, value]) => ({
-      name:  CATEGORY_CONFIG[key as ExpenseCategory]?.label ?? key,
-      value,
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+  const pieData = Object.entries(allCategoryTotals)
+  .filter(([, v]) => v > 0)
+  .map(([key, value]) => ({
+    name:  resolveCategoryInfo(key).label,
+    value,
+  }))
+  .sort((a, b) => b.value - a.value)
+  .slice(0, 8)
 
   const confirmDeleteExpense = async () => {
     if (!deletingExpenseId) return;

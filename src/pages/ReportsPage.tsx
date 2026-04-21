@@ -6,7 +6,8 @@ import {
   getCards, getExpenses, getFixedExpenses,
   computeInstallmentsForMonth, computeCategoryTotals,
 } from '@/lib/store';
-import { CATEGORY_CONFIG, ExpenseCategory, CreditCard, Expense, FixedExpense } from '@/lib/types';
+import { CreditCard, Expense, FixedExpense } from '@/lib/types';
+import { resolveCategoryInfo } from '@/lib/customCategories';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 
 export default function ReportsPage() {
@@ -39,13 +40,12 @@ export default function ReportsPage() {
     return { name: label, total };
   });
 
+  // ── FIX: usa resolveCategoryInfo para suportar categorias customizadas ──
   const categoryList = Object.entries(categoryTotals)
-    .map(([key, value]) => ({
-      key:   key as ExpenseCategory,
-      label: CATEGORY_CONFIG[key as ExpenseCategory]?.label || key,
-      value,
-      color: CATEGORY_CONFIG[key as ExpenseCategory]?.color || '240 5% 55%',
-    }))
+    .map(([key, value]) => {
+      const info = resolveCategoryInfo(key);
+      return { key, label: info.label, value, color: info.color };
+    })
     .sort((a, b) => b.value - a.value);
 
   const total = categoryList.reduce((s, c) => s + c.value, 0);

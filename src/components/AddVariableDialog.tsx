@@ -13,9 +13,9 @@ import {
 } from '@/lib/types';
 import { addVariableTransaction } from '@/lib/store';
 import { generateId } from '@/lib/helpers';
+import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
-import CategorySelect from '@/components/CategorySelect';
 
 interface Props { onAdded: () => void; }
 
@@ -25,7 +25,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
   const [name, setName]         = useState('');
   const [amount, setAmount]     = useState('');
   const [method, setMethod]     = useState<PaymentMethod>('pix');
-  const [category, setCategory] = useState<string>('other');
+  const [category, setCategory] = useState<ExpenseCategory | IncomeCategory>('other');
   const [date, setDate]         = useState(new Date().toISOString().split('T')[0]);
 
   const reset = () => {
@@ -45,9 +45,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
 
     const tx: VariableTransaction = {
       id: generateId(), name, amount: parsed,
-      type, paymentMethod: method,
-      category: category as ExpenseCategory | IncomeCategory,
-      date,
+      type, paymentMethod: method, category, date,
     };
     try {
       await addVariableTransaction(tx);
@@ -112,8 +110,12 @@ export default function AddVariableDialog({ onAdded }: Props) {
           {/* Nome */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Nome</Label>
-            <Input value={name} onChange={e => setName(e.target.value)}
-              placeholder="Ex: Mercado, Freelance..." className="bg-secondary border-border" />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Descrição do lançamento"
+              className="bg-secondary border-border"
+            />
           </div>
 
           {/* Valor */}
@@ -127,9 +129,9 @@ export default function AddVariableDialog({ onAdded }: Props) {
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
               <CategorySelect
-                value={category}
-                onChange={setCategory}
                 type={type}
+                value={category}
+                onChange={v => setCategory(v as ExpenseCategory | IncomeCategory)}
               />
             </div>
             <div className="space-y-1.5">
