@@ -6,20 +6,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { ExpenseCategory, FixedExpense, CATEGORY_CONFIG, PaymentMethod, PAYMENT_METHOD_CONFIG } from '@/lib/types';
+import { ExpenseCategory, FixedExpense, PaymentMethod, PAYMENT_METHOD_CONFIG } from '@/lib/types';
 import { addFixedExpense } from '@/lib/store';
 import { generateId } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
+import CategorySelect from '@/components/CategorySelect';
 
 interface Props { onAdded: () => void; }
 
 export default function AddFixedExpenseDialog({ onAdded }: Props) {
-  const [open, setOpen]               = useState(false);
-  const [name, setName]               = useState('');
-  const [amount, setAmount]           = useState('');
-  const [category, setCategory]       = useState<ExpenseCategory>('home');
-  const [paymentMethod, setPayment]   = useState<PaymentMethod>('pix');
-  const [saving, setSaving]           = useState(false);
+  const [open, setOpen]             = useState(false);
+  const [name, setName]             = useState('');
+  const [amount, setAmount]         = useState('');
+  const [category, setCategory]     = useState<string>('home');
+  const [paymentMethod, setPayment] = useState<PaymentMethod>('pix');
+  const [saving, setSaving]         = useState(false);
 
   const reset = () => {
     setName(''); setAmount('');
@@ -35,7 +36,7 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
       id: generateId(),
       name,
       amount: parsed,
-      category,
+      category: category as ExpenseCategory,
       paymentMethod,
       paidMonths: [],
     };
@@ -84,7 +85,7 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
             <CurrencyInput value={amount} onChange={setAmount} className="bg-secondary border-border" />
           </div>
 
-          {/* Forma de pagamento + Categoria lado a lado */}
+          {/* Forma de pagamento + Categoria */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Forma de pagamento</Label>
@@ -92,15 +93,7 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
                 <SelectTrigger className="bg-secondary border-border mt-1">
                   <SelectValue />
                 </SelectTrigger>
-                {/*
-                  max-h + overflow-y-auto evita que a lista seja cortada no mobile.
-                  position="popper" mantém o dropdown no viewport.
-                */}
-                <SelectContent
-                  className="max-h-[280px] overflow-y-auto"
-                  position="popper"
-                  avoidCollisions
-                >
+                <SelectContent className="max-h-[280px] overflow-y-auto" position="popper" avoidCollisions>
                   {Object.entries(PAYMENT_METHOD_CONFIG).map(([key, cfg]) => (
                     <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
                   ))}
@@ -110,20 +103,11 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
 
             <div>
               <Label>Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as ExpenseCategory)}>
-                <SelectTrigger className="bg-secondary border-border mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent
-                  className="max-h-[280px] overflow-y-auto"
-                  position="popper"
-                  avoidCollisions
-                >
-                  {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                type="expense"
+              />
             </div>
           </div>
 

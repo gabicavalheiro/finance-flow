@@ -3,13 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { IncomeCategory, FixedIncome, INCOME_CATEGORY_CONFIG } from '@/lib/types';
+import { IncomeCategory, FixedIncome } from '@/lib/types';
 import { addIncome } from '@/lib/store';
 import { generateId } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
+import CategorySelect from '@/components/CategorySelect';
 
 interface Props { onAdded: () => void; }
 
@@ -17,7 +17,7 @@ export default function AddIncomeDialog({ onAdded }: Props) {
   const [open, setOpen]             = useState(false);
   const [name, setName]             = useState('');
   const [amount, setAmount]         = useState('');
-  const [category, setCategory]     = useState<IncomeCategory>('salary');
+  const [category, setCategory]     = useState<string>('salary');
   const [receiveDay, setReceiveDay] = useState('5');
   const [saving, setSaving]         = useState(false);
 
@@ -30,7 +30,8 @@ export default function AddIncomeDialog({ onAdded }: Props) {
 
     const income: FixedIncome = {
       id: generateId(), name, amount: parsed,
-      category, receiveDay: day, receivedMonths: [],
+      category: category as IncomeCategory,
+      receiveDay: day, receivedMonths: [],
     };
 
     setSaving(true);
@@ -58,7 +59,8 @@ export default function AddIncomeDialog({ onAdded }: Props) {
         <div className="space-y-4 mt-2">
           <div>
             <Label>Nome</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Salário"
+            <Input value={name} onChange={e => setName(e.target.value)}
+              placeholder="Ex: Salário"
               className="bg-secondary border-border" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -75,14 +77,11 @@ export default function AddIncomeDialog({ onAdded }: Props) {
           </div>
           <div>
             <Label>Categoria</Label>
-            <Select value={category} onValueChange={v => setCategory(v as IncomeCategory)}>
-              <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(INCOME_CATEGORY_CONFIG).map(([key, cfg]) => (
-                  <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CategorySelect
+              value={category}
+              onChange={setCategory}
+              type="income"
+            />
           </div>
           <Button onClick={handleSubmit} disabled={saving} className="w-full gradient-primary">
             {saving ? 'Adicionando...' : 'Adicionar'}

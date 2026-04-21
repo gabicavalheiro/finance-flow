@@ -6,22 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
+import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
 import { addExpense } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
 import NumberStepper from '@/components/ui/number-stepper';
+import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   cards: CreditCard[];
   onAdded: () => void;
-  /** Botão compacto com ícone de cartão (usado no header do dashboard) */
   iconOnly?: boolean;
-}
-
-function purchaseDateForBillingMonth(billingMonth: string): string {
-  return `${billingMonth}-01`;
 }
 
 function centsToDisplay(cents: number): string {
@@ -31,7 +27,7 @@ function centsToDisplay(cents: number): string {
 export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
   const [open, setOpen]               = useState(false);
   const [name, setName]               = useState('');
-  const [category, setCategory]       = useState<ExpenseCategory>('other');
+  const [category, setCategory]       = useState<string>('other');
   const [cardId, setCardId]           = useState('');
   const [date, setDate]               = useState(new Date().toISOString().split('T')[0]);
   const [installments, setInstallments] = useState('1');
@@ -77,7 +73,6 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
     lastEdited.current = 'total';
   };
 
-  // Calcula a data da compra com base na referência de parcela
   const computePurchaseDate = (): string => {
     if (!useInstRef || totalInst <= 1) return date;
     const card      = cards.find(c => c.id === cardId);
@@ -100,7 +95,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
     const expense: Expense = {
       id: generateId(), cardId, name,
       totalAmount: totalCents / 100,
-      category, date: finalDate,
+      category: category as ExpenseCategory, date: finalDate,
       installments: totalInst,
     };
     setSaving(true);
@@ -125,7 +120,6 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
         {iconOnly ? (
-          /* Botão compacto com ícone de cartão — usado no header do dashboard */
           <button
             className="relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-150 hover:scale-105 active:scale-95"
             style={{
@@ -138,11 +132,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             <CreditCardIcon size={20} />
           </button>
         ) : (
-          /* Botão padrão usado nas páginas de cartão */
-          <Button
-            variant="outline"
-            className="w-full border-dashed border-muted-foreground/30 rounded-xl"
-          >
+          <Button variant="outline" className="w-full border-dashed border-muted-foreground/30 rounded-xl">
             <CreditCardIcon size={15} className="mr-2" /> Adicionar gasto
           </Button>
         )}
@@ -207,14 +197,12 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as ExpenseCategory)}>
-                <SelectTrigger className="bg-secondary border-border rounded-xl h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                type="expense"
+                className="rounded-xl h-11"
+              />
             </div>
           </div>
 

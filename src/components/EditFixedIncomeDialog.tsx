@@ -3,11 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FixedIncome, IncomeCategory, INCOME_CATEGORY_CONFIG } from '@/lib/types';
+import { FixedIncome, IncomeCategory } from '@/lib/types';
 import { updateIncome } from '@/lib/store';
 import CurrencyInput from '@/components/CurrencyInput';
+import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   income: FixedIncome;
@@ -19,7 +19,7 @@ interface Props {
 export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }: Props) {
   const [name, setName]             = useState(income.name);
   const [amount, setAmount]         = useState(String(income.amount));
-  const [category, setCategory]     = useState<IncomeCategory>(income.category);
+  const [category, setCategory]     = useState<string>(income.category);
   const [receiveDay, setReceiveDay] = useState(String(income.receiveDay ?? ''));
   const [saving, setSaving]         = useState(false);
 
@@ -44,7 +44,7 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
       await updateIncome(income.id, {
         name: name.trim(),
         amount: parsed,
-        category,
+        category: category as IncomeCategory,
         receiveDay: receiveDay ? day : undefined,
       });
       toast.success('Ganho fixo atualizado!');
@@ -85,16 +85,11 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as IncomeCategory)}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(INCOME_CATEGORY_CONFIG) as [IncomeCategory, { label: string }][]).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                type="income"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Dia de recebimento</Label>

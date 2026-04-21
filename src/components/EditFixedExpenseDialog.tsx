@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FixedExpense, ExpenseCategory, PaymentMethod, CATEGORY_CONFIG, PAYMENT_METHOD_CONFIG } from '@/lib/types';
+import { FixedExpense, ExpenseCategory, PaymentMethod, PAYMENT_METHOD_CONFIG } from '@/lib/types';
 import { updateFixedExpense } from '@/lib/store';
 import CurrencyInput from '@/components/CurrencyInput';
+import CategorySelect from '@/components/CategorySelect';
 
 interface Props {
   expense: FixedExpense;
@@ -17,11 +18,11 @@ interface Props {
 }
 
 export default function EditFixedExpenseDialog({ expense, open, onClose, onSaved }: Props) {
-  const [name, setName]               = useState(expense.name);
-  const [amount, setAmount]           = useState(String(expense.amount));
-  const [category, setCategory]       = useState<ExpenseCategory>(expense.category);
-  const [paymentMethod, setPayment]   = useState<PaymentMethod>(expense.paymentMethod ?? 'pix');
-  const [saving, setSaving]           = useState(false);
+  const [name, setName]             = useState(expense.name);
+  const [amount, setAmount]         = useState(String(expense.amount));
+  const [category, setCategory]     = useState<string>(expense.category);
+  const [paymentMethod, setPayment] = useState<PaymentMethod>(expense.paymentMethod ?? 'pix');
+  const [saving, setSaving]         = useState(false);
 
   useEffect(() => {
     setName(expense.name);
@@ -40,7 +41,7 @@ export default function EditFixedExpenseDialog({ expense, open, onClose, onSaved
       await updateFixedExpense(expense.id, {
         name: name.trim(),
         amount: parsed,
-        category,
+        category: category as ExpenseCategory,
         paymentMethod,
       });
       toast.success('Gasto fixo atualizado!');
@@ -81,16 +82,11 @@ export default function EditFixedExpenseDialog({ expense, open, onClose, onSaved
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
-              <Select value={category} onValueChange={v => setCategory(v as ExpenseCategory)}>
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-                    <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                type="expense"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Pagamento</Label>
