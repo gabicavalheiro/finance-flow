@@ -1,3 +1,4 @@
+import { supabase } from './supabase';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG, ExpenseCategory } from '@/lib/types';
 
 export interface CustomCategory {
@@ -8,35 +9,89 @@ export interface CustomCategory {
   categoryType: 'expense' | 'income' | 'both';
 }
 
-const KEY = 'finapp_custom_categories';
+const LOCAL_KEY = 'finapp_custom_categories';
 
-export function getCustomCategories(): CustomCategory[] {
+// Cache em memória — populado async, usado sync em resolveCategoryInfo
+let _cache: CustomCategory[] | null = null;
+
+function fromRow(r: Record<string, unknown>): CustomCategory {
+  return {
+    id:           r.id           as string,
+    label:        r.label        as string,
+    icon:         r.icon         as string,
+    color:        r.color        as string,
+    categoryType: r.category_type as CustomCategory['categoryType'],
+  };
+}
+
+export async function getCustomCategories(): Promise<CustomCategory[]> {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    const { data, error } = await supabase
+      .from('custom_categories')
+      .select('*')
+      .order('created_at');
+
+    if (!error && data) {
+      _cache = data.map(fromRow);
+      return _cache;
+    }
+  } catch { /* segue para fallback */ }
+
+  // fallback: localStorage (dados criados antes da migração)
+  try {
+    const local: CustomCategory[] = JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]');
+    _cache = local;
+    return local;
   } catch {
+    _cache = [];
     return [];
   }
 }
 
-export function saveCustomCategory(cat: CustomCategory): void {
-  const all = getCustomCategories();
-  all.push(cat);
-  localStorage.setItem(KEY, JSON.stringify(all));
+export async function saveCustomCategory(cat: CustomCategory): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase.from('custom_categories').insert({
+    id:            cat.id,
+    user_id:       user.id,
+    label:         cat.label,
+    icon:          cat.icon,
+    color:         cat.color,
+    category_type: cat.categoryType,
+  });
+
+  if (error) {
+    // fallback para localStorage se a tabela ainda não existir
+    const all: CustomCategory[] = JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]');
+    all.push(cat);
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
+  }
+
+  _cache = null; // invalida cache para forçar re-fetch
 }
 
-export function deleteCustomCategory(id: string): void {
-  const all = getCustomCategories().filter(c => c.id !== id);
-  localStorage.setItem(KEY, JSON.stringify(all));
+export async function deleteCustomCategory(id: string): Promise<void> {
+  await supabase.from('custom_categories').delete().eq('id', id);
+  // remove do localStorage também (compatibilidade)
+  try {
+    const all: CustomCategory[] = JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]');
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(all.filter(c => c.id !== id)));
+  } catch { /* ignora */ }
+  _cache = null;
 }
 
-export function getCustomCategoriesForType(type: 'expense' | 'income'): CustomCategory[] {
-  return getCustomCategories().filter(
-    c => c.categoryType === 'both' || c.categoryType === type
-  );
+export async function getCustomCategoriesForType(type: 'expense' | 'income'): Promise<CustomCategory[]> {
+  const all = await getCustomCategories();
+  return all.filter(c => c.categoryType === 'both' || c.categoryType === type);
 }
 
+/**
+ * Sync — usa o cache em memória. Só funciona após pelo menos um
+ * `await getCustomCategories()` (feito automaticamente pelo context).
+ */
 export function findCustomCategory(id: string): CustomCategory | undefined {
-  return getCustomCategories().find(c => c.id === id);
+  return (_cache ?? []).find(c => c.id === id);
 }
 
 export function isCustomCategory(id: string): boolean {
@@ -44,22 +99,18 @@ export function isCustomCategory(id: string): boolean {
 }
 
 /**
- * Resolve o label e a cor de qualquer chave de categoria —
- * funciona tanto para categorias padrão quanto para customizadas.
+ * Resolve label + cor de qualquer chave de categoria (padrão ou custom).
+ * Usa o cache em memória populado pelo CustomCategoryContext na inicialização.
  */
 export function resolveCategoryInfo(key: string): { label: string; color: string; icon?: string } {
-  // 1. Tenta nas categorias de gasto padrão
   const expense = CATEGORY_CONFIG[key as ExpenseCategory];
   if (expense) return { label: expense.label, color: expense.color, icon: expense.icon };
 
-  // 2. Tenta nas categorias de ganho padrão
   const income = INCOME_CATEGORY_CONFIG[key as keyof typeof INCOME_CATEGORY_CONFIG];
   if (income) return { label: income.label, color: income.color, icon: income.icon };
 
-  // 3. Busca nas categorias customizadas do localStorage
   const custom = findCustomCategory(key);
   if (custom) return { label: custom.label, color: custom.color, icon: custom.icon };
 
-  // 4. Fallback: exibe a chave crua (nunca deve chegar aqui)
-  return { label: key, color: '240 5% 55%' };
+  return { label: 'Outros', color: '240 5% 55%' };
 }

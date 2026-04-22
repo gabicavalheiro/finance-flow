@@ -19,15 +19,16 @@ import { formatCurrency, getCurrentMonth } from '@/lib/helpers';
 import { INCOME_CATEGORY_CONFIG, FixedExpense, FixedIncome } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { formatReceiveDay } from '@/components/DayPicker';
 
 export default function FixedPage() {
-  const [month, setMonth]               = useState(getCurrentMonth());
-  const [fixedState, setFixedState]     = useState<FixedExpense[]>([]);
-  const [incomeState, setIncomeState]   = useState<FixedIncome[]>([]);
-  const [loading, setLoading]           = useState(true);
+  const [month, setMonth] = useState(getCurrentMonth());
+  const [fixedState, setFixedState] = useState<FixedExpense[]>([]);
+  const [incomeState, setIncomeState] = useState<FixedIncome[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // estados de edição
-  const [editingFixed, setEditingFixed]   = useState<FixedExpense | null>(null);
+  const [editingFixed, setEditingFixed] = useState<FixedExpense | null>(null);
   const [editingIncome, setEditingIncome] = useState<FixedIncome | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -39,17 +40,17 @@ export default function FixedPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const totalIncome  = incomeState.reduce((s, i) => s + i.amount, 0);
+  const totalIncome = incomeState.reduce((s, i) => s + i.amount, 0);
   const totalExpense = fixedState.reduce((s, f) => s + f.amount, 0);
-  const balance      = totalIncome - totalExpense;
-  const balancePct   = totalIncome > 0 ? Math.min((totalExpense / totalIncome) * 100, 100) : 0;
+  const balance = totalIncome - totalExpense;
+  const balancePct = totalIncome > 0 ? Math.min((totalExpense / totalIncome) * 100, 100) : 0;
 
-  const paidCount     = fixedState.filter(f => f.paidMonths.includes(month)).length;
+  const paidCount = fixedState.filter(f => f.paidMonths.includes(month)).length;
   const receivedCount = incomeState.filter(i => i.receivedMonths.includes(month)).length;
 
   // ── Collapses ──
   const collapseIncome = useCollapse(incomeState.length);
-  const collapseFixed  = useCollapse(fixedState.length);
+  const collapseFixed = useCollapse(fixedState.length);
 
   /* ── Expense handlers ── */
   const togglePaid = async (id: string) => {
@@ -201,7 +202,7 @@ export default function FixedPage() {
                     </p>
                     {income.receiveDay && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <CalendarDays size={10} /> Dia {income.receiveDay}
+                        <CalendarDays size={10} /> {formatReceiveDay(income.receiveDay)}
                       </p>
                     )}
                   </div>

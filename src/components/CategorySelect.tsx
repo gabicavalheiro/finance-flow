@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG, ExpenseCategory, IncomeCategory } from '@/lib/types';
-import {
-  getCustomCategoriesForType, resolveCategoryInfo, CustomCategory,
-} from '@/lib/customCategories';
+import { resolveCategoryInfo, CustomCategory } from '@/lib/customCategories';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import CreateCategoryDialog from '@/components/CreateCategoryDialog';
 import { cn } from '@/lib/utils';
 
@@ -16,15 +15,15 @@ interface Props {
 }
 
 export default function CategorySelect({ type, value, onChange, className }: Props) {
-  const [open, setOpen]           = useState(false);
+  const [open, setOpen]             = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [customCats, setCustomCats] = useState<CustomCategory[]>(() => getCustomCategoriesForType(type));
-  const selectedRef = useRef<HTMLButtonElement>(null);
+  const selectedRef                 = useRef<HTMLButtonElement>(null);
 
-  // Recarrega custom cats quando o tipo muda
-  useEffect(() => {
-    setCustomCats(getCustomCategoriesForType(type));
-  }, [type]);
+  // Usa o context que já carregou do Supabase
+  const { customCategories, reload } = useCustomCategories();
+  const customCats = customCategories.filter(
+    c => c.categoryType === 'both' || c.categoryType === type
+  );
 
   // Scroll para o item selecionado ao abrir
   useEffect(() => {
@@ -55,8 +54,8 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
     setCreateOpen(true);
   };
 
-  const handleCategoryCreated = (cat: CustomCategory) => {
-    setCustomCats(getCustomCategoriesForType(type));
+  const handleCategoryCreated = async (cat: CustomCategory) => {
+    await reload(); // recarrega do Supabase
     onChange(cat.id);
   };
 

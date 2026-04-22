@@ -14,7 +14,7 @@ function dbToCard(r: any): CreditCard {
     id: r.id, name: r.name, brand: r.brand,
     lastDigits: r.last_digits, limit: r.limit,
     closingDay: r.closing_day,
-    dueDay: r.due_day ?? r.closing_day + 7,   // fallback: fechamento + 7 dias
+    dueDay: r.due_day ?? r.closing_day + 7,
     customGradient: r.custom_gradient ?? undefined,
   };
 }
@@ -140,11 +140,11 @@ export async function addFixedExpense(expense: FixedExpense): Promise<void> {
 }
 export async function updateFixedExpense(id: string, fields: Partial<FixedExpense>): Promise<void> {
   const dbFields: any = {};
-  if (fields.name !== undefined)           dbFields.name           = fields.name;
-  if (fields.amount !== undefined)         dbFields.amount         = fields.amount;
-  if (fields.category !== undefined)       dbFields.category       = fields.category;
-  if (fields.paidMonths !== undefined)     dbFields.paid_months    = fields.paidMonths;
-  if (fields.paymentMethod !== undefined)  dbFields.payment_method = fields.paymentMethod;
+  if (fields.name          !== undefined) dbFields.name           = fields.name;
+  if (fields.amount        !== undefined) dbFields.amount         = fields.amount;
+  if (fields.category      !== undefined) dbFields.category       = fields.category;
+  if (fields.paidMonths    !== undefined) dbFields.paid_months    = fields.paidMonths;
+  if (fields.paymentMethod !== undefined) dbFields.payment_method = fields.paymentMethod;
   const { error } = await supabase.from('fixed_expenses').update(dbFields).eq('id', id);
   if (error) throw error;
 }
@@ -166,11 +166,11 @@ export async function addIncome(income: FixedIncome): Promise<void> {
 }
 export async function updateIncome(id: string, fields: Partial<FixedIncome>): Promise<void> {
   const dbFields: any = {};
-  if (fields.name !== undefined)            dbFields.name             = fields.name;
-  if (fields.amount !== undefined)          dbFields.amount           = fields.amount;
-  if (fields.category !== undefined)        dbFields.category         = fields.category;
-  if (fields.receiveDay !== undefined)      dbFields.receive_day      = fields.receiveDay;
-  if (fields.receivedMonths !== undefined)  dbFields.received_months  = fields.receivedMonths;
+  if (fields.name           !== undefined) dbFields.name            = fields.name;
+  if (fields.amount         !== undefined) dbFields.amount          = fields.amount;
+  if (fields.category       !== undefined) dbFields.category        = fields.category;
+  if (fields.receiveDay     !== undefined) dbFields.receive_day     = fields.receiveDay;
+  if (fields.receivedMonths !== undefined) dbFields.received_months = fields.receivedMonths;
   const { error } = await supabase.from('fixed_incomes').update(dbFields).eq('id', id);
   if (error) throw error;
 }
@@ -214,20 +214,42 @@ export async function deleteVariableTransaction(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Pure computation helpers ────────────────────────────────────────────────
+// ─── Pure computation helpers ─────────────────────────────────────────────────
 
 /**
- * Determina o mês de faturamento de uma compra.
- * Se o dia da compra > closingDay → entra na fatura do próximo mês.
+ * Determina o mês de exibição de uma compra levando em conta:
+ *  1. Se o dia da compra > closingDay → entra na fatura do próximo mês.
+ *  2. Se dueDay < closingDay → o vencimento cai no mês seguinte ao fechamento,
+ *     portanto a fatura é exibida no mês do vencimento (+1 adicional).
+ *
+ * Exemplos:
+ *  - closing=10, due=17: compra dia 5 → exibe em abril ✓
+ *  - closing=10, due=17: compra dia 15 → exibe em maio ✓
+ *  - closing=30, due=10: compra dia 15/abr → exibe em maio ✓ (fatura fecha 30/abr, vence 10/mai)
+ *  - closing=30, due=10: compra dia 15/mai → exibe em junho ✓
  */
-function getBillingMonth(purchaseDate: Date, closingDay: number): { year: number; month: number } {
+function getBillingMonth(
+  purchaseDate: Date,
+  closingDay: number,
+  dueDay: number,
+): { year: number; month: number } {
   const day   = purchaseDate.getDate();
   let   year  = purchaseDate.getFullYear();
   let   month = purchaseDate.getMonth(); // 0-indexed
+
+  // Compra após o fechamento → próxima fatura
   if (day > closingDay) {
     month += 1;
     if (month > 11) { month = 0; year += 1; }
   }
+
+  // Vencimento no mês seguinte ao fechamento (ex: fecha dia 30, vence dia 10)
+  // → a fatura pertence ao mês do vencimento
+  if (dueDay < closingDay) {
+    month += 1;
+    if (month > 11) { month = 0; year += 1; }
+  }
+
   return { year, month };
 }
 
@@ -236,24 +258,33 @@ export function computeInstallmentsForMonth(
 ): MonthlyInstallment[] {
   const cardMap = new Map(cards.map(c => [c.id, c]));
   const results: MonthlyInstallment[] = [];
+
   for (const exp of expenses) {
     const expDate    = new Date(exp.date + 'T12:00:00');
     const card       = cardMap.get(exp.cardId);
     const closingDay = card?.closingDay ?? 1;
-    const { year: billingYear, month: billingMonth } = getBillingMonth(expDate, closingDay);
+    const dueDay     = card?.dueDay     ?? closingDay + 7;
+
+    const { year: billingYear, month: billingMonth } = getBillingMonth(expDate, closingDay, dueDay);
+
     for (let i = 0; i < exp.installments; i++) {
       const d         = new Date(billingYear, billingMonth + i, 1);
       const instMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (instMonth === month) {
         results.push({
-          expenseId: exp.id, expenseName: exp.name, cardId: exp.cardId,
-          amount: exp.totalAmount / exp.installments,
-          installmentNumber: i + 1, totalInstallments: exp.installments,
-          category: exp.category, month,
+          expenseId:         exp.id,
+          expenseName:       exp.name,
+          cardId:            exp.cardId,
+          amount:            exp.totalAmount / exp.installments,
+          installmentNumber: i + 1,
+          totalInstallments: exp.installments,
+          category:          exp.category,
+          month,
         });
       }
     }
   }
+
   return results;
 }
 
@@ -276,7 +307,7 @@ export function computeIncomeCategoryTotals(incomes: FixedIncome[]): Record<stri
 export interface CardInvoice {
   id?: string;
   cardId: string;
-  month: string;      // 'YYYY-MM'
+  month: string;
   actualAmount: number;
   notes?: string;
 }
@@ -298,11 +329,11 @@ export async function getInvoicesForMonth(month: string): Promise<CardInvoice[]>
 export async function upsertInvoice(invoice: CardInvoice): Promise<void> {
   const userId = await uid();
   const { error } = await supabase.from('card_invoices').upsert({
-    user_id: userId,
-    card_id: invoice.cardId,
-    month: invoice.month,
+    user_id:       userId,
+    card_id:       invoice.cardId,
+    month:         invoice.month,
     actual_amount: invoice.actualAmount,
-    notes: invoice.notes ?? null,
+    notes:         invoice.notes ?? null,
   }, { onConflict: 'user_id,card_id,month' });
   if (error) throw error;
 }

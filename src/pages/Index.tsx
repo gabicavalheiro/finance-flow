@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Wallet, TrendingDown, TrendingUp, Scale,
-  Pencil, Trash2, ArrowDownCircle, ArrowUpCircle,
-  Zap, Banknote, ArrowLeftRight, CreditCard as CreditCardIcon, FileText,
+  Wallet, TrendingDown, TrendingUp, Scale, Pencil, Trash2,
+  ArrowDownCircle, ArrowUpCircle, Zap, Banknote, ArrowLeftRight,
+  CreditCard as CreditCardIcon, FileText, Tag,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
@@ -12,7 +12,10 @@ import EditExpenseDialog from '@/components/EditExpenseDialog';
 import EditVariableDialog from '@/components/EditVariableDialog';
 import CategoryIcon from '@/components/CategoryIcon';
 import ShowMoreButton from '@/components/ShowMoreButton';
+import BulkEditCategoryDialog from '@/components/BulkEditCategoryDialog';
+import TransactionFilterBar from '@/components/TransactionFilterBar';
 import { useCollapse } from '@/hooks/useCollapse';
+import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
   getCards, getExpenses, getFixedExpenses, getIncomes,
@@ -20,28 +23,27 @@ import {
   computeInstallmentsForMonth, computeCategoryTotals,
 } from '@/lib/store';
 import {
-  CATEGORY_CONFIG, ExpenseCategory, Expense, CreditCard,
-  FixedExpense, FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG,
+  ExpenseCategory, Expense, CreditCard, FixedExpense,
+  FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG,
 } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { supabase } from '@/lib/supabase';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 
+// ─── Constantes ───────────────────────────────────────────────────────────────
 const PIE_COLORS = [
   'hsl(263 70% 58%)', 'hsl(220 70% 55%)', 'hsl(30 90% 55%)', 'hsl(152 69% 45%)',
-  'hsl(0 72% 51%)', 'hsl(280 70% 58%)', 'hsl(320 70% 55%)', 'hsl(45 90% 50%)',
+  'hsl(0 72% 51%)',   'hsl(280 70% 58%)', 'hsl(320 70% 55%)', 'hsl(45 90% 50%)',
   'hsl(200 80% 50%)', 'hsl(210 70% 55%)',
 ];
-
 const METHOD_ICONS: Record<string, React.ReactNode> = {
   pix:      <Zap size={11} />,
   cash:     <Banknote size={11} />,
@@ -50,6 +52,16 @@ const METHOD_ICONS: Record<string, React.ReactNode> = {
   boleto:   <FileText size={11} />,
 };
 
+// ─── Separador de seção ───────────────────────────────────────────────────────
+const SectionDivider = ({ label }: { label: string }) => (
+  <div className="flex items-center gap-2 py-2">
+    <div className="flex-1 h-px bg-border" />
+    <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{label}</span>
+    <div className="flex-1 h-px bg-border" />
+  </div>
+);
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [month, setMonth]                         = useState(getCurrentMonth());
   const [selectedCardId, setSelectedCardId]       = useState<string | null>(null);
@@ -57,19 +69,21 @@ export default function Dashboard() {
   const [editingVar, setEditingVar]               = useState<VariableTransaction | null>(null);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [deletingVarId, setDeletingVarId]         = useState<string | null>(null);
+  const [bulkEditOpen, setBulkEditOpen]           = useState(false);
+  const [filterOpen, setFilterOpen]               = useState(false);
+  const [userName, setUserName]                   = useState('');
 
-  const [cards, setCards]             = useState<CreditCard[]>([]);
-  const [expenses, setExpenses]       = useState<Expense[]>([]);
-  const [fixedExpenses, setFixed]     = useState<FixedExpense[]>([]);
-  const [incomes, setIncomes]         = useState<FixedIncome[]>([]);
-  const [varTxs, setVarTxs]           = useState<VariableTransaction[]>([]);
+  const [cards, setCards]           = useState<CreditCard[]>([]);
+  const [expenses, setExpenses]     = useState<Expense[]>([]);
+  const [fixedExpenses, setFixed]   = useState<FixedExpense[]>([]);
+  const [incomes, setIncomes]       = useState<FixedIncome[]>([]);
+  const [varTxs, setVarTxs]         = useState<VariableTransaction[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [userName, setUserName]       = useState('');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserName(user?.user_metadata?.name ?? '');
-    });
+    supabase.auth.getUser().then(({ data: { user } }) =>
+      setUserName(user?.user_metadata?.name ?? '')
+    );
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -83,63 +97,71 @@ export default function Dashboard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const allInstallments = computeInstallmentsForMonth(expenses, cards, month);
-  const installments    = selectedCardId ? allInstallments.filter(i => i.cardId === selectedCardId) : allInstallments;
-  const categoryTotals = computeCategoryTotals(allInstallments, fixedExpenses);
-
-  // Inclui gastos variáveis no totalizador de categorias
-  const allCategoryTotals = { ...categoryTotals };
-  for (const tx of varTxs) {
-    if (tx.type === 'expense') {
-      allCategoryTotals[tx.category] = (allCategoryTotals[tx.category] || 0) + tx.amount;
-    }
-  }  const totalLimit     = cards.reduce((s, c) => s + c.limit, 0);
-  const totalCardSpent = allInstallments.reduce((s, i) => s + i.amount, 0);
-  const available      = totalLimit - totalCardSpent;
-
-  const totalVarInc  = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const totalVarExp  = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalIncome  = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
-  const totalExpense = totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp;
-  const balance      = totalIncome - totalExpense;
-
-  const cardMap        = new Map(cards.map(c => [c.id, c]));
+  // ── Cálculos base ──────────────────────────────────────────────────────────
+  const allInstallments = useMemo(
+    () => computeInstallmentsForMonth(expenses, cards, month),
+    [expenses, cards, month],
+  );
+  const cardMap        = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const getExpenseById = (id: string) => expenses.find(e => e.id === id);
 
-  // ── Collapses por seção ──
-  const collapseInst  = useCollapse(installments.length);
-  const collapseVar   = useCollapse(varTxs.length);
-  const collapseFixed = useCollapse(fixedExpenses.length);
+  const totalCardSpent = useMemo(() => allInstallments.reduce((s, i) => s + i.amount, 0), [allInstallments]);
+  const totalLimit     = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
+  const available      = totalLimit - totalCardSpent;
 
-  const pieData = Object.entries(allCategoryTotals)
-  .filter(([, v]) => v > 0)
-  .map(([key, value]) => ({
-    name:  resolveCategoryInfo(key).label,
-    value,
-  }))
-  .sort((a, b) => b.value - a.value)
-  .slice(0, 8)
+  const totalVarInc  = useMemo(() => varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), [varTxs]);
+  const totalVarExp  = useMemo(() => varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [varTxs]);
+  const totalIncome  = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc, [incomes, totalVarInc]);
+  const totalExpense = useMemo(() => totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp, [totalCardSpent, fixedExpenses, totalVarExp]);
+  const balance      = totalIncome - totalExpense;
 
+  // Pie chart
+  const pieData = useMemo(() => {
+    const totals = { ...computeCategoryTotals(allInstallments, fixedExpenses) };
+    varTxs.filter(t => t.type === 'expense').forEach(t => {
+      totals[t.category] = (totals[t.category] || 0) + t.amount;
+    });
+    return Object.entries(totals)
+      .filter(([, v]) => v > 0)
+      .map(([key, value]) => ({ name: resolveCategoryInfo(key).label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [allInstallments, fixedExpenses, varTxs]);
+
+  // ── Filtros ────────────────────────────────────────────────────────────────
+  const {
+    filters, setFilters, activeCount, clearFilters,
+    filteredInstallments, filteredVarTxs, filteredFixed,
+    availableCategories,
+  } = useTransactionFilter(allInstallments, varTxs, fixedExpenses, expenses, cards);
+
+  const visibleInstallments = useMemo(() =>
+    selectedCardId ? filteredInstallments.filter(i => i.cardId === selectedCardId) : filteredInstallments,
+  [selectedCardId, filteredInstallments]);
+
+  const visibleVarTxs  = selectedCardId ? [] : filteredVarTxs;
+  const visibleFixed   = selectedCardId ? [] : filteredFixed;
+  const isEmpty        = visibleInstallments.length === 0 && visibleVarTxs.length === 0 && visibleFixed.length === 0;
+
+  const collapseInst  = useCollapse(visibleInstallments.length);
+  const collapseVar   = useCollapse(visibleVarTxs.length);
+  const collapseFixed = useCollapse(visibleFixed.length);
+
+  // ── Ações ──────────────────────────────────────────────────────────────────
   const confirmDeleteExpense = async () => {
     if (!deletingExpenseId) return;
-    try {
-      await deleteExpense(deletingExpenseId);
-      setDeletingExpenseId(null);
-      toast.success('Gasto removido');
-      loadAll();
-    } catch { toast.error('Erro ao remover gasto'); }
+    try { await deleteExpense(deletingExpenseId); toast.success('Gasto removido'); loadAll(); }
+    catch { toast.error('Erro ao remover gasto'); }
+    finally { setDeletingExpenseId(null); }
   };
-
   const confirmDeleteVar = async () => {
     if (!deletingVarId) return;
-    try {
-      await deleteVariableTransaction(deletingVarId);
-      setDeletingVarId(null);
-      toast.success('Lançamento removido');
-      loadAll();
-    } catch { toast.error('Erro ao remover lançamento'); }
+    try { await deleteVariableTransaction(deletingVarId); toast.success('Lançamento removido'); loadAll(); }
+    catch { toast.error('Erro ao remover lançamento'); }
+    finally { setDeletingVarId(null); }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="pb-24 md:pb-10 max-w-5xl mx-auto">
 
@@ -152,9 +174,7 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Gasto/ganho variável — ícone de dinheiro/pix */}
           <AddVariableDialog onAdded={loadAll} />
-          {/* Gasto de cartão — ícone de cartão */}
           {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} iconOnly />}
         </div>
       </header>
@@ -162,8 +182,9 @@ export default function Dashboard() {
       <div className="px-4 md:px-8 space-y-5">
         <MonthSelector month={month} onChange={setMonth} />
 
-        {/* Cards de resumo */}
+        {/* Resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Saldo */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="bg-card rounded-2xl p-4 border border-border col-span-2">
             <div className="flex items-center gap-2 mb-1">
@@ -175,6 +196,7 @@ export default function Dashboard() {
             </p>
           </motion.div>
 
+          {/* Gastos */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             className="bg-card rounded-2xl p-4 border border-border">
             <div className="flex items-center gap-2 mb-2">
@@ -184,6 +206,7 @@ export default function Dashboard() {
             <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
           </motion.div>
 
+          {/* Ganhos */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             className="bg-card rounded-2xl p-4 border border-border">
             <div className="flex items-center gap-2 mb-2">
@@ -196,6 +219,7 @@ export default function Dashboard() {
             )}
           </motion.div>
 
+          {/* Limite cartões */}
           {cards.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
               className="col-span-2 bg-card rounded-2xl p-4 border border-border">
@@ -249,66 +273,85 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* Transações */}
+          {/* ── Lançamentos ── */}
           <div className={cn('bg-card rounded-2xl border border-border overflow-hidden', pieData.length === 0 ? 'md:col-span-2' : '')}>
-            <div className="flex items-center justify-between p-4 pb-3">
-              <p className="text-sm font-semibold">Lançamentos</p>
+
+            {/* Header */}
+            <div className="px-4 pt-4 pb-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold">Lançamentos</p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setBulkEditOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
+                  >
+                    <Tag size={12} /> Editar Categorias
+                  </button>
+                  <TransactionFilterBar
+                    open={filterOpen}
+                    onToggle={() => setFilterOpen(v => !v)}
+                    filters={filters}
+                    setFilters={setFilters}
+                    activeCount={activeCount}
+                    clearFilters={clearFilters}
+                    availableCategories={availableCategories}
+                    cards={cards}
+                  />
+                </div>
+              </div>
+
+              {/* Chips de cartão */}
+              {cards.length > 0 && (
+                <ScrollArea className="w-full">
+                  <div className="flex gap-2 pb-2">
+                    <button
+                      onClick={() => setSelectedCardId(null)}
+                      className={cn(
+                        'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                        !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                      )}
+                    >
+                      Todos
+                    </button>
+                    {cards.map(card => {
+                      const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+                      const isActive  = selectedCardId === card.id;
+                      return (
+                        <button key={card.id}
+                          onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                          className={cn(
+                            'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                            isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                          )}
+                        >
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
+                          {card.name}
+                          {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              )}
             </div>
 
-            {/* Filtro por cartão */}
-            {cards.length > 0 && (
-              <ScrollArea className="w-full px-4 pb-1">
-                <div className="flex gap-2 pb-2">
-                  <button
-                    onClick={() => setSelectedCardId(null)}
-                    className={cn(
-                      'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                      !selectedCardId
-                        ? 'border-primary text-primary bg-primary/10'
-                        : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                    )}
-                  >
-                    Todos
-                  </button>
-                  {cards.map(card => {
-                    const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-                    const isActive  = selectedCardId === card.id;
-                    return (
-                      <button
-                        key={card.id}
-                        onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                        className={cn(
-                          'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                          isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                        )}
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
-                        {card.name}
-                        {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            )}
-
-            <div className="p-4 space-y-1 max-h-[480px] overflow-y-auto">
+            {/* Lista */}
+            <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
               {loadingData ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
-              ) : installments.length === 0 && fixedExpenses.length === 0 && varTxs.length === 0 ? (
+              ) : isEmpty ? (
                 <p className="text-xs text-muted-foreground text-center py-6">
-                  {selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
+                  {activeCount > 0 ? 'Nenhum lançamento com esses filtros' : selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
                 </p>
               ) : (
                 <>
-                  {/* ── Parcelas de cartão ── */}
+                  {/* Parcelas de cartão */}
                   <AnimatePresence mode="popLayout">
-                    {installments.slice(0, collapseInst.visible).map((inst, i) => {
+                    {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
                       const orig = getExpenseById(inst.expenseId);
                       return (
-                        <motion.div
-                          key={`${inst.expenseId}-${i}`}
+                        <motion.div key={`${inst.expenseId}-${i}`}
                           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
                           className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
@@ -340,17 +383,11 @@ export default function Dashboard() {
                   </AnimatePresence>
                   <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
 
-                  {/* ── Transações variáveis ── */}
-                  {!selectedCardId && varTxs.length > 0 && (
+                  {/* Transações variáveis */}
+                  {visibleVarTxs.length > 0 && (
                     <>
-                      {installments.length > 0 && (
-                        <div className="flex items-center gap-2 py-2">
-                          <div className="flex-1 h-px bg-border" />
-                          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Variáveis</span>
-                          <div className="flex-1 h-px bg-border" />
-                        </div>
-                      )}
-                      {varTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
+                      {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
+                      {visibleVarTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
                         <div key={tx.id}
                           className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
                           <div className="flex items-center justify-center rounded-xl w-8 h-8 shrink-0"
@@ -363,7 +400,7 @@ export default function Dashboard() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{tx.name}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              {METHOD_ICONS[tx.paymentMethod] ?? null}
+                              {METHOD_ICONS[tx.paymentMethod]}
                               {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
                               {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
                             </p>
@@ -372,7 +409,6 @@ export default function Dashboard() {
                             style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
                             {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
                           </span>
-                          {/* ── Botões editar + deletar ── */}
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
                               onClick={() => setEditingVar(tx)}>
@@ -389,17 +425,11 @@ export default function Dashboard() {
                     </>
                   )}
 
-                  {/* ── Gastos fixos ── */}
-                  {!selectedCardId && fixedExpenses.length > 0 && (
+                  {/* Gastos fixos */}
+                  {visibleFixed.length > 0 && (
                     <>
-                      {(installments.length > 0 || varTxs.length > 0) && (
-                        <div className="flex items-center gap-2 py-2">
-                          <div className="flex-1 h-px bg-border" />
-                          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Fixos</span>
-                          <div className="flex-1 h-px bg-border" />
-                        </div>
-                      )}
-                      {fixedExpenses.slice(0, collapseFixed.visible).map(f => (
+                      {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
+                      {visibleFixed.slice(0, collapseFixed.visible).map(f => (
                         <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
                           <CategoryIcon category={f.category} />
                           <div className="flex-1 min-w-0">
@@ -420,8 +450,17 @@ export default function Dashboard() {
       </div>
 
       {/* ── Dialogs ── */}
+      <BulkEditCategoryDialog
+        open={bulkEditOpen}
+        onClose={() => setBulkEditOpen(false)}
+        month={month}
+        installments={allInstallments}
+        expenses={expenses}
+        varTxs={varTxs}
+        cards={cards}
+        onSaved={loadAll}
+      />
 
-      {/* Editar gasto de cartão */}
       {editingExpense && (
         <EditExpenseDialog
           expense={editingExpense}
@@ -432,7 +471,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Editar transação variável */}
       {editingVar && (
         <EditVariableDialog
           transaction={editingVar}
@@ -442,7 +480,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Confirmar exclusão de gasto */}
       <AlertDialog open={!!deletingExpenseId} onOpenChange={v => !v && setDeletingExpenseId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>
@@ -456,7 +493,6 @@ export default function Dashboard() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmar exclusão de variável */}
       <AlertDialog open={!!deletingVarId} onOpenChange={v => !v && setDeletingVarId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
           <AlertDialogHeader>

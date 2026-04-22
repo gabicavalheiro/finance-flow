@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreditCard, ExpenseCategory, Expense, CATEGORY_CONFIG } from '@/lib/types';
-import { addExpense } from '@/lib/store';
+import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
+import { addExpense, getCards } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
 import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -15,22 +15,20 @@ import DatePicker from '@/components/DatePicker';
 import NumberStepper from '@/components/ui/number-stepper';
 
 interface Props {
-  cards: CreditCard[];
+  /** Se não fornecido, os cartões são carregados internamente ao abrir o dialog */
+  cards?: CreditCard[];
   onAdded: () => void;
   /** Botão compacto com ícone de cartão (usado no header do dashboard) */
   iconOnly?: boolean;
-}
-
-function purchaseDateForBillingMonth(billingMonth: string): string {
-  return `${billingMonth}-01`;
 }
 
 function centsToDisplay(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }
 
-export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: Props) {
+export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly = false }: Props) {
   const [open, setOpen]                 = useState(false);
+  const [cards, setCards]               = useState<CreditCard[]>(cardsProp ?? []);
   const [name, setName]                 = useState('');
   const [category, setCategory]         = useState<ExpenseCategory>('other');
   const [cardId, setCardId]             = useState('');
@@ -42,6 +40,18 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
   const [instCents, setInstCents]       = useState(0);
   const lastEdited                      = useRef<'total' | 'inst'>('total');
   const [saving, setSaving]             = useState(false);
+
+  // Mantém sincronizado se o pai passar cards
+  useEffect(() => {
+    if (cardsProp) setCards(cardsProp);
+  }, [cardsProp]);
+
+  // Carrega cartões do Supabase ao abrir, caso não tenham sido passados como prop
+  useEffect(() => {
+    if (open && !cardsProp) {
+      getCards().then(setCards).catch(() => {});
+    }
+  }, [open, cardsProp]);
 
   const totalInst = parseInt(installments) || 1;
   const currInst  = Math.min(parseInt(currentInst) || 1, totalInst);
@@ -80,14 +90,14 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
 
   const computePurchaseDate = (): string => {
     if (!useInstRef || totalInst <= 1) return date;
-    const card      = cards.find(c => c.id === cardId);
-    const closing   = card?.closingDay ?? 10;
-    const cur       = getCurrentMonth();
-    const monthsBack = currInst - 1;
-    const billing   = addMonths(cur, -monthsBack);
-    const [y, m]    = billing.split('-').map(Number);
+    const card        = cards.find(c => c.id === cardId);
+    const closing     = card?.closingDay ?? 10;
+    const cur         = getCurrentMonth();
+    const monthsBack  = currInst - 1;
+    const billing     = addMonths(cur, -monthsBack);
+    const [y, m]      = billing.split('-').map(Number);
     const purchaseDay = closing + 1;
-    const d = new Date(y, m - 1, purchaseDay);
+    const d           = new Date(y, m - 1, purchaseDay);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
@@ -194,7 +204,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
               <Label className="text-xs text-muted-foreground">Cartão</Label>
               <Select value={cardId} onValueChange={setCardId}>
                 <SelectTrigger className="bg-secondary border-border rounded-xl h-11">
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue placeholder={cards.length === 0 ? 'Carregando...' : 'Selecione'} />
                 </SelectTrigger>
                 <SelectContent>
                   {cards.map(c => (
@@ -230,31 +240,6 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
             </Select>
           </div>
 
-          {/* Referência de parcela */}
-          {totalInst > 1 && (
-            <div className="rounded-xl bg-secondary/60 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Qual parcela cai este mês?</Label>
-                <button
-                  type="button"
-                  onClick={() => setUseInstRef(v => !v)}
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                    useInstRef ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {useInstRef ? 'ativo' : 'inativo'}
-                </button>
-              </div>
-              {useInstRef && (
-                <div className="flex items-center gap-3">
-                  <NumberStepper value={currInst} min={1} max={totalInst}
-                    onChange={v => setCurrentInst(String(v))} />
-                  <span className="text-xs text-muted-foreground">de {totalInst} parcelas</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Data */}
           {!useInstRef && (
             <div className="space-y-1.5">
@@ -262,16 +247,61 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
               <DatePicker value={date} onChange={setDate} />
             </div>
           )}
+
+          {/* Referência de parcela */}
+          {totalInst > 1 && (
+            <div className="bg-secondary/60 rounded-xl p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Parcela de referência</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Informe qual parcela cai neste mês
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseInstRef(v => !v)}
+                  className={`relative w-10 h-5.5 rounded-full transition-colors ${useInstRef ? 'bg-primary' : 'bg-muted'}`}
+                  style={{ height: '22px' }}
+                >
+                  <span
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${useInstRef ? 'left-5.5 translate-x-0' : 'left-0.5'}`}
+                    style={{ left: useInstRef ? '22px' : '2px' }}
+                  />
+                </button>
+              </div>
+              {useInstRef && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Parcela atual:</span>
+                  <NumberStepper
+                    value={currInst}
+                    min={1}
+                    max={totalInst}
+                    onChange={v => setCurrentInst(String(v))}
+                  />
+                  <span className="text-xs text-muted-foreground">de {totalInst}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="px-6 pb-6 pt-2">
+        {/* Rodapé */}
+        <div className="px-6 py-4 border-t border-border flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1 border-border"
+            onClick={() => { reset(); setOpen(false); }}
+          >
+            Cancelar
+          </Button>
           <Button
             onClick={handleSubmit}
             disabled={saving}
-            className="w-full h-12 rounded-2xl font-semibold text-sm text-white"
-            style={{ background: 'hsl(0 72% 51%)' }}
+            className="flex-1 text-white"
+            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
           >
-            {saving ? 'Salvando...' : 'Adicionar gasto'}
+            {saving ? 'Salvando...' : 'Adicionar'}
           </Button>
         </div>
       </DialogContent>
