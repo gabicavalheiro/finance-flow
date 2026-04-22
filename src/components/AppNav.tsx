@@ -1,4 +1,4 @@
-import { LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch, LogOut, Sun, Moon, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch, LogOut, Sun, Moon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { logoutUser } from '@/lib/auth';
@@ -36,8 +36,8 @@ export default function AppNav() {
   const handleLogout = async () => { await logoutUser(); };
   const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
-  // Evita hydration mismatch no ícone de tema
   const isDark = mounted ? theme === 'dark' : true;
+  const logoWithName = isDark ? '/logoDarkNome.png' : '/logoLightNome.png';
 
   const LogoutDialog = ({ children }: { children: React.ReactNode }) => (
     <AlertDialog>
@@ -61,25 +61,20 @@ export default function AppNav() {
 
   return (
     <>
-      {/* ────────────────────────────────────────────────────────────
-          DESKTOP — Sidebar fixa à esquerda (visível em md+)
-      ──────────────────────────────────────────────────────────── */}
+      {/* DESKTOP — Sidebar fixa à esquerda */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 flex-col bg-sidebar border-r border-sidebar-border z-40">
 
         {/* Logo / cabeçalho */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shrink-0"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
-          >
-            <TrendingUp size={18} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-sidebar-foreground leading-none">FinanceFlow</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-              {userName || 'Bem-vindo'}
-            </p>
-          </div>
+        <div className="flex flex-col gap-2 px-4 pt-6 pb-5 border-b border-sidebar-border">
+          <img
+            src={logoWithName}
+            alt="FinanceFlow"
+            className="w-full object-contain"
+            style={{ height: '56px' }}
+          />
+          <p className="text-xs text-muted-foreground text-center">
+            {userName || 'Bem-vindo'}
+          </p>
         </div>
 
         {/* Itens de navegação */}
@@ -111,10 +106,7 @@ export default function AppNav() {
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-all"
           >
-            {isDark
-              ? <Sun size={18} strokeWidth={1.8} />
-              : <Moon size={18} strokeWidth={1.8} />
-            }
+            {isDark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
             {isDark ? 'Modo claro' : 'Modo escuro'}
           </button>
 
@@ -127,9 +119,7 @@ export default function AppNav() {
         </div>
       </aside>
 
-      {/* ────────────────────────────────────────────────────────────
-          MOBILE — Barra inferior (visível apenas abaixo de md)
-      ──────────────────────────────────────────────────────────── */}
+      {/* MOBILE — Barra inferior */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border">
         <div className="flex items-center justify-around h-16 px-1">
           {tabs.map(tab => {
@@ -149,19 +139,14 @@ export default function AppNav() {
             );
           })}
 
-          {/* Toggle de tema no mobile */}
           <button
             onClick={toggleTheme}
             className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
           >
-            {isDark
-              ? <Sun size={22} strokeWidth={1.8} />
-              : <Moon size={22} strokeWidth={1.8} />
-            }
+            {isDark ? <Sun size={22} strokeWidth={1.8} /> : <Moon size={22} strokeWidth={1.8} />}
             <span className="text-[10px] font-medium">Tema</span>
           </button>
 
-          {/* Logout no mobile */}
           <LogoutDialog>
             <button className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
               <LogOut size={22} strokeWidth={1.8} />

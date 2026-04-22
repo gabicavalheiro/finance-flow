@@ -285,7 +285,7 @@ export default function Dashboard() {
                     onClick={() => setBulkEditOpen(true)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
                   >
-                    <Tag size={12} /> Editar Categorias
+                    <Tag size={12} /> Editar em massa
                   </button>
                   <TransactionFilterBar
                     open={filterOpen}
