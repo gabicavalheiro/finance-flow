@@ -16,6 +16,9 @@ import FaturaPage from "./pages/FaturaPage";
 import AuthPage from "./pages/AuthPage";
 import PasswordResetPage from "./pages/PasswordResetPage";
 import NotFound from "./pages/NotFound";
+import ModulesPage from "./pages/ModulesPage";
+import LoansPage from "./pages/LoansPage";
+import InvestmentsPage from "./pages/InvestmentsPage";
 import { useDeepLink } from '@/hooks/useDeepLink';
 
 const queryClient = new QueryClient();
@@ -32,7 +35,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
   </ThemeProvider>
 );
 
-// ← useDeepLink fica aqui: dentro do BrowserRouter, onde useNavigate funciona
 const AppRoutes = () => {
   useDeepLink();
 
@@ -41,12 +43,21 @@ const AppRoutes = () => {
       <AppNav />
       <main className="flex-1 min-w-0 md:pl-64">
         <Routes>
+          {/* ── Rotas fixas ── */}
           <Route path="/"        element={<Index />} />
           <Route path="/cards"   element={<CardsPage />} />
           <Route path="/fixed"   element={<FixedPage />} />
           <Route path="/faturas" element={<FaturaPage />} />
           <Route path="/reports" element={<ReportsPage />} />
-          <Route path="*"        element={<NotFound />} />
+
+          {/* ── Gerenciamento de módulos ── */}
+          <Route path="/modules" element={<ModulesPage />} />
+
+          {/* ── Módulos opcionais (rotas sempre ativas; aba aparece só se módulo ativo) ── */}
+          <Route path="/loans"       element={<LoansPage />} />
+          <Route path="/investments" element={<InvestmentsPage />} />
+
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </div>
@@ -67,52 +78,29 @@ const App = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
-      } else if (event === 'USER_UPDATED') {
-        setIsPasswordRecovery(false);
+      } else {
+        setSession(session);
+        setLoading(false);
       }
-      setSession(session);
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
-    return (
-      <Providers>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-            <p className="text-sm text-muted-foreground">Carregando...</p>
-          </div>
-        </div>
-      </Providers>
-    );
-  }
-
-  if (isPasswordRecovery) {
-    return (
-      <Providers>
-        <PasswordResetPage onDone={() => setIsPasswordRecovery(false)} />
-      </Providers>
-    );
-  }
-
-  if (!session) {
-    return (
-      <Providers>
-        <AuthPage />
-      </Providers>
-    );
-  }
+  if (loading) return null;
 
   return (
     <Providers>
       <BrowserRouter>
-        <AppRoutes />  {/* ← BrowserRouter envolve AppRoutes, que tem o useDeepLink */}
+        {isPasswordRecovery ? (
+          <Routes><Route path="*" element={<PasswordResetPage onDone={function (): void {
+            throw new Error('Function not implemented.');
+          } } />} /></Routes>
+        ) : !session ? (
+          <Routes><Route path="*" element={<AuthPage />} /></Routes>
+        ) : (
+          <AppRoutes />
+        )}
       </BrowserRouter>
     </Providers>
   );

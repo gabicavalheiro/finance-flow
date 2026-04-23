@@ -37,6 +37,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import DashboardPatrimonioTab from '@/components/DashboardPatrimonioTab';
+import { getActiveModuleIds } from '@/lib/modules';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PIE_COLORS = [
@@ -96,6 +98,19 @@ export default function Dashboard() {
   }, [month]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  //controle
+  const [dashTab, setDashTab]               = useState<'geral' | 'patrimonio'>('geral');
+  const [hasPatrimonioModules, setHasPatrimonioModules] = useState(false);
+ 
+  // Verifica se algum módulo de patrimônio (empréstimos/investimentos) está ativo
+  useEffect(() => {
+    getActiveModuleIds().then(ids => {
+      setHasPatrimonioModules(
+        ids.includes('loans') || ids.includes('investments')
+      );
+    });
+  }, []);
 
   // ── Cálculos base ──────────────────────────────────────────────────────────
   const allInstallments = useMemo(
@@ -180,274 +195,312 @@ export default function Dashboard() {
       </header>
 
       <div className="px-4 md:px-8 space-y-5">
-        <MonthSelector month={month} onChange={setMonth} />
+     {/* ─── Cole este bloco substituindo tudo dentro do <div className="px-4 md:px-8 space-y-5"> ─── */}
 
-        {/* Resumo */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Saldo */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-card rounded-2xl p-4 border border-border col-span-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Scale size={16} className="text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Saldo do mês</span>
-            </div>
-            <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
-              {formatCurrency(balance)}
-            </p>
-          </motion.div>
+     <div className="px-4 md:px-8 space-y-5">
 
-          {/* Gastos */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="bg-card rounded-2xl p-4 border border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingDown size={16} className="text-destructive" />
-              <span className="text-xs text-muted-foreground">Total gastos</span>
-            </div>
-            <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
-          </motion.div>
+{/* Seletor de mês + tabs Geral/Patrimônio */}
+<div className="space-y-3">
+  <MonthSelector month={month} onChange={setMonth} />
 
-          {/* Ganhos */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="bg-card rounded-2xl p-4 border border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp size={16} className="text-success" />
-              <span className="text-xs text-muted-foreground">Total ganhos</span>
-            </div>
-            <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
-            {totalVarInc > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">inclui {formatCurrency(totalVarInc)} variável</p>
-            )}
-          </motion.div>
-
-          {/* Limite cartões */}
-          {cards.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="col-span-2 bg-card rounded-2xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <Wallet size={16} className="text-accent" />
-                <span className="text-xs text-muted-foreground">Limite disponível (cartões)</span>
-              </div>
-              <div className="flex items-end justify-between">
-                <p className="text-lg font-bold">{formatCurrency(available)}</p>
-                <p className="text-xs text-muted-foreground">de {formatCurrency(totalLimit)}</p>
-              </div>
-              <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-accent rounded-full transition-all"
-                  style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
-              </div>
-            </motion.div>
+  {hasPatrimonioModules && (
+    <div className="flex gap-1 bg-muted/50 p-1 rounded-xl w-fit">
+      {(['geral', 'patrimonio'] as const).map(tab => (
+        <button
+          key={tab}
+          onClick={() => setDashTab(tab)}
+          className={cn(
+            'px-4 py-1.5 rounded-lg text-xs font-medium transition-all',
+            dashTab === tab
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
           )}
+        >
+          {tab === 'geral' ? 'Geral' : 'Patrimônio'}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+{/* ── Aba Patrimônio ── */}
+{dashTab === 'patrimonio' ? (
+  <DashboardPatrimonioTab />
+) : (
+  <>
+    {/* Resumo */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+      {/* Saldo */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-card rounded-2xl p-4 border border-border col-span-2">
+        <div className="flex items-center gap-2 mb-1">
+          <Scale size={16} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Saldo do mês</span>
         </div>
+        <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
+          {formatCurrency(balance)}
+        </p>
+      </motion.div>
 
-        {/* Grid principal */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {/* Gastos */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="bg-card rounded-2xl p-4 border border-border">
+        <div className="flex items-center gap-2 mb-2">
+          <TrendingDown size={16} className="text-destructive" />
+          <span className="text-xs text-muted-foreground">Total gastos</span>
+        </div>
+        <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
+      </motion.div>
 
-          {/* Pie chart */}
-          {pieData.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-              className="bg-card rounded-2xl p-4 border border-border">
-              <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Gastos por categoria</p>
-              <div className="flex gap-4 items-center">
-                <div className="h-36 w-36 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} paddingAngle={2} dataKey="value">
-                        {pieData.map((_, idx) => (
-                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-1.5 min-w-0">
-                  {pieData.map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                      <span className="truncate text-muted-foreground flex-1">{entry.name}</span>
-                      <span className="font-medium shrink-0">{formatCurrency(entry.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
+      {/* Ganhos */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="bg-card rounded-2xl p-4 border border-border">
+        <div className="flex items-center gap-2 mb-2">
+          <TrendingUp size={16} className="text-success" />
+          <span className="text-xs text-muted-foreground">Total ganhos</span>
+        </div>
+        <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
+        {totalVarInc > 0 && (
+          <p className="text-[10px] text-muted-foreground mt-0.5">inclui {formatCurrency(totalVarInc)} variável</p>
+        )}
+      </motion.div>
 
-          {/* ── Lançamentos ── */}
-          <div className={cn('bg-card rounded-2xl border border-border overflow-hidden', pieData.length === 0 ? 'md:col-span-2' : '')}>
+      {/* Limite cartões — dentro do grid para manter col-span-2 */}
+      {cards.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="col-span-2 bg-card rounded-2xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet size={16} className="text-accent" />
+            <span className="text-xs text-muted-foreground">Limite disponível (cartões)</span>
+          </div>
+          <div className="flex items-end justify-between">
+            <p className="text-lg font-bold">{formatCurrency(available)}</p>
+            <p className="text-xs text-muted-foreground">de {formatCurrency(totalLimit)}</p>
+          </div>
+          <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div className="h-full bg-accent rounded-full transition-all"
+              style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
+          </div>
+        </motion.div>
+      )}
 
-            {/* Header */}
-            <div className="px-4 pt-4 pb-2">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold">Lançamentos</p>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setBulkEditOpen(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
-                  >
-                    <Tag size={12} /> Editar em massa
-                  </button>
-                  <TransactionFilterBar
-                    open={filterOpen}
-                    onToggle={() => setFilterOpen(v => !v)}
-                    filters={filters}
-                    setFilters={setFilters}
-                    activeCount={activeCount}
-                    clearFilters={clearFilters}
-                    availableCategories={availableCategories}
-                    cards={cards}
-                  />
-                </div>
-              </div>
+    </div>
 
-              {/* Chips de cartão */}
-              {cards.length > 0 && (
-                <ScrollArea className="w-full">
-                  <div className="flex gap-2 pb-2">
-                    <button
-                      onClick={() => setSelectedCardId(null)}
-                      className={cn(
-                        'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                        !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                      )}
-                    >
-                      Todos
-                    </button>
-                    {cards.map(card => {
-                      const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-                      const isActive  = selectedCardId === card.id;
-                      return (
-                        <button key={card.id}
-                          onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                          className={cn(
-                            'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                            isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                          )}
-                        >
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
-                          {card.name}
-                          {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-              )}
+    {/* Grid principal */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      {/* Pie chart */}
+      {pieData.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="bg-card rounded-2xl p-4 border border-border">
+          <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Gastos por categoria</p>
+          <div className="flex gap-4 items-center">
+            <div className="h-36 w-36 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} paddingAngle={2} dataKey="value">
+                    {pieData.map((_, idx) => (
+                      <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-
-            {/* Lista */}
-            <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
-              {loadingData ? (
-                <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
-              ) : isEmpty ? (
-                <p className="text-xs text-muted-foreground text-center py-6">
-                  {activeCount > 0 ? 'Nenhum lançamento com esses filtros' : selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
-                </p>
-              ) : (
-                <>
-                  {/* Parcelas de cartão */}
-                  <AnimatePresence mode="popLayout">
-                    {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
-                      const orig = getExpenseById(inst.expenseId);
-                      return (
-                        <motion.div key={`${inst.expenseId}-${i}`}
-                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                          className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
-                        >
-                          <CategoryIcon category={inst.category} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{inst.expenseName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
-                              {' · '}{cardMap.get(inst.cardId)?.name ?? 'Cartão'}
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            {orig && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                                onClick={() => setEditingExpense(orig)}>
-                                <Pencil size={12} />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setDeletingExpenseId(inst.expenseId)}>
-                              <Trash2 size={12} />
-                            </Button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
-                  <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
-
-                  {/* Transações variáveis */}
-                  {visibleVarTxs.length > 0 && (
-                    <>
-                      {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
-                      {visibleVarTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
-                        <div key={tx.id}
-                          className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
-                          <div className="flex items-center justify-center rounded-xl w-8 h-8 shrink-0"
-                            style={{
-                              background: tx.type === 'income' ? 'hsl(152 69% 45% / 0.15)' : 'hsl(0 72% 51% / 0.15)',
-                              color:      tx.type === 'income' ? 'hsl(152 69% 45%)'         : 'hsl(0 72% 51%)',
-                            }}>
-                            {tx.type === 'income' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{tx.name}</p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              {METHOD_ICONS[tx.paymentMethod]}
-                              {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
-                              {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold"
-                            style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
-                            {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
-                          </span>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                              onClick={() => setEditingVar(tx)}>
-                              <Pencil size={12} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setDeletingVarId(tx.id)}>
-                              <Trash2 size={12} />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                      <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
-                    </>
-                  )}
-
-                  {/* Gastos fixos */}
-                  {visibleFixed.length > 0 && (
-                    <>
-                      {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
-                      {visibleFixed.slice(0, collapseFixed.visible).map(f => (
-                        <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
-                          <CategoryIcon category={f.category} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{f.name}</p>
-                            <p className="text-xs text-muted-foreground">Fixo mensal</p>
-                          </div>
-                          <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
-                        </div>
-                      ))}
-                      <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
-                    </>
-                  )}
-                </>
-              )}
+            <div className="flex-1 space-y-1.5 min-w-0">
+              {pieData.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                  <span className="truncate text-muted-foreground flex-1">{entry.name}</span>
+                  <span className="font-medium shrink-0">{formatCurrency(entry.value)}</span>
+                </div>
+              ))}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* Lançamentos */}
+      <div className={cn('bg-card rounded-2xl border border-border overflow-hidden', pieData.length === 0 ? 'md:col-span-2' : '')}>
+
+        {/* Header */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold">Lançamentos</p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setBulkEditOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
+              >
+                <Tag size={12} /> Editar em massa
+              </button>
+              <TransactionFilterBar
+                open={filterOpen}
+                onToggle={() => setFilterOpen(v => !v)}
+                filters={filters}
+                setFilters={setFilters}
+                activeCount={activeCount}
+                clearFilters={clearFilters}
+                availableCategories={availableCategories}
+                cards={cards}
+              />
+            </div>
+          </div>
+
+          {/* Chips de cartão */}
+          {cards.length > 0 && (
+            <ScrollArea className="w-full">
+              <div className="flex gap-2 pb-2">
+                <button
+                  onClick={() => setSelectedCardId(null)}
+                  className={cn(
+                    'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                    !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                  )}
+                >
+                  Todos
+                </button>
+                {cards.map(card => {
+                  const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+                  const isActive  = selectedCardId === card.id;
+                  return (
+                    <button key={card.id}
+                      onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                      className={cn(
+                        'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                        isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                      )}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
+                      {card.name}
+                      {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          )}
+        </div>
+
+        {/* Lista */}
+        <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
+          {loadingData ? (
+            <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
+          ) : isEmpty ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              {activeCount > 0 ? 'Nenhum lançamento com esses filtros' : selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
+            </p>
+          ) : (
+            <>
+              {/* Parcelas de cartão */}
+              <AnimatePresence mode="popLayout">
+                {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
+                  const orig = getExpenseById(inst.expenseId);
+                  return (
+                    <motion.div key={`${inst.expenseId}-${i}`}
+                      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                      className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
+                    >
+                      <CategoryIcon category={inst.category} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{inst.expenseName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
+                          {' · '}{cardMap.get(inst.cardId)?.name ?? 'Cartão'}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        {orig && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                            onClick={() => setEditingExpense(orig)}>
+                            <Pencil size={12} />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeletingExpenseId(inst.expenseId)}>
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+              <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
+
+              {/* Transações variáveis */}
+              {visibleVarTxs.length > 0 && (
+                <>
+                  {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
+                  {visibleVarTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
+                    <div key={tx.id}
+                      className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
+                      <div className="flex items-center justify-center rounded-xl w-8 h-8 shrink-0"
+                        style={{
+                          background: tx.type === 'income' ? 'hsl(152 69% 45% / 0.15)' : 'hsl(0 72% 51% / 0.15)',
+                          color:      tx.type === 'income' ? 'hsl(152 69% 45%)'         : 'hsl(0 72% 51%)',
+                        }}>
+                        {tx.type === 'income' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{tx.name}</p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          {METHOD_ICONS[tx.paymentMethod]}
+                          {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                          {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold"
+                        style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
+                        {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
+                      </span>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                          onClick={() => setEditingVar(tx)}>
+                          <Pencil size={12} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeletingVarId(tx.id)}>
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
+                </>
+              )}
+
+              {/* Gastos fixos */}
+              {visibleFixed.length > 0 && (
+                <>
+                  {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
+                  {visibleFixed.slice(0, collapseFixed.visible).map(f => (
+                    <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
+                      <CategoryIcon category={f.category} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{f.name}</p>
+                        <p className="text-xs text-muted-foreground">Fixo mensal</p>
+                      </div>
+                      <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
+                    </div>
+                  ))}
+                  <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
+
+    </div>{/* fim grid principal */}
+  </>
+)}{/* fim ternário dashTab */}
+
+</div>{/* fim px-4 space-y-5 */}
+    
 
       {/* ── Dialogs ── */}
       <BulkEditCategoryDialog
@@ -506,5 +559,4 @@ export default function Dashboard() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
+  </div>)}

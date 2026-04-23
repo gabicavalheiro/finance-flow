@@ -1,4 +1,7 @@
-import { LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch, LogOut, Sun, Moon } from 'lucide-react';
+import {
+  LayoutDashboard, CreditCard, CalendarCheck, BarChart3,
+  FileSearch, LogOut, Sun, Moon, Landmark, TrendingUp, Sparkles, LucideIcon,
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { logoutUser } from '@/lib/auth';
@@ -10,8 +13,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { getActiveModuleIds, AVAILABLE_MODULES } from '@/lib/modules';
 
-const tabs = [
+// ─── Mapa de ícones dos módulos ───────────────────────────────────────────────
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp };
+
+// ─── Abas fixas (sempre visíveis) ─────────────────────────────────────────────
+const STATIC_TABS = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },
   { path: '/cards',   label: 'Cartões',    icon: CreditCard      },
   { path: '/fixed',   label: 'Fixos',      icon: CalendarCheck   },
@@ -19,24 +27,46 @@ const tabs = [
   { path: '/reports', label: 'Relatórios', icon: BarChart3       },
 ];
 
+const MODULES_TAB = { path: '/modules', label: 'Módulos', icon: Sparkles };
+
 export default function AppNav() {
-  const location             = useLocation();
-  const navigate             = useNavigate();
-  const { theme, setTheme }  = useTheme();
-  const [userName, setUserName] = useState('');
-  const [mounted, setMounted]   = useState(false);
+  const location            = useLocation();
+  const navigate            = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const [userName, setUserName]     = useState('');
+  const [mounted, setMounted]       = useState(false);
+  const [activeModuleIds, setActiveModuleIds] = useState<string[]>([]);
+
+  // Carrega módulos ativos do Supabase
+  const loadModules = async () => {
+    try { setActiveModuleIds(await getActiveModuleIds()); }
+    catch { /* silencioso — mantém lista atual */ }
+  };
 
   useEffect(() => {
     setMounted(true);
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserName(user?.user_metadata?.name ?? '');
-    });
+    supabase.auth.getUser().then(({ data: { user } }) =>
+      setUserName(user?.user_metadata?.name ?? ''));
+    loadModules();
   }, []);
 
-  const handleLogout = async () => { await logoutUser(); };
-  const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  // Recarrega módulos ao mudar de rota (cobre o caso de ativar um módulo
+  // em ModulesPage e depois navegar — a aba aparece imediatamente).
+  useEffect(() => { loadModules(); }, [location.pathname]);
 
-  const isDark = mounted ? theme === 'dark' : true;
+  // Abas dos módulos ativos
+  const moduleTabs = AVAILABLE_MODULES
+    .filter(m => activeModuleIds.includes(m.id))
+    .map(m => ({
+      path:  m.path,
+      label: m.label,
+      icon:  MODULE_ICONS[m.icon] ?? Sparkles,
+    }));
+
+  const allTabs = [...STATIC_TABS, ...moduleTabs, MODULES_TAB];
+
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const isDark      = mounted ? theme === 'dark' : true;
   const logoWithName = isDark ? '/logoDarkNome.png' : '/logoLightNome.png';
 
   const LogoutDialog = ({ children }: { children: React.ReactNode }) => (
@@ -50,10 +80,8 @@ export default function AppNav() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={handleLogout} className="bg-destructive hover:bg-destructive/90">
-            Sair
-          </AlertDialogAction>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={async () => { await logoutUser(); }}>Sair</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -61,37 +89,25 @@ export default function AppNav() {
 
   return (
     <>
-      {/* DESKTOP — Sidebar fixa à esquerda */}
-      <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 flex-col bg-sidebar border-r border-sidebar-border z-40">
-
-        {/* Logo / cabeçalho */}
-        <div className="flex flex-col gap-2 px-4 pt-6 pb-5 border-b border-sidebar-border">
-          <img
-            src={logoWithName}
-            alt="FinanceFlow"
-            className="w-full object-contain"
-            style={{ height: '56px' }}
-          />
-          <p className="text-xs text-muted-foreground text-center">
-            {userName || 'Bem-vindo'}
-          </p>
+      {/* ── DESKTOP — Sidebar ──────────────────────────────────────────────── */}
+      <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40">
+        <div className="px-5 py-5 border-b border-sidebar-border">
+          <img src={logoWithName} alt="Logo" className="h-8 object-contain" />
         </div>
 
-        {/* Itens de navegação */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {tabs.map(tab => {
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          {allTabs.map(tab => {
             const active = location.pathname === tab.path;
             return (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                   active
-                    ? 'text-white shadow-sm'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent/60',
                 )}
-                style={active ? { background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' } : undefined}
               >
                 <tab.icon size={18} strokeWidth={active ? 2.5 : 1.8} />
                 {tab.label}
@@ -100,7 +116,6 @@ export default function AppNav() {
           })}
         </nav>
 
-        {/* Rodapé: toggle de tema + sair */}
         <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
           <button
             onClick={toggleTheme}
@@ -109,27 +124,25 @@ export default function AppNav() {
             {isDark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
             {isDark ? 'Modo claro' : 'Modo escuro'}
           </button>
-
           <LogoutDialog>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all">
-              <LogOut size={18} strokeWidth={1.8} />
-              Sair
+              <LogOut size={18} strokeWidth={1.8} />Sair
             </button>
           </LogoutDialog>
         </div>
       </aside>
 
-      {/* MOBILE — Barra inferior */}
+      {/* ── MOBILE — Barra inferior ────────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border">
-        <div className="flex items-center justify-around h-16 px-1">
-          {tabs.map(tab => {
+        <div className="flex items-center justify-around h-16 px-1 overflow-x-auto gap-1">
+          {[...STATIC_TABS, ...moduleTabs, MODULES_TAB].map(tab => {
             const active = location.pathname === tab.path;
             return (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className={cn(
-                  'flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors',
+                  'flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors shrink-0',
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -141,14 +154,14 @@ export default function AppNav() {
 
           <button
             onClick={toggleTheme}
-            className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+            className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
           >
             {isDark ? <Sun size={22} strokeWidth={1.8} /> : <Moon size={22} strokeWidth={1.8} />}
             <span className="text-[10px] font-medium">Tema</span>
           </button>
 
           <LogoutDialog>
-            <button className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+            <button className="flex flex-col items-center gap-1 px-2 py-1 rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0">
               <LogOut size={22} strokeWidth={1.8} />
               <span className="text-[10px] font-medium">Sair</span>
             </button>
