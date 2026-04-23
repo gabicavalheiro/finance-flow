@@ -1,0 +1,29 @@
+# Gera o build da web
+npm run build:mobile
+
+# Inicializa Capacitor (só na primeira vez)
+npx cap init FinanceFlow com.financeflow.app --web-dir dist
+
+# Adiciona as plataformas
+npx cap add android
+npx cap add ios        # só funciona no macOS
+
+# Sincroniza o build com as plataformas nativas
+npx cap sync
+
+7. Abrir no Android Studio / Xcode
+bash# Android (requer Android Studio instalado)
+npm run open:android
+
+# iOS (requer macOS + Xcode instalado)
+npm run open:ios
+
+# Após qualquer mudança no código React:
+npm run sync:android   # build + sync + pronto pra rodar no Android Studio
+npm run sync:ios       # build + sync + pronto pra rodar no Xcode
+
+Para dev com hot reload no dispositivo físico:
+
+Descomentar a linha server.url no capacitor.config.ts com o IP da sua máquina
+Rodar npm run dev normalmente
+Abrir o Android Studio e rodar o app — ele vai conectar no Vite local

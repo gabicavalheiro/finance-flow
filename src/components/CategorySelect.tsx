@@ -15,9 +15,9 @@ interface Props {
 }
 
 export default function CategorySelect({ type, value, onChange, className }: Props) {
-  const [open, setOpen]             = useState(false);
+  const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const selectedRef                 = useRef<HTMLButtonElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
 
   // Usa o context que já carregou do Supabase
   const { customCategories, reload } = useCustomCategories();
@@ -85,36 +85,37 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
         </PopoverTrigger>
 
         <PopoverContent
-          className="p-0 w-[var(--radix-popover-trigger-width)] bg-[hsl(240_8%_15%)] border border-white/8 rounded-2xl shadow-2xl overflow-hidden"
-          align="start"
+          className="p-0 w-[var(--radix-popover-trigger-width)] bg-popover border border-border rounded-2xl shadow-2xl overflow-hidden" align="start"
           sideOffset={4}
           avoidCollisions
         >
           {/* Lista scrollável */}
-          <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 220 }}>
-            {allItems.map(item => (
-              <button
-                key={item.id}
-                ref={item.id === value ? selectedRef : undefined}
-                type="button"
-                onClick={() => handleSelect(item.id)}
-                className={cn(
-                  'flex items-center gap-2.5 w-full px-3 py-2.5 text-sm transition-colors text-left',
-                  item.id === value
-                    ? 'bg-white/8 text-foreground font-medium'
-                    : 'text-foreground/80 hover:bg-white/5'
-                )}
-              >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: `hsl(${item.color})` }}
-                />
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.id === value && (
-                  <Check size={13} className="shrink-0 text-primary" />
-                )}
-              </button>
-            ))}
+          <div
+            className="overflow-y-auto overscroll-contain"
+            style={{ maxHeight: 220, WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+          >            {allItems.map(item => (
+            <button
+              key={item.id}
+              ref={item.id === value ? selectedRef : undefined}
+              type="button"
+              onClick={() => handleSelect(item.id)}
+              className={cn(
+                'flex items-center gap-2.5 w-full px-3 py-2.5 text-sm transition-colors text-left',
+                item.id === value
+                  ? 'bg-white/8 text-foreground font-medium'
+                  : 'text-foreground/80 hover:bg-white/5'
+              )}
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ background: `hsl(${item.color})` }}
+              />
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.id === value && (
+                <Check size={13} className="shrink-0 text-primary" />
+              )}
+            </button>
+          ))}
           </div>
 
           {/* Botão fixo "Criar nova categoria" */}

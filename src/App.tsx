@@ -16,6 +16,7 @@ import FaturaPage from "./pages/FaturaPage";
 import AuthPage from "./pages/AuthPage";
 import PasswordResetPage from "./pages/PasswordResetPage";
 import NotFound from "./pages/NotFound";
+import { useDeepLink } from '@/hooks/useDeepLink';
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,27 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
     </QueryClientProvider>
   </ThemeProvider>
 );
+
+// ← useDeepLink fica aqui: dentro do BrowserRouter, onde useNavigate funciona
+const AppRoutes = () => {
+  useDeepLink();
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <AppNav />
+      <main className="flex-1 min-w-0 md:pl-64">
+        <Routes>
+          <Route path="/"        element={<Index />} />
+          <Route path="/cards"   element={<CardsPage />} />
+          <Route path="/fixed"   element={<FixedPage />} />
+          <Route path="/faturas" element={<FaturaPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="*"        element={<NotFound />} />
+        </Routes>
+      </main>
+    </div>
+  );
+};
 
 const App = () => {
   const [session, setSession]                       = useState<Session | null>(null);
@@ -82,7 +104,6 @@ const App = () => {
   if (!session) {
     return (
       <Providers>
-        {/* onSuccess é detectado automaticamente via onAuthStateChange */}
         <AuthPage />
       </Providers>
     );
@@ -91,19 +112,7 @@ const App = () => {
   return (
     <Providers>
       <BrowserRouter>
-        <div className="flex min-h-screen bg-background">
-          <AppNav />
-          <main className="flex-1 min-w-0 md:pl-64">
-            <Routes>
-              <Route path="/"        element={<Index />} />
-              <Route path="/cards"   element={<CardsPage />} />
-              <Route path="/fixed"   element={<FixedPage />} />
-              <Route path="/faturas" element={<FaturaPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="*"        element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
+        <AppRoutes />  {/* ← BrowserRouter envolve AppRoutes, que tem o useDeepLink */}
       </BrowserRouter>
     </Providers>
   );
