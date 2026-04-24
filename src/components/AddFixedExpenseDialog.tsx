@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
 import { addExpense, getCards } from '@/lib/store';
 import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
+import { cn } from '@/lib/utils';
 import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
 import DatePicker from '@/components/DatePicker';
@@ -156,14 +157,19 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
         )}
       </DialogTrigger>
 
-      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
+      <DialogContent
+        className={cn(
+          "bg-card border-border rounded-3xl p-0 overflow-hidden transition-[max-width] duration-200",
+          showInstField ? "max-w-md" : "max-w-sm",
+        )}
+      >
         <div className="px-6 pt-6 pb-4 border-b border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">Novo Gasto no Cartão</DialogTitle>
           </DialogHeader>
         </div>
 
-        <div className="px-6 py-5 space-y-4 max-h-[72vh] overflow-y-auto">
+        <div className="px-6 py-5 space-y-4 max-h-[72vh] overflow-y-auto overflow-x-hidden">
           {/* Nome */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Nome</Label>
@@ -173,25 +179,25 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
 
           {/* Valor */}
           <div className={showInstField ? 'grid grid-cols-[1fr_auto_1fr] items-end gap-2' : ''}>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-xs text-muted-foreground">
                 {showInstField ? 'Valor total' : 'Valor (R$)'}
               </Label>
               <CurrencyInput
                 value={totalCents ? String(totalCents / 100) : ''}
                 onChange={handleTotalChange}
-                className="bg-secondary border-border rounded-xl h-11"
+                className="bg-secondary border-border rounded-xl h-11 w-full"
               />
             </div>
             {showInstField && (
               <>
                 <ArrowLeftRight size={14} className="text-muted-foreground mb-3 shrink-0" />
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label className="text-xs text-muted-foreground">Valor por parcela</Label>
                   <CurrencyInput
                     value={instCents ? String(instCents / 100) : ''}
                     onChange={handleInstChange}
-                    className="bg-secondary border-border rounded-xl h-11"
+                    className="bg-secondary border-border rounded-xl h-11 w-full"
                   />
                 </div>
               </>
@@ -200,7 +206,7 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
 
           {/* Cartão + Categoria */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-xs text-muted-foreground">Cartão</Label>
               <Select value={cardId} onValueChange={setCardId}>
                 <SelectTrigger className="bg-secondary border-border rounded-xl h-11">
@@ -213,7 +219,7 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-xs text-muted-foreground">Categoria</Label>
               <CategorySelect
                 type="expense"
@@ -251,8 +257,8 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
           {/* Referência de parcela */}
           {totalInst > 1 && (
             <div className="bg-secondary/60 rounded-xl p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-xs font-medium">Parcela de referência</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     Informe qual parcela cai neste mês
@@ -261,17 +267,20 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
                 <button
                   type="button"
                   onClick={() => setUseInstRef(v => !v)}
-                  className={`relative w-10 h-5.5 rounded-full transition-colors ${useInstRef ? 'bg-primary' : 'bg-muted'}`}
+                  className={cn(
+                    'relative w-10 rounded-full transition-colors shrink-0',
+                    useInstRef ? 'bg-primary' : 'bg-muted',
+                  )}
                   style={{ height: '22px' }}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${useInstRef ? 'left-5.5 translate-x-0' : 'left-0.5'}`}
+                    className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
                     style={{ left: useInstRef ? '22px' : '2px' }}
                   />
                 </button>
               </div>
               {useInstRef && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">Parcela atual:</span>
                   <NumberStepper
                     value={currInst}

@@ -30,18 +30,33 @@ const EMPTY = (): Omit<Loan, 'id'> => ({
 });
 
 // ─── Formulário (Dialog) ──────────────────────────────────────────────────────
+// Agora aceita `open` e `onOpenChange` opcionais. Quando passados, o dialog
+// fica controlado de fora (modo edição). Quando não passados, usa estado
+// interno e o `trigger` é quem abre (modo criação).
 function LoanDialog({
   trigger, initial, onSave,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
   initial?: Loan;
   onSave: (data: Omit<Loan, 'id'>) => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen]     = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open    = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) controlledOnOpenChange?.(v);
+    else              setInternalOpen(v);
+  };
+
   const [saving, setSaving] = useState(false);
   const [form, setForm]     = useState(initial ?? EMPTY());
 
-  useEffect(() => { if (open) setForm(initial ?? EMPTY()); }, [open]);
+  // Reseta o form toda vez que abrir OU o `initial` mudar
+  useEffect(() => { if (open) setForm(initial ?? EMPTY()); }, [open, initial]);
 
   const set = (k: keyof typeof form, v: string | number) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -57,7 +72,7 @@ function LoanDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader>
           <DialogTitle>{initial ? 'Editar empréstimo' : 'Novo empréstimo'}</DialogTitle>
@@ -217,9 +232,9 @@ function LoanCard({ loan, onEdit, onDelete }: {
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function LoansPage() {
-  const [loans, setLoans]         = useState<Loan[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [editing, setEditing]     = useState<Loan | null>(null);
+  const [loans, setLoans]           = useState<Loan[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [editing, setEditing]       = useState<Loan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -321,14 +336,13 @@ export default function LoansPage() {
         )}
       </div>
 
-      {/* Edit dialog — abre programaticamente quando editing !== null */}
-      {editing && (
-        <LoanDialog
-          trigger={<span className="hidden" />}
-          initial={editing}
-          onSave={async data => { await handleEdit(data); }}
-        />
-      )}
+      {/* Edit dialog — controlado externamente por `editing` */}
+      <LoanDialog
+        open={!!editing}
+        onOpenChange={o => { if (!o) setEditing(null); }}
+        initial={editing ?? undefined}
+        onSave={handleEdit}
+      />
 
       {/* Delete dialog */}
       <AlertDialog open={!!deletingId} onOpenChange={open => !open && setDeletingId(null)}>
@@ -336,7 +350,7 @@ export default function LoansPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remover empréstimo</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover este empréstimo? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover este empréstimo?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

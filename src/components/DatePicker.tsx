@@ -56,7 +56,7 @@ export default function DatePicker({ value, onChange, className }: Props) {
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-auto p-0 bg-card border-border shadow-2xl rounded-2xl overflow-hidden"
+        className="w-auto p-0 bg-popover border-border shadow-2xl rounded-2xl overflow-hidden"
         align="start"
         sideOffset={6}
       >
@@ -71,31 +71,40 @@ export default function DatePicker({ value, onChange, className }: Props) {
             border-radius: 10px !important;
           }
           .dp-custom .rdp-day:hover:not(.rdp-day_selected) {
-            background: hsl(240 5% 16%) !important;
+            background: hsl(var(--secondary)) !important;
+            color: hsl(var(--foreground));
           }
           .dp-custom .rdp-day_today:not(.rdp-day_selected) {
-            background: hsl(240 5% 16%);
-            color: hsl(263 70% 68%);
+            background: hsl(var(--secondary));
+            color: hsl(var(--primary));
             font-weight: 600;
           }
           .dp-custom .rdp-caption_label {
             font-size: 0.875rem;
             font-weight: 600;
             text-transform: capitalize;
+            color: hsl(var(--foreground));
           }
           .dp-custom .rdp-head_cell {
             font-size: 0.7rem;
             font-weight: 500;
-            color: hsl(240 5% 55%);
+            color: hsl(var(--muted-foreground));
             text-transform: uppercase;
           }
           .dp-custom .rdp-nav_button {
             border-radius: 10px;
-            color: hsl(240 5% 55%);
+            color: hsl(var(--muted-foreground));
           }
           .dp-custom .rdp-nav_button:hover {
-            background: hsl(240 5% 16%) !important;
-            color: white;
+            background: hsl(var(--secondary)) !important;
+            color: hsl(var(--foreground));
+          }
+          .dp-custom .rdp-day {
+            color: hsl(var(--foreground));
+          }
+          .dp-custom .rdp-day_outside {
+            color: hsl(var(--muted-foreground));
+            opacity: 0.5;
           }
         `}</style>
         <div className="dp-custom">

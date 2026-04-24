@@ -102,8 +102,8 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
               className={cn(
                 'flex items-center gap-2.5 w-full px-3 py-2.5 text-sm transition-colors text-left',
                 item.id === value
-                  ? 'bg-white/8 text-foreground font-medium'
-                  : 'text-foreground/80 hover:bg-white/5'
+                  ? 'bg-secondary text-foreground font-medium'
+                  : 'text-foreground/80 hover:bg-secondary/60'
               )}
             >
               <span
@@ -119,12 +119,11 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
           </div>
 
           {/* Botão fixo "Criar nova categoria" */}
-          <div className="border-t border-white/8 p-1">
+          <div className="border-t border-border p-1">
             <button
               type="button"
               onClick={handleCreateClick}
-              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
-              style={{ color: 'hsl(263 70% 68%)' }}
+              className="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg text-sm font-medium text-primary transition-colors hover:bg-secondary/60"
             >
               <Plus size={14} />
               Criar nova categoria

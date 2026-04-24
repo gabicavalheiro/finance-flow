@@ -79,9 +79,9 @@ const SelectContent = React.forwardRef<
       className={cn(
         // Base layout
         "relative z-[200] max-h-72 min-w-[8rem] overflow-hidden",
-        // Visual — fundo ligeiramente mais claro que o card para criar profundidade
-        "rounded-2xl border border-white/8 shadow-2xl",
-        "bg-[hsl(240_8%_15%)] text-popover-foreground",
+        // Visual — usa tokens de tema para respeitar dark/light
+        "rounded-2xl border border-border shadow-2xl",
+        "bg-popover text-popover-foreground",
         // Animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -137,9 +137,9 @@ const SelectItem = React.forwardRef<
       "relative flex w-full cursor-default select-none items-center",
       "rounded-xl py-2.5 pl-9 pr-3 text-sm",
       "outline-none transition-all duration-100",
-      // Default / hover
+      // Default / hover — usa secondary para se adaptar ao tema
       "text-foreground/80 hover:text-foreground",
-      "focus:bg-white/6 focus:text-foreground",
+      "focus:bg-secondary focus:text-foreground",
       // Selected state — highlight sutil com cor primária
       "data-[state=checked]:bg-primary/15 data-[state=checked]:text-foreground",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
@@ -165,7 +165,7 @@ const SelectSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-white/6", className)}
+    className={cn("-mx-1 my-1 h-px bg-border", className)}
     {...props}
   />
 ));

@@ -55,18 +55,32 @@ const EMPTY = (): Omit<Investment, 'id'> => ({
 });
 
 // ─── Formulário (Dialog) ──────────────────────────────────────────────────────
+// Agora aceita `open` e `onOpenChange` opcionais para permitir controle externo
+// quando em modo edição. No modo criação continua usando estado interno + trigger.
 function InvestmentDialog({
   trigger, initial, onSave,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
   initial?: Investment;
   onSave: (data: Omit<Investment, 'id'>) => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen]     = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open    = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) controlledOnOpenChange?.(v);
+    else              setInternalOpen(v);
+  };
+
   const [saving, setSaving] = useState(false);
   const [form, setForm]     = useState(initial ?? EMPTY());
 
-  useEffect(() => { if (open) setForm(initial ?? EMPTY()); }, [open]);
+  // Reseta o form toda vez que abrir OU o `initial` mudar
+  useEffect(() => { if (open) setForm(initial ?? EMPTY()); }, [open, initial]);
 
   const set = (k: keyof typeof form, v: string | number) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -82,7 +96,7 @@ function InvestmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader>
           <DialogTitle>{initial ? 'Editar investimento' : 'Novo investimento'}</DialogTitle>
@@ -342,13 +356,13 @@ export default function InvestmentsPage() {
         )}
       </div>
 
-      {editing && (
-        <InvestmentDialog
-          trigger={<span className="hidden" />}
-          initial={editing}
-          onSave={async data => { await handleEdit(data); }}
-        />
-      )}
+      {/* Edit dialog — controlado externamente por `editing` */}
+      <InvestmentDialog
+        open={!!editing}
+        onOpenChange={o => { if (!o) setEditing(null); }}
+        initial={editing ?? undefined}
+        onSave={handleEdit}
+      />
 
       <AlertDialog open={!!deletingId} onOpenChange={open => !open && setDeletingId(null)}>
         <AlertDialogContent className="bg-card border-border max-w-xs">
