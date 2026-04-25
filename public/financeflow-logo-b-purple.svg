@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180">
+  <defs></defs>
+  <rect width="360" height="180" fill="oklch(38% 0.22 307)"></rect>
+  
+  <text x="24" y="60" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-weight="600" font-size="18" fill="rgba(255,255,255,0.45)" letter-spacing="3.2" text-anchor="start">FINANCE</text>
+  
+  <text x="20" y="140" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-weight="800" font-size="88" fill="#fafaf9" letter-spacing="-4" text-anchor="start">Flow</text>
+  
+  <g transform="translate(248, 72) scale(1.1)">
+    
+  <polyline points="3,47 8,37 14,42 21,28 26,33 31,23 35,26" stroke="#fafaf9" stroke-width="3.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <circle cx="3" cy="47" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <circle cx="8" cy="37" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <circle cx="14" cy="42" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <circle cx="21" cy="28" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <circle cx="26" cy="33" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <circle cx="31" cy="23" r="2.1" fill="#fafaf9" opacity="0.4"></circle>
+  <line x1="35" y1="26" x2="37.5" y2="21" stroke="#fafaf9" stroke-width="3.8" stroke-linecap="round"></line>
+  <polygon points="45,7 44.5,28 27,19" fill="#fafaf9"></polygon>
+
+  </g>
+</svg>

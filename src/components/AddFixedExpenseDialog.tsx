@@ -91,15 +91,22 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
 
   const computePurchaseDate = (): string => {
     if (!useInstRef || totalInst <= 1) return date;
-    const card        = cards.find(c => c.id === cardId);
-    const closing     = card?.closingDay ?? 10;
-    const cur         = getCurrentMonth();
-    const monthsBack  = currInst - 1;
-    const billing     = addMonths(cur, -monthsBack);
-    const [y, m]      = billing.split('-').map(Number);
-    const purchaseDay = closing + 1;
-    const d           = new Date(y, m - 1, purchaseDay);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const card         = cards.find(c => c.id === cardId);
+    const closing      = card?.closingDay ?? 10;
+    const due          = card?.dueDay ?? (closing + 7);
+    const cur          = getCurrentMonth();
+    const monthsBack   = currInst - 1;
+    const billingMonth = addMonths(cur, -monthsBack);
+  
+    // Se dueDay < closingDay, getBillingMonth aplica +1 extra ao mês de exibição.
+    // Para que a parcela apareça em billingMonth, a compra precisa ser em billingMonth-1.
+    const purchaseMonth = due < closing
+      ? addMonths(billingMonth, -1)
+      : billingMonth;
+  
+    const [y, m] = purchaseMonth.split('-').map(Number);
+    // Dia 1 é sempre ≤ qualquer closingDay — nunca dispara o push de "após fechamento".
+    return `${y}-${String(m).padStart(2, '0')}-01`;
   };
 
   const handleSubmit = async () => {

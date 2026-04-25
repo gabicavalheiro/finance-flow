@@ -1,0 +1,32 @@
+{
+  "name": "FinanceFlow",
+  "short_name": "FinanceFlow",
+  "description": "Controle financeiro inteligente",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0e13",
+  "theme_color": "#6a21d9",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/financeflow-icon-purple-bg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/financeflow-icon-purple-bg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/financeflow-icon-dark-bg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["finance", "productivity"]
+}

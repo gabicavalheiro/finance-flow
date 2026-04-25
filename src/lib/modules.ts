@@ -12,7 +12,6 @@ async function uid(): Promise<string> {
 }
 
 // ─── Definição dos módulos disponíveis ───────────────────────────────────────
-// Para adicionar um novo módulo no futuro, basta inserir um objeto aqui.
 export interface AppModule {
   id: string;
   label: string;
@@ -24,6 +23,15 @@ export interface AppModule {
 }
 
 export const AVAILABLE_MODULES: AppModule[] = [
+  {
+    id: 'goals',
+    label: 'Metas',
+    description: 'Defina objetivos financeiros e veja exatamente quanto economizar por mês para realizá-los. Integrado ao dashboard.',
+    icon: 'Target',
+    path: '/goals',
+    accentColor: '217 91% 60%',
+    priceLabel: 'Módulo adicional',
+  },
   {
     id: 'loans',
     label: 'Empréstimos',

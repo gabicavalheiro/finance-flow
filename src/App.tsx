@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ThemeProvider } from 'next-themes';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import AppNav from "@/components/AppNav";
+import QuickAddFAB from "@/components/QuickAddFAB";
 import Index from "./pages/Index";
 import CardsPage from "./pages/CardsPage";
 import FixedPage from "./pages/FixedPage";
@@ -19,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import ModulesPage from "./pages/ModulesPage";
 import LoansPage from "./pages/LoansPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
+import GoalsPage from "./pages/GoalsPage";
 import { useDeepLink } from '@/hooks/useDeepLink';
 
 const queryClient = new QueryClient();
@@ -35,34 +37,36 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
   </ThemeProvider>
 );
 
-const AppRoutes = () => {
+// Páginas onde o FAB não faz sentido
+const FAB_HIDDEN_PATHS = ['/modules'];
+
+function AppRoutes() {
   useDeepLink();
+  const location = useLocation();
+  const showFAB  = !FAB_HIDDEN_PATHS.includes(location.pathname);
 
   return (
     <div className="flex min-h-screen bg-background">
       <AppNav />
       <main className="flex-1 min-w-0 md:pl-64">
         <Routes>
-          {/* ── Rotas fixas ── */}
           <Route path="/"        element={<Index />} />
           <Route path="/cards"   element={<CardsPage />} />
           <Route path="/fixed"   element={<FixedPage />} />
           <Route path="/faturas" element={<FaturaPage />} />
           <Route path="/reports" element={<ReportsPage />} />
-
-          {/* ── Gerenciamento de módulos ── */}
           <Route path="/modules" element={<ModulesPage />} />
-
-          {/* ── Módulos opcionais (rotas sempre ativas; aba aparece só se módulo ativo) ── */}
+          <Route path="/goals"       element={<GoalsPage />} />
           <Route path="/loans"       element={<LoansPage />} />
           <Route path="/investments" element={<InvestmentsPage />} />
-
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+
+      {showFAB && <QuickAddFAB />}
     </div>
   );
-};
+}
 
 const App = () => {
   const [session, setSession]                       = useState<Session | null>(null);
@@ -93,11 +97,13 @@ const App = () => {
     <Providers>
       <BrowserRouter>
         {isPasswordRecovery ? (
-          <Routes><Route path="*" element={<PasswordResetPage onDone={function (): void {
-            throw new Error('Function not implemented.');
-          } } />} /></Routes>
+          <Routes>
+            <Route path="*" element={<PasswordResetPage onDone={() => {}} />} />
+          </Routes>
         ) : !session ? (
-          <Routes><Route path="*" element={<AuthPage />} /></Routes>
+          <Routes>
+            <Route path="*" element={<AuthPage />} />
+          </Routes>
         ) : (
           <AppRoutes />
         )}

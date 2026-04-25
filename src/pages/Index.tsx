@@ -6,8 +6,6 @@ import {
   CreditCard as CreditCardIcon, FileText, Tag,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
-import AddExpenseDialog from '@/components/AddExpenseDialog';
-import AddVariableDialog from '@/components/AddVariableDialog';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
 import EditVariableDialog from '@/components/EditVariableDialog';
 import CategoryIcon from '@/components/CategoryIcon';
@@ -15,6 +13,7 @@ import ShowMoreButton from '@/components/ShowMoreButton';
 import BulkEditCategoryDialog from '@/components/BulkEditCategoryDialog';
 import TransactionFilterBar from '@/components/TransactionFilterBar';
 import DashboardPatrimonioTab from '@/components/DashboardPatrimonioTab';
+import DashboardGoalsWidget from '@/components/DashboardGoalsWidget';
 import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
@@ -76,6 +75,7 @@ export default function Dashboard() {
   const [userName, setUserName]                   = useState('');
   const [dashTab, setDashTab]                     = useState<'geral' | 'patrimonio'>('geral');
   const [hasPatrimonioModules, setHasPatrimonioModules] = useState(false);
+  const [hasGoalsModule, setHasGoalsModule]             = useState(false);
 
   const [cards, setCards]         = useState<CreditCard[]>([]);
   const [expenses, setExpenses]   = useState<Expense[]>([]);
@@ -89,10 +89,12 @@ export default function Dashboard() {
       setUserName(user?.user_metadata?.name ?? ''));
   }, []);
 
-  // Verifica se algum módulo de patrimônio está ativo
+  // Verifica quais módulos estão ativos
   useEffect(() => {
-    getActiveModuleIds().then(ids =>
-      setHasPatrimonioModules(ids.includes('loans') || ids.includes('investments')));
+    getActiveModuleIds().then(ids => {
+      setHasPatrimonioModules(ids.includes('loans') || ids.includes('investments'));
+      setHasGoalsModule(ids.includes('goals'));
+    });
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -123,6 +125,21 @@ export default function Dashboard() {
   const totalIncome  = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc, [incomes, totalVarInc]);
   const totalExpense = useMemo(() => totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp, [totalCardSpent, fixedExpenses, totalVarExp]);
   const balance      = totalIncome - totalExpense;
+
+  // ── Estatísticas rápidas para o resumo do mês ──────────────────────────────
+  const txCount = useMemo(() =>
+    allInstallments.length + varTxs.length,
+  [allInstallments, varTxs]);
+
+  const expenseRatio = totalIncome > 0
+    ? Math.min(100, Math.round((totalExpense / totalIncome) * 100)) : 0;
+
+  const daysInMonth  = new Date(
+    parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0,
+  ).getDate();
+  const daysElapsed  = month === getCurrentMonth()
+    ? Math.max(1, new Date().getDate()) : daysInMonth;
+  const avgDaily     = totalExpense > 0 ? totalExpense / daysElapsed : 0;
 
   // Pie chart
   const pieData = useMemo(() => {
@@ -182,10 +199,7 @@ export default function Dashboard() {
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
         </div>
-        <div className="flex items-center gap-2">
-          <AddVariableDialog onAdded={loadAll} />
-          {cards.length > 0 && <AddExpenseDialog cards={cards} onAdded={loadAll} iconOnly />}
-        </div>
+        {/* botões movidos para o FAB global */}
       </header>
 
       <div className="px-4 md:px-8 space-y-5">
@@ -222,7 +236,7 @@ export default function Dashboard() {
             {/* Resumo */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-              {/* Saldo */}
+              {/* Saldo do mês — col-span-2 */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 className="bg-card rounded-2xl p-4 border border-border col-span-2">
                 <div className="flex items-center gap-2 mb-1">
@@ -232,9 +246,14 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
                   {formatCurrency(balance)}
                 </p>
+                {totalIncome > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {expenseRatio}% da renda comprometida
+                  </p>
+                )}
               </motion.div>
 
-              {/* Gastos */}
+              {/* Total gastos */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
                 className="bg-card rounded-2xl p-4 border border-border">
                 <div className="flex items-center gap-2 mb-2">
@@ -242,9 +261,14 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground">Total gastos</span>
                 </div>
                 <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
+                {avgDaily > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    ~{formatCurrency(avgDaily)}/dia
+                  </p>
+                )}
               </motion.div>
 
-              {/* Ganhos */}
+              {/* Total ganhos */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
                 className="bg-card rounded-2xl p-4 border border-border">
                 <div className="flex items-center gap-2 mb-2">
@@ -253,11 +277,13 @@ export default function Dashboard() {
                 </div>
                 <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
                 {totalVarInc > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">inclui {formatCurrency(totalVarInc)} variável</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    +{formatCurrency(totalVarInc)} variável
+                  </p>
                 )}
               </motion.div>
 
-              {/* Limite cartões */}
+              {/* Limite cartões — col-span-2 */}
               {cards.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="col-span-2 bg-card rounded-2xl p-4 border border-border">
@@ -276,7 +302,74 @@ export default function Dashboard() {
                 </motion.div>
               )}
 
+              {/* Resumo rápido — preenche o espaço vazio ao lado do limite */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+                className="col-span-2 bg-card rounded-2xl p-4 border border-border">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
+                  Resumo do mês
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Lançamentos */}
+                  <div>
+                    <p className="text-xl font-bold">{txCount}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">lançamentos</p>
+                  </div>
+                  {/* Maior categoria */}
+                  {pieData.length > 0 && (
+                    <div>
+                      <p className="text-sm font-bold truncate">{pieData[0].name}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">maior categoria</p>
+                      <p className="text-xs font-semibold text-destructive mt-0.5">
+                        {formatCurrency(pieData[0].value)}
+                      </p>
+                    </div>
+                  )}
+                  {/* Média diária */}
+                  {avgDaily > 0 && (
+                    <div>
+                      <p className="text-sm font-bold">{formatCurrency(avgDaily)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">média/dia</p>
+                      <p className="text-[10px] text-muted-foreground">{daysElapsed} dias</p>
+                    </div>
+                  )}
+                  {/* Fallback se sem dados */}
+                  {pieData.length === 0 && avgDaily === 0 && (
+                    <div className="col-span-2 flex items-center">
+                      <p className="text-xs text-muted-foreground">Sem lançamentos este mês</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mini barra de comprometimento */}
+                {totalIncome > 0 && totalExpense > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>Comprometimento da renda</span>
+                      <span className="font-medium">{expenseRatio}%</span>
+                    </div>
+                    <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${expenseRatio}%` }}
+                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                        style={{
+                          background: expenseRatio > 90 ? 'hsl(0 72% 51%)'
+                            : expenseRatio > 70 ? 'hsl(25 95% 53%)'
+                            : 'hsl(152 69% 45%)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+
             </div>
+
+            {/* ── Widget de Metas (só se módulo ativo) ── */}
+            {hasGoalsModule && (
+              <DashboardGoalsWidget monthlyBalance={balance} />
+            )}
 
             {/* Grid principal */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

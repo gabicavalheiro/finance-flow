@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="108" fill="#fafaf9"></rect>
+  
+  
+  <g transform="translate(96, 126) scale(5.7)">
+    <polyline points="3,47 8,37 14,42 21,28 26,33 31,23 35,26" stroke="oklch(38% 0.22 307)" stroke-width="3.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></polyline>
+    <circle cx="3" cy="47" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <circle cx="8" cy="37" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <circle cx="14" cy="42" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <circle cx="21" cy="28" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <circle cx="26" cy="33" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <circle cx="31" cy="23" r="2.1" fill="oklch(38% 0.22 307)" opacity="0.4"></circle>
+    <line x1="35" y1="26" x2="37.5" y2="21" stroke="oklch(38% 0.22 307)" stroke-width="3.8" stroke-linecap="round"></line>
+    <polygon points="45,7 44.5,28 27,19" fill="oklch(38% 0.22 307)"></polygon>
+  </g>
+</svg>

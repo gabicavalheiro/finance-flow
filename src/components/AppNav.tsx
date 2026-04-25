@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3,
-  FileSearch, LogOut, Sun, Moon, Landmark, TrendingUp, Sparkles, LucideIcon,
+  FileSearch, LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, LucideIcon,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,7 @@ import {
 import { getActiveModuleIds, AVAILABLE_MODULES } from '@/lib/modules';
 
 // ─── Mapa de ícones dos módulos ───────────────────────────────────────────────
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target };
 
 // ─── Abas fixas (sempre visíveis) ─────────────────────────────────────────────
 const STATIC_TABS = [
@@ -33,14 +33,13 @@ export default function AppNav() {
   const location            = useLocation();
   const navigate            = useNavigate();
   const { theme, setTheme } = useTheme();
-  const [userName, setUserName]     = useState('');
-  const [mounted, setMounted]       = useState(false);
+  const [userName, setUserName]         = useState('');
+  const [mounted, setMounted]           = useState(false);
   const [activeModuleIds, setActiveModuleIds] = useState<string[]>([]);
 
-  // Carrega módulos ativos do Supabase
   const loadModules = async () => {
     try { setActiveModuleIds(await getActiveModuleIds()); }
-    catch { /* silencioso — mantém lista atual */ }
+    catch { /* silencioso */ }
   };
 
   useEffect(() => {
@@ -50,11 +49,8 @@ export default function AppNav() {
     loadModules();
   }, []);
 
-  // Recarrega módulos ao mudar de rota (cobre o caso de ativar um módulo
-  // em ModulesPage e depois navegar — a aba aparece imediatamente).
   useEffect(() => { loadModules(); }, [location.pathname]);
 
-  // Abas dos módulos ativos
   const moduleTabs = AVAILABLE_MODULES
     .filter(m => activeModuleIds.includes(m.id))
     .map(m => ({
@@ -67,7 +63,13 @@ export default function AppNav() {
 
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
   const isDark      = mounted ? theme === 'dark' : true;
-  const logoWithName = isDark ? '/logoDarkNome.png' : '/logoLightNome.png';
+
+  // ── Logos SVG — sem fundo visível na sidebar ──────────────────────────────
+  // O ícone (quadrado) fica centralizado no topo do sidebar
+  const iconSrc    = '/financeflow-icon-purple-bg.svg';
+  const logoSrc    = isDark
+    ? '/financeflow-logo-b-dark.svg'
+    : '/financeflow-logo-b-light.svg';
 
   const LogoutDialog = ({ children }: { children: React.ReactNode }) => (
     <AlertDialog>
@@ -91,8 +93,19 @@ export default function AppNav() {
     <>
       {/* ── DESKTOP — Sidebar ──────────────────────────────────────────────── */}
       <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-sidebar-border z-40">
-        <div className="px-5 py-5 border-b border-sidebar-border">
-          <img src={logoWithName} alt="Logo" className="h-8 object-contain" />
+
+        {/* Logo centralizado */}
+        <div className="flex flex-col items-center justify-center py-6 px-4 border-b border-sidebar-border gap-2">
+          {/* Ícone quadrado */}
+          <img
+            src={iconSrc}
+            alt="FinanceFlow icon"
+            className="w-12 h-12 rounded-xl object-cover"
+          />
+          {/* Nome do app
+          <span className="text-sm font-bold tracking-wide text-sidebar-foreground">
+            FinanceFlow
+          </span> */}
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
@@ -132,7 +145,7 @@ export default function AppNav() {
         </div>
       </aside>
 
-      {/* ── MOBILE — Barra inferior ────────────────────────────────────────── */}
+      {/* ── MOBILE — Barra inferior ─────────────────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border">
         <div className="flex items-center justify-around h-16 px-1 overflow-x-auto gap-1">
           {[...STATIC_TABS, ...moduleTabs, MODULES_TAB].map(tab => {

@@ -2,19 +2,54 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logoLight.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ── Favicon ─────────────────────────────────────────────────────── -->
+    <!-- Ícone principal: SVG escalável (suportado por Chrome, Firefox, Edge) -->
+    <link rel="icon" type="image/svg+xml" href="/financeflow-icon-purple-bg.svg" />
+    <!-- Fallback para browsers que não suportam SVG como favicon -->
+    <link rel="alternate icon" href="/financeflow-icon-purple-bg.svg" />
+
+    <!-- ── Apple / iOS ──────────────────────────────────────────────────── -->
+    <!-- Ícone da tela inicial do iOS Safari -->
+    <link rel="apple-touch-icon" href="/financeflow-icon-purple-bg.svg" />
+
+    <!-- ── PWA Manifest ─────────────────────────────────────────────────── -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ── Theme color (barra do navegador no mobile) ───────────────────── -->
+    <meta name="theme-color" content="#6a21d9" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#6a21d9" media="(prefers-color-scheme: light)" />
+
+    <!-- ── Viewport ─────────────────────────────────────────────────────── -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- ── SEO básico ───────────────────────────────────────────────────── -->
     <title>FinanceFlow</title>
-    <meta name="description" content="Controle financeiro inteligente" />
+    <meta name="description" content="Controle financeiro inteligente — organize receitas, gastos e metas em um só lugar." />
     <meta name="author" content="FinanceFlow" />
+    <meta name="application-name" content="FinanceFlow" />
 
+    <!-- ── Open Graph (compartilhamento no WhatsApp, Telegram, etc) ─────── -->
     <meta property="og:title" content="FinanceFlow" />
-    <meta property="og:description" content="Controle financeiro inteligente" />
+    <meta property="og:description" content="Controle financeiro inteligente — organize receitas, gastos e metas em um só lugar." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/logoDarkNome.png" />
+    <meta property="og:image" content="/financeflow-logo-b-dark.svg" />
+    <meta property="og:image:width" content="360" />
+    <meta property="og:image:height" content="180" />
+    <meta property="og:image:alt" content="FinanceFlow logo" />
+    <meta property="og:locale" content="pt_BR" />
 
+    <!-- ── Twitter Card ─────────────────────────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/logoDarkNome.png" />
+    <meta name="twitter:title" content="FinanceFlow" />
+    <meta name="twitter:description" content="Controle financeiro inteligente." />
+    <meta name="twitter:image" content="/financeflow-logo-b-dark.svg" />
+
+    <!-- ── Mobile app meta ──────────────────────────────────────────────── -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FinanceFlow" />
   </head>
 
   <body>
