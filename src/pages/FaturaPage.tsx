@@ -1,8 +1,10 @@
+// src/pages/FaturaPage.tsx
 import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, AlertTriangle, Info, FileSearch, StickyNote } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import ShowMoreButton from '@/components/ShowMoreButton';
+import DailyAlertsDialog from '@/components/DailyAlertsDialog';
 import { useCollapse } from '@/hooks/useCollapse';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
@@ -14,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// ── Sub-componente por cartão (necessário para useCollapse dentro do .map) ──
+// ── Sub-componente por cartão ─────────────────────────────────────────────────
 function FaturaCardItem({
   card, idx, calculated, cardInst, draft, diff, isOk, isOver, isUnder,
   saving, note, onDraftChange, onNoteChange, onSave,
@@ -53,35 +55,36 @@ function FaturaCardItem({
       <div className="p-4 space-y-4">
         {/* Lançamentos colapsáveis */}
         {cardInst.length > 0 ? (
-          <div className="space-y-1.5">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-              Lançamentos registrados <span className="opacity-60">({cardInst.length})</span>
-            </p>
-            {cardInst.slice(0, collapse.visible).map((inst, ii) => (
-              <div key={ii} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
-                <span className="text-muted-foreground truncate flex-1 mr-2">
-                  {inst.expenseName}
-                  {inst.totalInstallments > 1 && <span className="opacity-60"> ({inst.installmentNumber}/{inst.totalInstallments})</span>}
-                </span>
-                <span className="font-medium shrink-0">{formatCurrency(inst.amount)}</span>
+          <div className="space-y-1">
+            {cardInst.slice(0, collapse.visible).map((inst, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{inst.expenseName}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold tabular-nums">{formatCurrency(inst.amount)}</span>
               </div>
             ))}
             <ShowMoreButton expanded={collapse.expanded} hidden={collapse.hidden} onToggle={collapse.toggle} />
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground text-center py-2">Nenhum lançamento neste mês</p>
+          <p className="text-xs text-muted-foreground text-center py-2">Nenhum lançamento registrado</p>
         )}
 
-        {/* Campo de valor real */}
+        {/* Input valor real */}
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground font-medium">Valor real da fatura (banco)</label>
+          <label className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Info size={11} /> Valor real cobrado pelo banco
+          </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
               <Input
-                type="number" step="0.01" min="0" value={draft}
+                value={draft}
                 onChange={e => onDraftChange(e.target.value)}
-                placeholder={calculated > 0 ? calculated.toFixed(2) : '0,00'}
+                placeholder={calculated.toFixed(2).replace('.', ',')}
                 className="pl-9 bg-secondary border-border"
                 onKeyDown={e => e.key === 'Enter' && onSave()}
               />
@@ -108,8 +111,8 @@ function FaturaCardItem({
             {isOk    && <CheckCircle2 size={15} />}
             {(isOver || isUnder) && <AlertTriangle size={15} />}
             <span>
-              {isOk   && 'Valores conferem ✓'}
-              {isOver && `Banco cobrou ${formatCurrency(diff)} a mais — possível gasto não registrado`}
+              {isOk    && 'Valores conferem ✓'}
+              {isOver  && `Banco cobrou ${formatCurrency(diff)} a mais — possível gasto não registrado`}
               {isUnder && `Banco cobrou ${formatCurrency(Math.abs(diff))} a menos — verifique os lançamentos`}
             </span>
           </div>
@@ -132,6 +135,7 @@ function FaturaCardItem({
   );
 }
 
+// ── Página principal ──────────────────────────────────────────────────────────
 export default function FaturaPage() {
   const [month, setMonth]       = useState(getCurrentMonth());
   const [cards, setCards]       = useState<CreditCard[]>([]);
@@ -149,11 +153,11 @@ export default function FaturaPage() {
     ]);
     setCards(c); setExpenses(e); setInvoices(inv);
 
-    // Popular drafts com valores salvos
     const newDrafts: Record<string, string> = {};
     const newNotes: Record<string, string>  = {};
     for (const invoice of inv) {
-      newDrafts[invoice.cardId] = invoice.actualAmount > 0 ? String(invoice.actualAmount) : '';
+      newDrafts[invoice.cardId] = invoice.actualAmount > 0
+        ? String(invoice.actualAmount) : '';
       newNotes[invoice.cardId]  = invoice.notes ?? '';
     }
     setDrafts(newDrafts);
@@ -165,39 +169,35 @@ export default function FaturaPage() {
 
   const installments = computeInstallmentsForMonth(expenses, cards, month);
 
-  // Calculado pelo sistema para cada cartão
   const calculatedByCard = (cardId: string) =>
     installments.filter(i => i.cardId === cardId).reduce((s, i) => s + i.amount, 0);
 
   const handleSave = async (card: CreditCard) => {
-    const raw = drafts[card.id] ?? '';
+    const raw    = drafts[card.id] ?? '';
     const parsed = parseFloat(raw.replace(',', '.'));
-    if (raw && (isNaN(parsed) || parsed < 0)) {
-      toast.error('Valor inválido'); return;
-    }
+    if (raw && (isNaN(parsed) || parsed < 0)) { toast.error('Valor inválido'); return; }
     setSaving(card.id);
     try {
       await upsertInvoice({
-        cardId: card.id,
-        month,
+        cardId: card.id, month,
         actualAmount: isNaN(parsed) ? 0 : parsed,
         notes: notes[card.id] ?? '',
       });
       toast.success(`Fatura do ${card.name} salva!`);
       loadAll();
-    } catch {
-      toast.error('Erro ao salvar');
-    }
+    } catch { toast.error('Erro ao salvar'); }
     setSaving(null);
   };
 
-  // Totais gerais do mês
   const totalCalculated = cards.reduce((s, c) => s + calculatedByCard(c.id), 0);
   const totalActual     = invoices.reduce((s, i) => s + i.actualAmount, 0);
   const totalDiff       = totalActual - totalCalculated;
 
   return (
     <div className="pb-24 md:pb-10 px-4 md:px-8 pt-6 md:pt-8 max-w-5xl mx-auto space-y-6">
+
+      {/* ── Avisos automáticos — dispara ao entrar e ao mudar de mês ── */}
+      <DailyAlertsDialog month={month} />
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -225,65 +225,55 @@ export default function FaturaPage() {
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Real (banco)</p>
             <p className="text-lg font-bold">{formatCurrency(totalActual)}</p>
           </div>
-          <div className={cn('rounded-2xl p-4 border', Math.abs(totalDiff) < 0.01 ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30')}>
+          <div className={cn(
+            'rounded-2xl p-4 border',
+            Math.abs(totalDiff) < 0.01 ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30',
+          )}>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Diferença</p>
-            <p className={cn('text-lg font-bold', Math.abs(totalDiff) < 0.01 ? 'text-success' : 'text-warning')}>
+            <p className={cn(
+              'text-lg font-bold',
+              Math.abs(totalDiff) < 0.01 ? 'text-success' : 'text-warning',
+            )}>
               {totalDiff >= 0 ? '+' : ''}{formatCurrency(totalDiff)}
             </p>
           </div>
         </div>
       )}
 
-      {/* Info */}
-      <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
-        <Info size={14} className="text-primary mt-0.5 shrink-0" />
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          O valor <span className="text-foreground font-medium">calculado</span> vem dos gastos registrados no app.
-          O valor <span className="text-foreground font-medium">real</span> é o que aparece na fatura do banco.
-          Use a diferença para identificar gastos não registrados.
-        </p>
-      </div>
-
-      {loading && <p className="text-xs text-muted-foreground text-center py-10">Carregando...</p>}
-
-      {!loading && cards.length === 0 && (
+      {/* Lista de cartões */}
+      {loading ? (
+        <p className="text-xs text-muted-foreground text-center py-10">Carregando...</p>
+      ) : cards.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-10">Nenhum cartão cadastrado</p>
+      ) : (
+        <div className="space-y-4">
+          {cards.map((card, idx) => {
+            const calculated = calculatedByCard(card.id);
+            const cardInst   = installments.filter(i => i.cardId === card.id);
+            const draft      = drafts[card.id] ?? '';
+            const note       = notes[card.id]  ?? '';
+            const actualInv  = invoices.find(i => i.cardId === card.id);
+            const actual     = actualInv?.actualAmount ?? null;
+            const diff       = actual !== null ? actual - calculated : null;
+            const isOk       = diff !== null && Math.abs(diff) < 0.01;
+            const isOver     = diff !== null && diff > 0.01;
+            const isUnder    = diff !== null && diff < -0.01;
+
+            return (
+              <FaturaCardItem
+                key={card.id}
+                card={card} idx={idx} calculated={calculated}
+                cardInst={cardInst} draft={draft} diff={diff}
+                isOk={isOk} isOver={isOver} isUnder={isUnder}
+                saving={saving} note={note}
+                onDraftChange={v => setDrafts(p => ({ ...p, [card.id]: v }))}
+                onNoteChange={v => setNotes(p => ({ ...p, [card.id]: v }))}
+                onSave={() => handleSave(card)}
+              />
+            );
+          })}
+        </div>
       )}
-
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {cards.map((card, idx) => {
-          const calculated  = calculatedByCard(card.id);
-          const savedInv    = invoices.find(i => i.cardId === card.id);
-          const draft       = drafts[card.id] ?? '';
-          const draftNum    = parseFloat(draft.replace(',', '.'));
-          const diff        = !isNaN(draftNum) && draft !== '' ? draftNum - calculated : null;
-          const isOk        = diff !== null && Math.abs(diff) < 0.01;
-          const isOver      = diff !== null && diff > 0.01;
-          const isUnder     = diff !== null && diff < -0.01;
-          const cardInst    = installments.filter(i => i.cardId === card.id);
-
-          return (
-            <FaturaCardItem
-              key={card.id}
-              card={card}
-              idx={idx}
-              calculated={calculated}
-              cardInst={cardInst}
-              draft={draft}
-              diff={diff}
-              isOk={isOk}
-              isOver={isOver}
-              isUnder={isUnder}
-              saving={saving}
-              note={notes[card.id] ?? ''}
-              onDraftChange={val => setDrafts(prev => ({ ...prev, [card.id]: val }))}
-              onNoteChange={val => setNotes(prev => ({ ...prev, [card.id]: val }))}
-              onSave={() => handleSave(card)}
-            />
-          );
-        })}
-      </div>
     </div>
   );
 }

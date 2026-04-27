@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -9,6 +10,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import AppNav from "@/components/AppNav";
 import QuickAddFAB from "@/components/QuickAddFAB";
+import DailyAlertsDialog from "@/components/DailyAlertsDialog";
 import Index from "./pages/Index";
 import CardsPage from "./pages/CardsPage";
 import FixedPage from "./pages/FixedPage";
@@ -48,18 +50,22 @@ function AppRoutes() {
   return (
     <div className="flex min-h-screen bg-background">
       <AppNav />
+
+      {/* ── Popup de avisos — abre ao entrar em /reports e /faturas ── */}
+      <DailyAlertsDialog />
+
       <main className="flex-1 min-w-0 md:pl-64">
         <Routes>
-          <Route path="/"        element={<Index />} />
-          <Route path="/cards"   element={<CardsPage />} />
-          <Route path="/fixed"   element={<FixedPage />} />
-          <Route path="/faturas" element={<FaturaPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/modules" element={<ModulesPage />} />
+          <Route path="/"            element={<Index />} />
+          <Route path="/cards"       element={<CardsPage />} />
+          <Route path="/fixed"       element={<FixedPage />} />
+          <Route path="/faturas"     element={<FaturaPage />} />
+          <Route path="/reports"     element={<ReportsPage />} />
+          <Route path="/modules"     element={<ModulesPage />} />
           <Route path="/goals"       element={<GoalsPage />} />
           <Route path="/loans"       element={<LoansPage />} />
           <Route path="/investments" element={<InvestmentsPage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*"            element={<NotFound />} />
         </Routes>
       </main>
 

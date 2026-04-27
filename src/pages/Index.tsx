@@ -1,3 +1,4 @@
+// src/pages/Index.tsx
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,6 +15,7 @@ import BulkEditCategoryDialog from '@/components/BulkEditCategoryDialog';
 import TransactionFilterBar from '@/components/TransactionFilterBar';
 import DashboardPatrimonioTab from '@/components/DashboardPatrimonioTab';
 import DashboardGoalsWidget from '@/components/DashboardGoalsWidget';
+import DashboardSidebar from '@/components/DashboardSidebar';
 import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
@@ -89,7 +91,6 @@ export default function Dashboard() {
       setUserName(user?.user_metadata?.name ?? ''));
   }, []);
 
-  // Verifica quais módulos estão ativos
   useEffect(() => {
     getActiveModuleIds().then(ids => {
       setHasPatrimonioModules(ids.includes('loans') || ids.includes('investments'));
@@ -108,7 +109,7 @@ export default function Dashboard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // ── Cálculos base ──────────────────────────────────────────────────────────
+  // ── Cálculos base ─────────────────────────────────────────────────────────
   const allInstallments = useMemo(
     () => computeInstallmentsForMonth(expenses, cards, month),
     [expenses, cards, month],
@@ -126,20 +127,18 @@ export default function Dashboard() {
   const totalExpense = useMemo(() => totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp, [totalCardSpent, fixedExpenses, totalVarExp]);
   const balance      = totalIncome - totalExpense;
 
-  // ── Estatísticas rápidas para o resumo do mês ──────────────────────────────
-  const txCount = useMemo(() =>
-    allInstallments.length + varTxs.length,
-  [allInstallments, varTxs]);
+  // ── Estatísticas ──────────────────────────────────────────────────────────
+  const txCount = useMemo(() => allInstallments.length + varTxs.length, [allInstallments, varTxs]);
 
   const expenseRatio = totalIncome > 0
     ? Math.min(100, Math.round((totalExpense / totalIncome) * 100)) : 0;
 
-  const daysInMonth  = new Date(
+  const daysInMonth = new Date(
     parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0,
   ).getDate();
-  const daysElapsed  = month === getCurrentMonth()
+  const daysElapsed = month === getCurrentMonth()
     ? Math.max(1, new Date().getDate()) : daysInMonth;
-  const avgDaily     = totalExpense > 0 ? totalExpense / daysElapsed : 0;
+  const avgDaily    = totalExpense > 0 ? totalExpense / daysElapsed : 0;
 
   // Pie chart
   const pieData = useMemo(() => {
@@ -154,7 +153,7 @@ export default function Dashboard() {
       .slice(0, 8);
   }, [allInstallments, fixedExpenses, varTxs]);
 
-  // ── Filtros ────────────────────────────────────────────────────────────────
+  // ── Filtros ───────────────────────────────────────────────────────────────
   const {
     filters, setFilters, activeCount, clearFilters,
     filteredInstallments, filteredVarTxs, filteredFixed,
@@ -173,7 +172,7 @@ export default function Dashboard() {
   const collapseVar   = useCollapse(visibleVarTxs.length);
   const collapseFixed = useCollapse(visibleFixed.length);
 
-  // ── Ações ──────────────────────────────────────────────────────────────────
+  // ── Ações ─────────────────────────────────────────────────────────────────
   const confirmDeleteExpense = async () => {
     if (!deletingExpenseId) return;
     try { await deleteExpense(deletingExpenseId); toast.success('Gasto removido'); loadAll(); }
@@ -187,9 +186,9 @@ export default function Dashboard() {
     finally { setDeletingVarId(null); }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-24 md:pb-10 max-w-5xl mx-auto">
+    <div className="pb-24 md:pb-10 max-w-7xl mx-auto">
 
       {/* Cabeçalho */}
       <header className="px-4 md:px-8 pt-5 md:pt-8 pb-4 flex items-center justify-between">
@@ -199,385 +198,364 @@ export default function Dashboard() {
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
         </div>
-        {/* botões movidos para o FAB global */}
       </header>
 
-      <div className="px-4 md:px-8 space-y-5">
+      {/* ── Layout principal: conteúdo + sidebar ─────────────────────────── */}
+      <div className="px-4 md:px-8 flex gap-6">
 
-        {/* Seletor de mês + tabs Geral / Patrimônio */}
-        <div className="space-y-3">
-          <MonthSelector month={month} onChange={setMonth} />
+        {/* ── Coluna principal ─────────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-5">
 
-          {hasPatrimonioModules && (
-            <div className="flex gap-1 bg-muted/50 p-1 rounded-xl w-fit">
-              {(['geral', 'patrimonio'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setDashTab(tab)}
-                  className={cn(
-                    'px-4 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    dashTab === tab
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {tab === 'geral' ? 'Geral' : 'Patrimônio'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          {/* Seletor de mês + tabs Geral / Patrimônio */}
+          <div className="space-y-3">
+            <MonthSelector month={month} onChange={setMonth} />
 
-        {/* ── Aba Patrimônio ── */}
-        {dashTab === 'patrimonio' ? (
-          <DashboardPatrimonioTab />
-        ) : (
-          <>
-            {/* Resumo */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-              {/* Saldo do mês — col-span-2 */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-card rounded-2xl p-4 border border-border col-span-2">
-                <div className="flex items-center gap-2 mb-1">
-                  <Scale size={16} className="text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Saldo do mês</span>
-                </div>
-                <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
-                  {formatCurrency(balance)}
-                </p>
-                {totalIncome > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {expenseRatio}% da renda comprometida
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Total gastos */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                className="bg-card rounded-2xl p-4 border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingDown size={16} className="text-destructive" />
-                  <span className="text-xs text-muted-foreground">Total gastos</span>
-                </div>
-                <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
-                {avgDaily > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    ~{formatCurrency(avgDaily)}/dia
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Total ganhos */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-                className="bg-card rounded-2xl p-4 border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={16} className="text-success" />
-                  <span className="text-xs text-muted-foreground">Total ganhos</span>
-                </div>
-                <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
-                {totalVarInc > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    +{formatCurrency(totalVarInc)} variável
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Limite cartões — col-span-2 */}
-              {cards.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                  className="col-span-2 bg-card rounded-2xl p-4 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Wallet size={16} className="text-accent" />
-                    <span className="text-xs text-muted-foreground">Limite disponível (cartões)</span>
-                  </div>
-                  <div className="flex items-end justify-between">
-                    <p className="text-lg font-bold">{formatCurrency(available)}</p>
-                    <p className="text-xs text-muted-foreground">de {formatCurrency(totalLimit)}</p>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-secondary rounded-full overflow-hidden">
-                    <div className="h-full bg-accent rounded-full transition-all"
-                      style={{ width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%' }} />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Resumo rápido — preenche o espaço vazio ao lado do limite */}
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-                className="col-span-2 bg-card rounded-2xl p-4 border border-border">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
-                  Resumo do mês
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Lançamentos */}
-                  <div>
-                    <p className="text-xl font-bold">{txCount}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">lançamentos</p>
-                  </div>
-                  {/* Maior categoria */}
-                  {pieData.length > 0 && (
-                    <div>
-                      <p className="text-sm font-bold truncate">{pieData[0].name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">maior categoria</p>
-                      <p className="text-xs font-semibold text-destructive mt-0.5">
-                        {formatCurrency(pieData[0].value)}
-                      </p>
-                    </div>
-                  )}
-                  {/* Média diária */}
-                  {avgDaily > 0 && (
-                    <div>
-                      <p className="text-sm font-bold">{formatCurrency(avgDaily)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">média/dia</p>
-                      <p className="text-[10px] text-muted-foreground">{daysElapsed} dias</p>
-                    </div>
-                  )}
-                  {/* Fallback se sem dados */}
-                  {pieData.length === 0 && avgDaily === 0 && (
-                    <div className="col-span-2 flex items-center">
-                      <p className="text-xs text-muted-foreground">Sem lançamentos este mês</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Mini barra de comprometimento */}
-                {totalIncome > 0 && totalExpense > 0 && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                      <span>Comprometimento da renda</span>
-                      <span className="font-medium">{expenseRatio}%</span>
-                    </div>
-                    <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${expenseRatio}%` }}
-                        transition={{ duration: 0.6, ease: 'easeOut' }}
-                        style={{
-                          background: expenseRatio > 90 ? 'hsl(0 72% 51%)'
-                            : expenseRatio > 70 ? 'hsl(25 95% 53%)'
-                            : 'hsl(152 69% 45%)',
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-
-            </div>
-
-            {/* ── Widget de Metas (só se módulo ativo) ── */}
-            {hasGoalsModule && (
-              <DashboardGoalsWidget monthlyBalance={balance} />
+            {hasPatrimonioModules && (
+              <div className="flex gap-1 bg-muted/50 p-1 rounded-xl w-fit">
+                {(['geral', 'patrimonio'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setDashTab(tab)}
+                    className={cn(
+                      'px-4 py-1.5 rounded-lg text-xs font-medium transition-all',
+                      dashTab === tab
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {tab === 'geral' ? 'Geral' : 'Patrimônio'}
+                  </button>
+                ))}
+              </div>
             )}
+          </div>
 
-            {/* Grid principal */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* ── Aba Patrimônio ── */}
+          {dashTab === 'patrimonio' ? (
+            <DashboardPatrimonioTab />
+          ) : (
+            <>
+              {/* Resumo */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-              {/* Pie chart */}
-              {pieData.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                  className="bg-card rounded-2xl p-4 border border-border">
-                  <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Gastos por categoria</p>
-                  <div className="flex gap-4 items-center">
-                    <div className="h-36 w-36 shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} paddingAngle={2} dataKey="value">
-                            {pieData.map((_, idx) => (
-                              <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 space-y-1.5 min-w-0">
-                      {pieData.map((entry, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                          <span className="truncate text-muted-foreground flex-1">{entry.name}</span>
-                          <span className="font-medium shrink-0">{formatCurrency(entry.value)}</span>
-                        </div>
-                      ))}
-                    </div>
+                {/* Saldo do mês — col-span-2 */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-card rounded-2xl p-4 border border-border col-span-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Scale size={16} className="text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Saldo do mês</span>
                   </div>
-                </motion.div>
-              )}
-
-              {/* Lançamentos */}
-              <div className={cn('bg-card rounded-2xl border border-border overflow-hidden', pieData.length === 0 ? 'md:col-span-2' : '')}>
-
-                <div className="px-4 pt-4 pb-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold">Lançamentos</p>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setBulkEditOpen(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
-                      >
-                        <Tag size={12} /> Editar em massa
-                      </button>
-                      <TransactionFilterBar
-                        open={filterOpen}
-                        onToggle={() => setFilterOpen(v => !v)}
-                        filters={filters}
-                        setFilters={setFilters}
-                        activeCount={activeCount}
-                        clearFilters={clearFilters}
-                        availableCategories={availableCategories}
-                        cards={cards}
-                      />
-                    </div>
-                  </div>
-
-                  {cards.length > 0 && (
-                    <ScrollArea className="w-full">
-                      <div className="flex gap-2 pb-2">
-                        <button
-                          onClick={() => setSelectedCardId(null)}
-                          className={cn(
-                            'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                            !selectedCardId ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                          )}
-                        >
-                          Todos
-                        </button>
-                        {cards.map(card => {
-                          const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-                          const isActive  = selectedCardId === card.id;
-                          return (
-                            <button key={card.id}
-                              onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                              className={cn(
-                                'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
-                                isActive ? 'border-primary text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-muted-foreground/50',
-                              )}
-                            >
-                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
-                              {card.name}
-                              {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  )}
-                </div>
-
-                <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
-                  {loadingData ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
-                  ) : isEmpty ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">
-                      {activeCount > 0 ? 'Nenhum lançamento com esses filtros' : selectedCardId ? 'Nenhum lançamento neste cartão' : 'Nenhum lançamento registrado'}
+                  <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
+                    {formatCurrency(balance)}
+                  </p>
+                  {totalIncome > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {expenseRatio}% da renda comprometida
                     </p>
-                  ) : (
-                    <>
-                      <AnimatePresence mode="popLayout">
-                        {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
-                          const orig = getExpenseById(inst.expenseId);
-                          return (
-                            <motion.div key={`${inst.expenseId}-${i}`}
-                              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                              className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
-                            >
-                              <CategoryIcon category={inst.category} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{inst.expenseName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
-                                  {' · '}{cardMap.get(inst.cardId)?.name ?? 'Cartão'}
-                                </p>
-                              </div>
-                              <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                {orig && (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                                    onClick={() => setEditingExpense(orig)}>
-                                    <Pencil size={12} />
-                                  </Button>
-                                )}
-                                <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => setDeletingExpenseId(inst.expenseId)}>
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
-                      <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
-
-                      {visibleVarTxs.length > 0 && (
-                        <>
-                          {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
-                          {visibleVarTxs.sort((a, b) => b.date.localeCompare(a.date)).slice(0, collapseVar.visible).map(tx => (
-                            <div key={tx.id}
-                              className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
-                              <div className="flex items-center justify-center rounded-xl w-8 h-8 shrink-0"
-                                style={{
-                                  background: tx.type === 'income' ? 'hsl(152 69% 45% / 0.15)' : 'hsl(0 72% 51% / 0.15)',
-                                  color:      tx.type === 'income' ? 'hsl(152 69% 45%)'         : 'hsl(0 72% 51%)',
-                                }}>
-                                {tx.type === 'income' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{tx.name}</p>
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  {METHOD_ICONS[tx.paymentMethod]}
-                                  {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
-                                  {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
-                                </p>
-                              </div>
-                              <span className="text-sm font-semibold"
-                                style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
-                                {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
-                              </span>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                                  onClick={() => setEditingVar(tx)}>
-                                  <Pencil size={12} />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => setDeletingVarId(tx.id)}>
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                          <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
-                        </>
-                      )}
-
-                      {visibleFixed.length > 0 && (
-                        <>
-                          {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
-                          {visibleFixed.slice(0, collapseFixed.visible).map(f => (
-                            <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
-                              <CategoryIcon category={f.category} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{f.name}</p>
-                                <p className="text-xs text-muted-foreground">Fixo mensal</p>
-                              </div>
-                              <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
-                            </div>
-                          ))}
-                          <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
-                        </>
-                      )}
-                    </>
                   )}
-                </div>
+                </motion.div>
+
+                {/* Total gastos */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="bg-card rounded-2xl p-4 border border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown size={16} className="text-destructive" />
+                    <span className="text-xs text-muted-foreground">Total gastos</span>
+                  </div>
+                  <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
+                  {avgDaily > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">{formatCurrency(avgDaily)}/dia</p>
+                  )}
+                </motion.div>
+
+                {/* Total receitas */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                  className="bg-card rounded-2xl p-4 border border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp size={16} style={{ color: 'hsl(152 69% 45%)' }} />
+                    <span className="text-xs text-muted-foreground">Receitas</span>
+                  </div>
+                  <p className="text-lg font-bold" style={{ color: 'hsl(152 69% 45%)' }}>
+                    {formatCurrency(totalIncome)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{txCount} lançamentos</p>
+                </motion.div>
               </div>
 
+              {/* Limite de cartões */}
+              {totalLimit > 0 && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="bg-card rounded-2xl p-4 border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Wallet size={16} className="text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Limite de cartões</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(available)} disponível
+                    </span>
+                  </div>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%',
+                        background: (totalCardSpent / totalLimit) > 0.9
+                          ? 'hsl(0 72% 51%)'
+                          : (totalCardSpent / totalLimit) > 0.7
+                            ? 'hsl(25 95% 53%)'
+                            : 'hsl(152 69% 45%)',
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {formatCurrency(totalCardSpent)} de {formatCurrency(totalLimit)}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Widget de metas */}
+              {hasGoalsModule && (
+                <DashboardGoalsWidget monthlyBalance={balance} />
+              )}
+
+              {/* Grid principal */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                {/* Pie chart */}
+                {pieData.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                    className="bg-card rounded-2xl p-4 border border-border">
+                    <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">
+                      Gastos por categoria
+                    </p>
+                    <div className="flex gap-4 items-center">
+                      <div className="h-36 w-36 shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={28} outerRadius={52} paddingAngle={2} dataKey="value">
+                              {pieData.map((_, idx) => (
+                                <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        {pieData.map((entry, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-xs">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                            <span className="truncate text-muted-foreground flex-1">{entry.name}</span>
+                            <span className="font-medium shrink-0">{formatCurrency(entry.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Lançamentos */}
+                <div className={cn(
+                  'bg-card rounded-2xl border border-border overflow-hidden',
+                  pieData.length === 0 ? 'col-span-2' : '',
+                )}>
+                  {/* Filtros + chips de cartão */}
+                  <div className="px-4 pt-4 pb-2 border-b border-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Lançamentos</p>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setBulkEditOpen(true)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
+                        >
+                          <Tag size={12} /> Editar em massa
+                        </button>
+                        <TransactionFilterBar
+                          open={filterOpen}
+                          onToggle={() => setFilterOpen(v => !v)}
+                          filters={filters}
+                          setFilters={setFilters}
+                          activeCount={activeCount}
+                          clearFilters={clearFilters}
+                          availableCategories={availableCategories}
+                          cards={cards}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Chips de cartão */}
+                    {cards.length > 0 && (
+                      <ScrollArea className="w-full">
+                        <div className="flex gap-1.5 pb-1">
+                          <button
+                            onClick={() => setSelectedCardId(null)}
+                            className={cn(
+                              'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                              !selectedCardId
+                                ? 'border-primary text-primary bg-primary/10'
+                                : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                            )}
+                          >
+                            Todos
+                          </button>
+                          {cards.map(card => {
+                            const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+                            const isActive  = selectedCardId === card.id;
+                            return (
+                              <button
+                                key={card.id}
+                                onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                                className={cn(
+                                  'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                                  isActive
+                                    ? 'border-primary text-primary bg-primary/10'
+                                    : 'border-border text-muted-foreground hover:border-muted-foreground/50',
+                                )}
+                              >
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
+                                {card.name}
+                                {cardSpent > 0 && <span className="opacity-60">{formatCurrency(cardSpent)}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    )}
+                  </div>
+
+                  {/* Lista */}
+                  <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
+                    {loadingData ? (
+                      <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
+                    ) : isEmpty ? (
+                      <p className="text-xs text-muted-foreground text-center py-6">
+                        {activeCount > 0
+                          ? 'Nenhum lançamento com esses filtros'
+                          : selectedCardId
+                            ? 'Nenhum lançamento neste cartão'
+                            : 'Nenhum lançamento registrado'}
+                      </p>
+                    ) : (
+                      <>
+                        <AnimatePresence mode="popLayout">
+                          {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
+                            const orig = getExpenseById(inst.expenseId);
+                            return (
+                              <motion.div key={`${inst.expenseId}-${i}`}
+                                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                                className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
+                              >
+                                <CategoryIcon category={inst.category} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{inst.expenseName}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {inst.totalInstallments > 1
+                                      ? `${inst.installmentNumber}/${inst.totalInstallments}`
+                                      : 'À vista'}
+                                    {' · '}{cardMap.get(inst.cardId)?.name ?? ''}
+                                  </p>
+                                </div>
+                                <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  {orig && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                      onClick={() => setEditingExpense(orig)}>
+                                      <Pencil size={12} />
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => setDeletingExpenseId(inst.expenseId)}>
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                        <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
+
+                        {visibleVarTxs.length > 0 && (
+                          <>
+                            {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
+                            {visibleVarTxs.slice(0, collapseVar.visible).map(tx => (
+                              <div key={tx.id} className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
+                                <CategoryIcon category={tx.category as any} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{tx.name}</p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    {METHOD_ICONS[tx.paymentMethod] ?? null}
+                                    {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                                    {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
+                                  </p>
+                                </div>
+                                <span className="text-sm font-semibold"
+                                  style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
+                                  {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
+                                </span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                    onClick={() => setEditingVar(tx)}>
+                                    <Pencil size={12} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => setDeletingVarId(tx.id)}>
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
+                          </>
+                        )}
+
+                        {visibleFixed.length > 0 && (
+                          <>
+                            {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
+                            {visibleFixed.slice(0, collapseFixed.visible).map(f => (
+                              <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
+                                <CategoryIcon category={f.category} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{f.name}</p>
+                                  <p className="text-xs text-muted-foreground">Fixo mensal</p>
+                                </div>
+                                <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
+                              </div>
+                            ))}
+                            <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </>
+          )}
+
+        </div>
+        {/* ── Fim coluna principal ─────────────────────────────────────────── */}
+
+        {/* ── Sidebar direita (oculta em mobile) ───────────────────────────── */}
+        {dashTab === 'geral' && (
+          <aside className="hidden xl:block w-72 shrink-0">
+            <div className="sticky top-6">
+              <DashboardSidebar
+                cards={cards}
+                incomes={incomes}
+                expenses={expenses}
+                fixedExpenses={fixedExpenses}
+                month={month}
+              />
             </div>
-          </>
+          </aside>
         )}
 
       </div>
+      {/* ── Fim layout ─────────────────────────────────────────────────────── */}
 
       {/* ── Dialogs ── */}
       <BulkEditCategoryDialog
@@ -610,28 +588,28 @@ export default function Dashboard() {
         />
       )}
 
-      <AlertDialog open={!!deletingExpenseId} onOpenChange={v => !v && setDeletingExpenseId(null)}>
-        <AlertDialogContent className="bg-card border-border max-w-xs">
+      <AlertDialog open={!!deletingExpenseId} onOpenChange={v => { if (!v) setDeletingExpenseId(null); }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover gasto?</AlertDialogTitle>
-            <AlertDialogDescription>Todas as parcelas serão removidas.</AlertDialogDescription>
+            <AlertDialogDescription>Todas as parcelas serão removidas. Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteExpense}>Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!deletingVarId} onOpenChange={v => !v && setDeletingVarId(null)}>
-        <AlertDialogContent className="bg-card border-border max-w-xs">
+      <AlertDialog open={!!deletingVarId} onOpenChange={v => { if (!v) setDeletingVarId(null); }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
             <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteVar}>Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
