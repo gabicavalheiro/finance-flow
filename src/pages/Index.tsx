@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, TrendingDown, TrendingUp, Scale, Pencil, Trash2,
   ArrowDownCircle, ArrowUpCircle, Zap, Banknote, ArrowLeftRight,
-  CreditCard as CreditCardIcon, FileText, Tag,
+  CreditCard as CreditCardIcon, FileText, Tag, ChartNoAxesCombined,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
@@ -29,6 +29,7 @@ import {
   FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG,
 } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { supabase } from '@/lib/supabase';
 import {
@@ -197,6 +198,33 @@ export default function Dashboard() {
             {userName ? `Olá, ${userName.split(' ')[0]} 👋` : 'Dashboard'}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
+        </div>
+
+        {/* ── Botão de alertas/saldo — visível em telas menores que xl ── */}
+        <div className="xl:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 rounded-xl border border-primary/30 bg-primary/8 hover:bg-primary/15"
+              >
+                <ChartNoAxesCombined size={18} className="text-primary" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[90vw] sm:w-[420px] p-0 overflow-y-auto">
+              <div className="p-6 pt-12">
+                <DashboardSidebar
+                  cards={cards}
+                  incomes={incomes}
+                  expenses={expenses}
+                  fixedExpenses={fixedExpenses}
+                  varTxs={varTxs}
+                  month={month}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
@@ -539,7 +567,7 @@ export default function Dashboard() {
         </div>
         {/* ── Fim coluna principal ─────────────────────────────────────────── */}
 
-        {/* ── Sidebar direita (oculta em mobile) ───────────────────────────── */}
+        {/* ── Sidebar direita (só em xl+) ───────────────────────────────────── */}
         {dashTab === 'geral' && (
           <aside className="hidden xl:block w-72 shrink-0">
             <div className="sticky top-6">
@@ -548,6 +576,7 @@ export default function Dashboard() {
                 incomes={incomes}
                 expenses={expenses}
                 fixedExpenses={fixedExpenses}
+                varTxs={varTxs}
                 month={month}
               />
             </div>

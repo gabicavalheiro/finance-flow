@@ -1,3 +1,4 @@
+// src/components/ui/select.tsx
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
@@ -35,16 +36,14 @@ const SelectTrigger = React.forwardRef<
 ));
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
+// ── Botões de scroll mantidos para compatibilidade mas escondidos ─────────────
 const SelectScrollUpButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollUpButton
     ref={ref}
-    className={cn(
-      "flex cursor-default items-center justify-center py-1.5 text-muted-foreground hover:text-foreground transition-colors",
-      className,
-    )}
+    className={cn("hidden", className)}
     {...props}
   >
     <ChevronUp className="h-3.5 w-3.5" />
@@ -58,10 +57,7 @@ const SelectScrollDownButton = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollDownButton
     ref={ref}
-    className={cn(
-      "flex cursor-default items-center justify-center py-1.5 text-muted-foreground hover:text-foreground transition-colors",
-      className,
-    )}
+    className={cn("hidden", className)}
     {...props}
   >
     <ChevronDown className="h-3.5 w-3.5" />
@@ -69,6 +65,7 @@ const SelectScrollDownButton = React.forwardRef<
 ));
 SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
 
+// ── SelectContent — scroll nativo, sem barra, funciona no mobile ──────────────
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
@@ -77,9 +74,9 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        // Base layout
-        "relative z-[200] max-h-72 min-w-[8rem] overflow-hidden",
-        // Visual — usa tokens de tema para respeitar dark/light
+        // Layout — scroll nativo em vez dos botões do Radix
+        "relative z-[200] min-w-[8rem]",
+        // Visual
         "rounded-2xl border border-border shadow-2xl",
         "bg-popover text-popover-foreground",
         // Animations
@@ -96,15 +93,25 @@ const SelectContent = React.forwardRef<
       {...props}
     >
       <SelectScrollUpButton />
+
+      {/* Viewport com scroll nativo + hide scrollbar + touch scroll */}
       <SelectPrimitive.Viewport
         className={cn(
           "p-1.5",
+          // Scroll nativo
+          "max-h-60 overflow-y-auto",
+          // Esconder scrollbar em todos os browsers
+          "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+          // Touch scroll suave no iOS
+          "[-webkit-overflow-scrolling:touch]",
           position === "popper" &&
-            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
+            "w-full min-w-[var(--radix-select-trigger-width)]",
         )}
+        style={{ touchAction: 'pan-y' }}
       >
         {children}
       </SelectPrimitive.Viewport>
+
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
@@ -133,27 +140,20 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      // Layout
-      "relative flex w-full cursor-default select-none items-center",
-      "rounded-xl py-2.5 pl-9 pr-3 text-sm",
-      "outline-none transition-all duration-100",
-      // Default / hover — usa secondary para se adaptar ao tema
-      "text-foreground/80 hover:text-foreground",
-      "focus:bg-secondary focus:text-foreground",
-      // Selected state — highlight sutil com cor primária
-      "data-[state=checked]:bg-primary/15 data-[state=checked]:text-foreground",
-      "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+      "relative flex w-full cursor-pointer select-none items-center rounded-xl py-2.5 pl-3 pr-8 text-sm outline-none",
+      "transition-colors",
+      "focus:bg-accent focus:text-accent-foreground",
+      "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
+      "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className,
     )}
     {...props}
   >
-    {/* Indicador de selecionado */}
-    <span className="absolute left-2.5 flex h-4 w-4 items-center justify-center">
+    <span className="absolute right-2.5 flex h-4 w-4 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
+        <Check className="h-3.5 w-3.5 text-primary" />
       </SelectPrimitive.ItemIndicator>
     </span>
-
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));

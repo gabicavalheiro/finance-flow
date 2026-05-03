@@ -2,7 +2,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CreditCard as CardType, FixedIncome, Expense, FixedExpense } from '@/lib/types';
+import { CreditCard as CardType, FixedIncome, Expense, FixedExpense, VariableTransaction } from '@/lib/types';
 import { computeInstallmentsForMonth } from '@/lib/store';
 import { getBudgets, Budget } from '@/lib/budgets';
 import { resolveCategoryInfo } from '@/lib/customCategories';
@@ -13,6 +13,7 @@ interface Props {
   incomes: FixedIncome[];
   expenses: Expense[];
   fixedExpenses: FixedExpense[];
+  varTxs?: VariableTransaction[];  // ✅ OPCIONAL
   month: string;
 }
 
@@ -36,7 +37,7 @@ function dayDateLabel(day: number, todayDay: number): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 
-export default function DashboardSidebar({ cards, incomes, expenses, fixedExpenses, month }: Props) {
+export default function DashboardSidebar({ cards, incomes, expenses, fixedExpenses, varTxs = [], month }: Props) {
   const today = new Date().getDate();
 
   const [budgets, setBudgets]         = useState<Budget[]>([]);
@@ -55,12 +56,15 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
     [expenses, cards, month],
   );
 
-  // Totais
-  const totalCard = installments.reduce((s, i) => s + i.amount, 0);
-  const totalFix  = fixedExpenses.reduce((s, f) => s + f.amount, 0);
-  const totalExp  = totalCard + totalFix;
-  const totalInc  = incomes.reduce((s, i) => s + i.amount, 0);
-  const balance   = totalInc - totalExp;
+  // ✅ CORREÇÃO: Incluir transações variáveis no cálculo
+  const totalCard   = installments.reduce((s, i) => s + i.amount, 0);
+  const totalFix    = fixedExpenses.reduce((s, f) => s + f.amount, 0);
+  const totalVarExp = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalVarInc = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  
+  const totalExp    = totalCard + totalFix + totalVarExp;  // ✅ Agora inclui gastos variáveis
+  const totalInc    = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;  // ✅ Agora inclui receitas variáveis
+  const balance     = totalInc - totalExp;
 
   // ── Alertas ativos ─────────────────────────────────────────────────────────
   const activeAlerts = useMemo(() => {
@@ -118,8 +122,12 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
     const map: Record<string, number> = {};
     for (const i of installments) map[i.category] = (map[i.category] || 0) + i.amount;
     for (const f of fixedExpenses) map[f.category] = (map[f.category] || 0) + f.amount;
+    // ✅ ADICIONADO: Incluir gastos variáveis
+    for (const v of varTxs.filter(t => t.type === 'expense')) {
+      map[v.category] = (map[v.category] || 0) + v.amount;
+    }
     return map;
-  }, [installments, fixedExpenses]);
+  }, [installments, fixedExpenses, varTxs]);
 
   // ── Próximos eventos ordenados ─────────────────────────────────────────────
   const events = useMemo(() => {
@@ -150,109 +158,130 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
       });
     }
 
-    return list.sort((a, b) => a.sortDay - b.sortDay).slice(0, 6);
+    return list.sort((a, b) => a.sortDay - b.sortDay).slice(0, 5);
   }, [incomes, cards, installments, today]);
 
+  // ── Orçamentos ─────────────────────────────────────────────────────────────
+  const budgetUsage = useMemo(() => {
+    return budgets.map(b => {
+      const spent = spentByCategory[b.category] || 0;
+      const pct   = b.amount > 0 ? Math.min((spent / b.amount) * 100, 100) : 0;
+      const info  = resolveCategoryInfo(b.category);
+      return { ...b, spent, pct, label: info.label, color: info.color };
+    });
+  }, [budgets, spentByCategory]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="space-y-4">
+      <div className="bg-card rounded-3xl border border-border p-5 space-y-5">
 
-        {/* ── Alertas Ativos ───────────────────────────────────────────────── */}
+        {/* ── Seção: Saldo ── */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Saldo do mês</span>
+            <span className={cn(
+              'text-lg font-bold',
+              balance >= 0 ? 'text-emerald-400' : 'text-red-400',
+            )}>
+              {fmt(balance)}
+            </span>
+          </div>
+
+          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${totalInc > 0 ? Math.min((totalExp / totalInc) * 100, 100) : 0}%`,
+                background: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)',
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>{fmt(totalInc)} receitas</span>
+            <span>{fmt(totalExp)} gastos</span>
+          </div>
+        </div>
+
+        {/* ── Alertas ── */}
         {activeAlerts.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-3">
-              Alertas Ativos
-            </p>
-            <div className="space-y-2">
-              {activeAlerts.map(alert => (
-                <div key={alert.id} className={cn('rounded-xl border px-3 py-2.5', alert.bg)}>
-                  <p className={cn('text-[12px] font-semibold leading-snug', alert.color)}>{alert.label}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{alert.sub}</p>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+              Avisos
+            </span>
+            {activeAlerts.map(alert => (
+              <div key={alert.id} className={cn('rounded-xl p-3 border', alert.bg)}>
+                <p className={cn('text-xs font-semibold mb-0.5', alert.color)}>
+                  {alert.label}
+                </p>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  {alert.sub}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* ── Orçamento Mensal ─────────────────────────────────────────────── */}
-        <div className="bg-card rounded-2xl border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
-              Orçamento Mensal
-            </p>
-            <button
-              onClick={() => setBudgetOpen(true)}
-              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors px-1.5 py-0.5 rounded-md hover:bg-primary/10"
-            >
-              <Settings2 size={11} />
-              Configurar
-            </button>
-          </div>
-
-          {budgets.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-xs text-muted-foreground mb-2">Nenhum orçamento definido</p>
+        {/* ── Orçamentos ── */}
+        {budgetUsage.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+                Orçamentos
+              </span>
               <button
                 onClick={() => setBudgetOpen(true)}
-                className="text-xs text-primary hover:underline"
+                className="text-[10px] text-primary hover:underline flex items-center gap-1"
               >
-                + Definir orçamentos
+                <Settings2 size={10} />
+                Editar
               </button>
             </div>
-          ) : (
-            <div className="space-y-3.5">
-              {budgets.map(b => {
-                const info  = resolveCategoryInfo(b.category);
-                const spent = spentByCategory[b.category] ?? 0;
-                const pct   = Math.min(100, (spent / b.amount) * 100);
-                const over  = spent > b.amount;
-                return (
-                  <div key={b.category}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-foreground/80 font-medium">{info.label}</span>
-                      <span className={cn('text-[11px] font-medium tabular-nums', over ? 'text-red-400' : 'text-muted-foreground')}>
-                        {fmt(spent)} / {fmt(b.amount)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${pct}%`,
-                          background: over
-                            ? 'hsl(0 72% 51%)'
-                            : pct > 80
-                              ? 'hsl(38 92% 50%)'
-                              : `hsl(${info.color})`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        {/* ── Próximos Eventos ─────────────────────────────────────────────── */}
+            {budgetUsage.slice(0, 5).map(b => (
+              <div key={b.category} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">{b.label}</span>
+                  <span className={cn(
+                    'tabular-nums',
+                    b.pct > 90 ? 'text-red-400' : b.pct > 70 ? 'text-amber-400' : 'text-muted-foreground',
+                  )}>
+                    {fmt(b.spent)} / {fmt(b.amount)}
+                  </span>
+                </div>
+                <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${b.pct}%`,
+                      background: b.pct > 90 ? 'hsl(0 72% 51%)' : b.pct > 70 ? 'hsl(38 92% 50%)' : 'hsl(152 69% 45%)',
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Próximos eventos ── */}
         {events.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-3">
-              Próximos Eventos
-            </p>
-            <div>
-              {events.map((ev, i) => (
-                <div
-                  key={ev.id}
-                  className={cn('flex items-center justify-between py-2.5', i < events.length - 1 && 'border-b border-border/50')}
-                >
-                  <div>
-                    <p className="text-[12px] font-medium text-foreground/90 leading-snug">{ev.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{ev.date}</p>
+          <div className="space-y-2">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+              Próximos eventos
+            </span>
+            <div className="space-y-1.5">
+              {events.map(ev => (
+                <div key={ev.id} className="flex items-center justify-between text-xs py-1.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{ev.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{ev.date}</p>
                   </div>
                   <span className={cn(
-                    'text-[12px] font-bold tabular-nums px-2 py-1 rounded-lg',
-                    ev.type === 'income' ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10',
+                    'text-xs font-semibold px-2 py-0.5 rounded-md shrink-0',
+                    ev.type === 'income'
+                      ? 'text-emerald-400 bg-emerald-500/10'
+                      : 'text-red-400 bg-red-500/10',
                   )}>
                     {ev.type === 'income' ? '+' : '-'}{fmt(ev.amount)}
                   </span>

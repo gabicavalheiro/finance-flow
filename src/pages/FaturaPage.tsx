@@ -48,7 +48,7 @@ function FaturaCardItem({
         </div>
         <div className="text-right">
           <p className="text-white/70 text-[10px]">Calculado</p>
-          <p className="text-white font-bold text-base">{formatCurrency(calculated)}</p>
+          <p className="text-white font-bold text-base tabular-nums">{formatCurrency(calculated)}</p>
         </div>
       </div>
 
@@ -196,7 +196,7 @@ export default function FaturaPage() {
   return (
     <div className="pb-24 md:pb-10 px-4 md:px-8 pt-6 md:pt-8 max-w-5xl mx-auto space-y-6">
 
-      {/* ── Avisos automáticos — dispara ao entrar e ao mudar de mês ── */}
+      {/* Avisos automáticos */}
       <DailyAlertsDialog month={month} />
 
       {/* Header */}
@@ -214,24 +214,36 @@ export default function FaturaPage() {
 
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* Resumo geral */}
+      {/* ✅ Resumo geral — corrigido para não extravazar no mobile */}
       {!loading && cards.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-card rounded-2xl p-4 border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Calculado</p>
-            <p className="text-lg font-bold text-muted-foreground">{formatCurrency(totalCalculated)}</p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-card rounded-2xl p-2.5 sm:p-4 border border-border">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
+              Calculado
+            </p>
+            <p className="text-xs sm:text-base font-bold text-muted-foreground tabular-nums leading-tight break-all">
+              {formatCurrency(totalCalculated)}
+            </p>
           </div>
-          <div className="bg-card rounded-2xl p-4 border border-border">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Real (banco)</p>
-            <p className="text-lg font-bold">{formatCurrency(totalActual)}</p>
+          <div className="bg-card rounded-2xl p-2.5 sm:p-4 border border-border">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
+              Real (banco)
+            </p>
+            <p className="text-xs sm:text-base font-bold tabular-nums leading-tight break-all">
+              {formatCurrency(totalActual)}
+            </p>
           </div>
           <div className={cn(
-            'rounded-2xl p-4 border',
-            Math.abs(totalDiff) < 0.01 ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30',
+            'rounded-2xl p-2.5 sm:p-4 border',
+            Math.abs(totalDiff) < 0.01
+              ? 'bg-success/10 border-success/30'
+              : 'bg-warning/10 border-warning/30',
           )}>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Diferença</p>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
+              Diferença
+            </p>
             <p className={cn(
-              'text-lg font-bold',
+              'text-xs sm:text-base font-bold tabular-nums leading-tight break-all',
               Math.abs(totalDiff) < 0.01 ? 'text-success' : 'text-warning',
             )}>
               {totalDiff >= 0 ? '+' : ''}{formatCurrency(totalDiff)}

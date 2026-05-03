@@ -10,7 +10,6 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import AppNav from "@/components/AppNav";
 import QuickAddFAB from "@/components/QuickAddFAB";
-import DailyAlertsDialog from "@/components/DailyAlertsDialog";
 import Index from "./pages/Index";
 import CardsPage from "./pages/CardsPage";
 import FixedPage from "./pages/FixedPage";
@@ -51,8 +50,9 @@ function AppRoutes() {
     <div className="flex min-h-screen bg-background">
       <AppNav />
 
-      {/* ── Popup de avisos — abre ao entrar em /reports e /faturas ── */}
-      <DailyAlertsDialog />
+      {/* ── DailyAlertsDialog removido daqui ────────────────────────────────
+           Cada página (FaturaPage, ReportsPage) tem o próprio com month={month},
+           que já dispara no mount E ao trocar de mês — sem duplicatas.      */}
 
       <main className="flex-1 min-w-0 md:pl-64">
         <Routes>

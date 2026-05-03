@@ -155,3 +155,13 @@
     border: 1px solid hsl(240 8% 82% / 0.7);
   }
 }
+
+/* Esconde scrollbar mas mantém o scroll funcional */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE e Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
+ 
