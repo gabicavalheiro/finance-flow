@@ -23,6 +23,7 @@ import LoansPage from "./pages/LoansPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
 import GoalsPage from "./pages/GoalsPage";
 import { useDeepLink } from '@/hooks/useDeepLink';
+import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
 
 const queryClient = new QueryClient();
 
@@ -41,36 +42,43 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 // Páginas onde o FAB não faz sentido
 const FAB_HIDDEN_PATHS = ['/modules'];
 
+// FAB conectado ao refresh global — adicionar pelo botão flutuante
+// agora atualiza todas as páginas imediatamente.
+function ConnectedFAB() {
+  const { refresh } = useFinanceData();
+  return <QuickAddFAB onAdded={refresh} />;
+}
+
 function AppRoutes() {
   useDeepLink();
   const location = useLocation();
   const showFAB  = !FAB_HIDDEN_PATHS.includes(location.pathname);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <AppNav />
+    // FinanceDataProvider envolve todas as rotas autenticadas,
+    // permitindo que Index, FixedPage e FaturaPage compartilhem os mesmos dados.
+    <FinanceDataProvider>
+      <div className="flex min-h-screen bg-background">
+        <AppNav />
 
-      {/* ── DailyAlertsDialog removido daqui ────────────────────────────────
-           Cada página (FaturaPage, ReportsPage) tem o próprio com month={month},
-           que já dispara no mount E ao trocar de mês — sem duplicatas.      */}
+        <main className="flex-1 min-w-0 md:pl-64">
+          <Routes>
+            <Route path="/"            element={<Index />} />
+            <Route path="/cards"       element={<CardsPage />} />
+            <Route path="/fixed"       element={<FixedPage />} />
+            <Route path="/faturas"     element={<FaturaPage />} />
+            <Route path="/reports"     element={<ReportsPage />} />
+            <Route path="/modules"     element={<ModulesPage />} />
+            <Route path="/goals"       element={<GoalsPage />} />
+            <Route path="/loans"       element={<LoansPage />} />
+            <Route path="/investments" element={<InvestmentsPage />} />
+            <Route path="*"            element={<NotFound />} />
+          </Routes>
+        </main>
 
-      <main className="flex-1 min-w-0 md:pl-64">
-        <Routes>
-          <Route path="/"            element={<Index />} />
-          <Route path="/cards"       element={<CardsPage />} />
-          <Route path="/fixed"       element={<FixedPage />} />
-          <Route path="/faturas"     element={<FaturaPage />} />
-          <Route path="/reports"     element={<ReportsPage />} />
-          <Route path="/modules"     element={<ModulesPage />} />
-          <Route path="/goals"       element={<GoalsPage />} />
-          <Route path="/loans"       element={<LoansPage />} />
-          <Route path="/investments" element={<InvestmentsPage />} />
-          <Route path="*"            element={<NotFound />} />
-        </Routes>
-      </main>
-
-      {showFAB && <QuickAddFAB />}
-    </div>
+        {showFAB && <ConnectedFAB />}
+      </div>
+    </FinanceDataProvider>
   );
 }
 

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, TrendingDown, TrendingUp, Scale, Pencil, Trash2,
   ArrowDownCircle, ArrowUpCircle, Zap, Banknote, ArrowLeftRight,
-  CreditCard as CreditCardIcon, FileText, Tag, ChartNoAxesCombined,
+  CreditCard as CreditCardIcon, FileText, Tag, ChartNoAxesCombined, ChevronRight,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
@@ -20,8 +20,8 @@ import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
-  getCards, getExpenses, getFixedExpenses, getIncomes,
-  getVariableForMonth, deleteExpense, deleteVariableTransaction,
+  getVariableForMonth, getInvoicesForMonth, CardInvoice,
+  deleteExpense, deleteVariableTransaction,
   computeInstallmentsForMonth, computeCategoryTotals,
 } from '@/lib/store';
 import {
@@ -41,6 +41,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import { getActiveModuleIds } from '@/lib/modules';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
+import BalanceBreakdownSheet from '@/components/BalanceBreakdownSheet';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PIE_COLORS = [
@@ -79,13 +81,22 @@ export default function Dashboard() {
   const [dashTab, setDashTab]                     = useState<'geral' | 'patrimonio'>('geral');
   const [hasPatrimonioModules, setHasPatrimonioModules] = useState(false);
   const [hasGoalsModule, setHasGoalsModule]             = useState(false);
+  const [breakdownOpen, setBreakdownOpen]               = useState(false);
 
-  const [cards, setCards]         = useState<CreditCard[]>([]);
-  const [expenses, setExpenses]   = useState<Expense[]>([]);
-  const [fixedExpenses, setFixed] = useState<FixedExpense[]>([]);
-  const [incomes, setIncomes]     = useState<FixedIncome[]>([]);
-  const [varTxs, setVarTxs]       = useState<VariableTransaction[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+  // varTxs e invoices são locais pois dependem do mês selecionado
+  const [varTxs,   setVarTxs]   = useState<VariableTransaction[]>([]);
+  const [invoices, setInvoices] = useState<CardInvoice[]>([]);
+
+  // Dados globais compartilhados com FixedPage e FaturaPage
+  const {
+    cards,
+    expenses,
+    fixedExpenses,
+    incomes,
+    loading: loadingData,
+    version,
+    refresh,
+  } = useFinanceData();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) =>
@@ -99,16 +110,23 @@ export default function Dashboard() {
     });
   }, []);
 
-  const loadAll = useCallback(async () => {
-    setLoadingData(true);
-    const [c, e, f, i, v] = await Promise.all([
-      getCards(), getExpenses(), getFixedExpenses(), getIncomes(), getVariableForMonth(month),
+  // varTxs e invoices dependem do mês — buscados localmente.
+  // Re-executa quando o mês muda OU quando refresh() é chamado (version sobe).
+  const loadVarTxs = useCallback(async () => {
+    const [v, inv] = await Promise.all([
+      getVariableForMonth(month),
+      getInvoicesForMonth(month),
     ]);
-    setCards(c); setExpenses(e); setFixed(f); setIncomes(i); setVarTxs(v);
-    setLoadingData(false);
+    setVarTxs(v);
+    setInvoices(inv);
   }, [month]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadVarTxs(); }, [loadVarTxs, version]);
+
+  // loadAll = refresh global + reload dados do mês
+  const loadAll = useCallback(async () => {
+    await Promise.all([refresh(), loadVarTxs()]);
+  }, [refresh, loadVarTxs]);
 
   // ── Cálculos base ─────────────────────────────────────────────────────────
   const allInstallments = useMemo(
@@ -118,9 +136,40 @@ export default function Dashboard() {
   const cardMap        = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const getExpenseById = (id: string) => expenses.find(e => e.id === id);
 
-  const totalCardSpent = useMemo(() => allInstallments.reduce((s, i) => s + i.amount, 0), [allInstallments]);
-  const totalLimit     = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
-  const available      = totalLimit - totalCardSpent;
+  // Mapa de invoices confirmadas pelo usuário em FaturaPage
+  const invoiceMap = useMemo(
+    () => new Map(invoices.map(inv => [inv.cardId, inv])),
+    [invoices],
+  );
+
+  // Se o usuário confirmou o valor real do banco, usa esse; caso contrário usa calculado.
+  // Garante que Dashboard e FaturaPage mostrem valores consistentes.
+  const totalCardSpent = useMemo(() => {
+    return cards.reduce((sum, card) => {
+      const confirmed = invoiceMap.get(card.id);
+      if (confirmed && confirmed.actualAmount > 0) {
+        return sum + confirmed.actualAmount;
+      }
+      return sum + allInstallments
+        .filter(i => i.cardId === card.id)
+        .reduce((s, i) => s + i.amount, 0);
+    }, 0);
+  }, [cards, invoiceMap, allInstallments]);
+
+  // Valor calculado puro — usado na barra de limite (não distorcido por faturas reais)
+  const totalCardCalculated = useMemo(
+    () => allInstallments.reduce((s, i) => s + i.amount, 0),
+    [allInstallments],
+  );
+
+  // true se pelo menos uma fatura foi confirmada este mês
+  const hasConfirmedInvoices = useMemo(
+    () => invoices.some(inv => inv.actualAmount > 0),
+    [invoices],
+  );
+
+  const totalLimit = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
+  const available  = totalLimit - totalCardCalculated;
 
   const totalVarInc  = useMemo(() => varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0), [varTxs]);
   const totalVarExp  = useMemo(() => varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [varTxs]);
@@ -200,7 +249,7 @@ export default function Dashboard() {
           <p className="text-xs text-muted-foreground mt-0.5">Controle pessoal de finanças</p>
         </div>
 
-        {/* ── Botão de alertas/saldo — visível em telas menores que xl ── */}
+        {/* Botão de alertas/saldo — visível em telas menores que xl */}
         <div className="xl:hidden">
           <Sheet>
             <SheetTrigger asChild>
@@ -228,10 +277,10 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* ── Layout principal: conteúdo + sidebar ─────────────────────────── */}
+      {/* Layout principal: conteúdo + sidebar */}
       <div className="px-4 md:px-8 flex gap-6">
 
-        {/* ── Coluna principal ─────────────────────────────────────────────── */}
+        {/* Coluna principal */}
         <div className="flex-1 min-w-0 space-y-5">
 
           {/* Seletor de mês + tabs Geral / Patrimônio */}
@@ -258,7 +307,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ── Aba Patrimônio ── */}
+          {/* Aba Patrimônio */}
           {dashTab === 'patrimonio' ? (
             <DashboardPatrimonioTab />
           ) : (
@@ -266,22 +315,26 @@ export default function Dashboard() {
               {/* Resumo */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-                {/* Saldo do mês — col-span-2 */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-card rounded-2xl p-4 border border-border col-span-2">
+                {/* Saldo do mês — clicável → abre breakdown */}
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  onClick={() => setBreakdownOpen(true)}
+                  className="bg-card rounded-2xl p-4 border border-border col-span-2 text-left hover:bg-card/80 hover:border-primary/40 transition-all cursor-pointer group"
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <Scale size={16} className="text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">Saldo do mês</span>
+                    <ChevronRight size={12} className="ml-auto text-muted-foreground/40 group-hover:text-primary transition-colors" />
                   </div>
                   <p className="text-2xl font-bold" style={{ color: balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 72% 51%)' }}>
                     {formatCurrency(balance)}
                   </p>
                   {totalIncome > 0 && (
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      {expenseRatio}% da renda comprometida
+                      {expenseRatio}% da renda comprometida · toque para ver detalhes
                     </p>
                   )}
-                </motion.div>
+                </motion.button>
 
                 {/* Total gastos */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
@@ -289,10 +342,17 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingDown size={16} className="text-destructive" />
                     <span className="text-xs text-muted-foreground">Total gastos</span>
+                    {hasConfirmedInvoices && (
+                      <span className="ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                        fatura confirmada
+                      </span>
+                    )}
                   </div>
                   <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpense)}</p>
                   {avgDaily > 0 && (
-                    <p className="text-[10px] text-muted-foreground mt-1">{formatCurrency(avgDaily)}/dia</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      ~{formatCurrency(avgDaily)}/dia
+                    </p>
                   )}
                 </motion.div>
 
@@ -300,44 +360,46 @@ export default function Dashboard() {
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
                   className="bg-card rounded-2xl p-4 border border-border">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp size={16} style={{ color: 'hsl(152 69% 45%)' }} />
-                    <span className="text-xs text-muted-foreground">Receitas</span>
+                    <TrendingUp size={16} className="text-success" />
+                    <span className="text-xs text-muted-foreground">Total receitas</span>
                   </div>
                   <p className="text-lg font-bold" style={{ color: 'hsl(152 69% 45%)' }}>
                     {formatCurrency(totalIncome)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{txCount} lançamentos</p>
+                  {txCount > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {txCount} lançamento{txCount !== 1 ? 's' : ''}
+                    </p>
+                  )}
                 </motion.div>
               </div>
 
               {/* Limite de cartões */}
               {totalLimit > 0 && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                  className="bg-card rounded-2xl p-4 border border-border">
-                  <div className="flex items-center justify-between mb-2">
+                  className="bg-card rounded-2xl p-4 border border-border space-y-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Wallet size={16} className="text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Limite de cartões</span>
+                      <span className="text-xs text-muted-foreground">Limite disponível</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatCurrency(available)} disponível
-                    </span>
+                    <span className="text-sm font-semibold">{formatCurrency(available)}</span>
                   </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-700"
+                      className="h-full rounded-full transition-all duration-500"
                       style={{
-                        width: totalLimit > 0 ? `${Math.min((totalCardSpent / totalLimit) * 100, 100)}%` : '0%',
-                        background: (totalCardSpent / totalLimit) > 0.9
+                        width: totalLimit > 0 ? `${Math.min((totalCardCalculated / totalLimit) * 100, 100)}%` : '0%',
+                        background: (totalCardCalculated / totalLimit) > 0.9
                           ? 'hsl(0 72% 51%)'
-                          : (totalCardSpent / totalLimit) > 0.7
+                          : (totalCardCalculated / totalLimit) > 0.7
                             ? 'hsl(25 95% 53%)'
                             : 'hsl(152 69% 45%)',
                       }}
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {formatCurrency(totalCardSpent)} de {formatCurrency(totalLimit)}
+                    {formatCurrency(totalCardCalculated)} de {formatCurrency(totalLimit)}
                   </p>
                 </motion.div>
               )}
@@ -543,13 +605,13 @@ export default function Dashboard() {
                           <>
                             {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
                             {visibleFixed.slice(0, collapseFixed.visible).map(f => (
-                              <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl">
+                              <div key={f.id} className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors">
                                 <CategoryIcon category={f.category} />
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{f.name}</p>
                                   <p className="text-xs text-muted-foreground">Fixo mensal</p>
                                 </div>
-                                <span className="text-sm font-semibold">{formatCurrency(f.amount)}</span>
+                                <span className="text-sm font-semibold text-destructive">{formatCurrency(f.amount)}</span>
                               </div>
                             ))}
                             <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
@@ -559,15 +621,14 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-
               </div>
             </>
           )}
 
         </div>
-        {/* ── Fim coluna principal ─────────────────────────────────────────── */}
+        {/* Fim coluna principal */}
 
-        {/* ── Sidebar direita (só em xl+) ───────────────────────────────────── */}
+        {/* Sidebar direita (só em xl+) */}
         {dashTab === 'geral' && (
           <aside className="hidden xl:block w-72 shrink-0">
             <div className="sticky top-6">
@@ -584,9 +645,22 @@ export default function Dashboard() {
         )}
 
       </div>
-      {/* ── Fim layout ─────────────────────────────────────────────────────── */}
+      {/* Fim layout */}
 
-      {/* ── Dialogs ── */}
+      {/* Breakdown de saldo */}
+      <BalanceBreakdownSheet
+        open={breakdownOpen}
+        onClose={() => setBreakdownOpen(false)}
+        month={month}
+        cards={cards}
+        expenses={expenses}
+        fixedExpenses={fixedExpenses}
+        incomes={incomes}
+        varTxs={varTxs}
+        invoices={invoices}
+      />
+
+      {/* Dialogs */}
       <BulkEditCategoryDialog
         open={bulkEditOpen}
         onClose={() => setBulkEditOpen(false)}

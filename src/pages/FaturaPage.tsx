@@ -1,20 +1,41 @@
 // src/pages/FaturaPage.tsx
-import { useState, useCallback, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CheckCircle2, AlertTriangle, Info, FileSearch, StickyNote } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CheckCircle2, AlertTriangle, Info, FileSearch,
+  StickyNote, ChevronDown, ChevronUp, TableProperties,
+} from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import ShowMoreButton from '@/components/ShowMoreButton';
 import DailyAlertsDialog from '@/components/DailyAlertsDialog';
 import { useCollapse } from '@/hooks/useCollapse';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
-  getCards, getExpenses, computeInstallmentsForMonth,
+  computeInstallmentsForMonth,
   getInvoicesForMonth, upsertInvoice, CardInvoice,
 } from '@/lib/store';
-import { BRAND_GRADIENTS, CreditCard, Expense, MonthlyInstallment } from '@/lib/types';
+import { BRAND_GRADIENTS, CreditCard, MonthlyInstallment } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
+
+// ── Helpers de mês ────────────────────────────────────────────────────────────
+function addMonths(ym: string, n: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const MONTH_NAMES = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+];
+
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return `${MONTH_NAMES[m - 1]}/${String(y).slice(2)}`;
+}
 
 // ── Sub-componente por cartão ─────────────────────────────────────────────────
 function FaturaCardItem({
@@ -26,7 +47,7 @@ function FaturaCardItem({
   diff: number | null; isOk: boolean; isOver: boolean; isUnder: boolean;
   saving: string | null; note: string;
   onDraftChange: (v: string) => void;
-  onNoteChange: (v: string) => void;
+  onNoteChange:  (v: string) => void;
   onSave: () => void;
 }) {
   const collapse = useCollapse(cardInst.length);
@@ -61,7 +82,9 @@ function FaturaCardItem({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{inst.expenseName}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {inst.totalInstallments > 1 ? `${inst.installmentNumber}/${inst.totalInstallments}` : 'À vista'}
+                    {inst.totalInstallments > 1
+                      ? `${inst.installmentNumber}/${inst.totalInstallments}`
+                      : 'À vista'}
                   </p>
                 </div>
                 <span className="text-xs font-semibold tabular-nums">{formatCurrency(inst.amount)}</span>
@@ -70,10 +93,10 @@ function FaturaCardItem({
             <ShowMoreButton expanded={collapse.expanded} hidden={collapse.hidden} onToggle={collapse.toggle} />
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground text-center py-2">Nenhum lançamento registrado</p>
+          <p className="text-xs text-muted-foreground text-center py-2">Nenhum lançamento calculado</p>
         )}
 
-        {/* Input valor real */}
+        {/* Input de valor real */}
         <div className="space-y-1.5">
           <label className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Info size={11} /> Valor real cobrado pelo banco
@@ -104,8 +127,8 @@ function FaturaCardItem({
         {diff !== null && (
           <div className={cn(
             'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium',
-            isOk    && 'bg-success/10 text-success',
-            isOver  && 'bg-warning/10 text-warning',
+            isOk    && 'bg-emerald-500/10 text-emerald-400',
+            isOver  && 'bg-amber-500/10 text-amber-400',
             isUnder && 'bg-destructive/10 text-destructive',
           )}>
             {isOk    && <CheckCircle2 size={15} />}
@@ -135,26 +158,172 @@ function FaturaCardItem({
   );
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
-export default function FaturaPage() {
-  const [month, setMonth]       = useState(getCurrentMonth());
-  const [cards, setCards]       = useState<CreditCard[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [invoices, setInvoices] = useState<CardInvoice[]>([]);
-  const [drafts, setDrafts]     = useState<Record<string, string>>({});
-  const [notes, setNotes]       = useState<Record<string, string>>({});
-  const [saving, setSaving]     = useState<string | null>(null);
-  const [loading, setLoading]   = useState(true);
+// ── Tabela histórica de faturas ────────────────────────────────────────────────
+interface HistoryRow {
+  month:      string;
+  calculated: number;
+  actual:     number | null; // null = não apurado
+  diff:       number | null;
+}
 
-  const loadAll = useCallback(async () => {
+function HistoryTable({
+  rows, onMonthClick,
+}: {
+  rows: HistoryRow[];
+  onMonthClick: (m: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <TableProperties size={16} className="text-primary" />
+          <span className="text-sm font-semibold">Histórico por mês</span>
+          <span className="text-[10px] bg-primary/15 text-primary px-2 py-0.5 rounded-full font-medium">
+            {rows.filter(r => r.actual !== null).length} apurados
+          </span>
+        </div>
+        {open ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {/* Cabeçalho da tabela */}
+            <div className="grid grid-cols-4 gap-2 px-4 py-2 border-t border-border bg-secondary/30">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Mês</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Calculado</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Apurado</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Diferença</span>
+            </div>
+
+            {/* Linhas */}
+            <div className="divide-y divide-border/50">
+              {rows.map((row) => {
+                const isOk    = row.diff !== null && Math.abs(row.diff) < 0.01;
+                const isOver  = row.diff !== null && row.diff > 0.01;
+                const isUnder = row.diff !== null && row.diff < -0.01;
+
+                return (
+                  <button
+                    key={row.month}
+                    onClick={() => onMonthClick(row.month)}
+                    className="w-full grid grid-cols-4 gap-2 px-4 py-2.5 hover:bg-secondary/40 transition-colors text-left group"
+                  >
+                    {/* Mês */}
+                    <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                      {monthLabel(row.month)}
+                    </span>
+
+                    {/* Calculado */}
+                    <span className="text-sm tabular-nums text-right text-muted-foreground">
+                      {formatCurrency(row.calculated)}
+                    </span>
+
+                    {/* Apurado */}
+                    <span className={cn(
+                      'text-sm tabular-nums text-right font-medium',
+                      row.actual === null ? 'text-muted-foreground/50 italic text-xs' : 'text-foreground',
+                    )}>
+                      {row.actual === null ? '—' : formatCurrency(row.actual)}
+                    </span>
+
+                    {/* Diferença */}
+                    <span className={cn(
+                      'text-sm tabular-nums text-right font-semibold',
+                      row.diff === null  && 'text-muted-foreground/30 text-xs',
+                      isOk               && 'text-emerald-400',
+                      isOver             && 'text-amber-400',
+                      isUnder            && 'text-destructive',
+                    )}>
+                      {row.diff === null
+                        ? '—'
+                        : `${row.diff > 0 ? '+' : ''}${formatCurrency(row.diff)}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Totais */}
+            {rows.some(r => r.actual !== null) && (() => {
+              const apuradoRows = rows.filter(r => r.actual !== null);
+              const totalCalc   = apuradoRows.reduce((s, r) => s + r.calculated, 0);
+              const totalAct    = apuradoRows.reduce((s, r) => s + (r.actual ?? 0), 0);
+              const totalDiff   = totalAct - totalCalc;
+              return (
+                <div className="grid grid-cols-4 gap-2 px-4 py-3 border-t border-border bg-secondary/50">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Total</span>
+                  <span className="text-[11px] font-bold text-right tabular-nums text-muted-foreground">
+                    {formatCurrency(totalCalc)}
+                  </span>
+                  <span className="text-[11px] font-bold text-right tabular-nums">
+                    {formatCurrency(totalAct)}
+                  </span>
+                  <span className={cn(
+                    'text-[11px] font-bold text-right tabular-nums',
+                    Math.abs(totalDiff) < 0.01 ? 'text-emerald-400' : totalDiff > 0 ? 'text-amber-400' : 'text-destructive',
+                  )}>
+                    {totalDiff > 0 ? '+' : ''}{formatCurrency(totalDiff)}
+                  </span>
+                </div>
+              );
+            })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
+const HISTORY_MONTHS = 12; // meses a mostrar na tabela (incluindo atual)
+
+export default function FaturaPage() {
+  const [month, setMonth] = useState(getCurrentMonth());
+
+  // cards e expenses do contexto global
+  const { cards, expenses, version } = useFinanceData();
+
+  // Faturas do mês selecionado
+  const [invoices, setInvoices] = useState<CardInvoice[]>([]);
+  const [drafts,   setDrafts]   = useState<Record<string, string>>({});
+  const [notes,    setNotes]    = useState<Record<string, string>>({});
+  const [saving,   setSaving]   = useState<string | null>(null);
+  const [loading,  setLoading]  = useState(true);
+
+  // Histórico de faturas (últimos N meses)
+  const [historyRows, setHistoryRows]   = useState<HistoryRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Meses para o histórico: mês atual + os N-1 meses anteriores
+  const historyMonths = useMemo(() => {
+    const cur = getCurrentMonth();
+    // i=0 → mês mais antigo, i=N-1 → mês atual
+    return Array.from({ length: HISTORY_MONTHS }, (_, i) =>
+      addMonths(cur, -(HISTORY_MONTHS - 1 - i)),
+    );
+  }, []);
+
+  // ── Faturas do mês selecionado ───────────────────────────────────────────
+  const loadInvoices = useCallback(async () => {
     setLoading(true);
-    const [c, e, inv] = await Promise.all([
-      getCards(), getExpenses(), getInvoicesForMonth(month),
-    ]);
-    setCards(c); setExpenses(e); setInvoices(inv);
+    const inv = await getInvoicesForMonth(month);
+    setInvoices(inv);
 
     const newDrafts: Record<string, string> = {};
-    const newNotes: Record<string, string>  = {};
+    const newNotes:  Record<string, string> = {};
     for (const invoice of inv) {
       newDrafts[invoice.cardId] = invoice.actualAmount > 0
         ? String(invoice.actualAmount) : '';
@@ -165,9 +334,50 @@ export default function FaturaPage() {
     setLoading(false);
   }, [month]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadInvoices(); }, [loadInvoices, version]);
 
-  const installments = computeInstallmentsForMonth(expenses, cards, month);
+  // ── Histórico ─────────────────────────────────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    if (cards.length === 0 || expenses.length === 0) return;
+    setHistoryLoading(true);
+
+    // Busca faturas de todos os meses do histórico em paralelo
+    const allInvoices = await Promise.all(
+      historyMonths.map(m => getInvoicesForMonth(m)),
+    );
+
+    const rows: HistoryRow[] = historyMonths.map((m, idx) => {
+      const monthInvoices = allInvoices[idx];
+      const inst          = computeInstallmentsForMonth(expenses, cards, m);
+      const calculated    = inst.reduce((s, i) => s + i.amount, 0);
+
+      // Soma os valores reais confirmados de todos os cartões neste mês
+      const confirmedTotal = monthInvoices
+        .filter(inv => inv.actualAmount > 0)
+        .reduce((s, inv) => s + inv.actualAmount, 0);
+
+      const hasConfirmed = monthInvoices.some(inv => inv.actualAmount > 0);
+      const actual       = hasConfirmed ? confirmedTotal : null;
+      const diff         = actual !== null ? actual - calculated : null;
+
+      return { month: m, calculated, actual, diff };
+    });
+
+    // Filtra meses sem nenhum dado (calculado = 0 e não apurado)
+    const filtered = rows.filter(r => r.calculated > 0 || r.actual !== null);
+    // Mais recente primeiro
+    setHistoryRows(filtered.reverse());
+    setHistoryLoading(false);
+  }, [historyMonths, cards, expenses]);
+
+  // Recarrega histórico quando cards/expenses chegam ou atualizam
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // ── Cálculos do mês selecionado ──────────────────────────────────────────
+  const installments = useMemo(
+    () => computeInstallmentsForMonth(expenses, cards, month),
+    [expenses, cards, month],
+  );
 
   const calculatedByCard = (cardId: string) =>
     installments.filter(i => i.cardId === cardId).reduce((s, i) => s + i.amount, 0);
@@ -184,7 +394,7 @@ export default function FaturaPage() {
         notes: notes[card.id] ?? '',
       });
       toast.success(`Fatura do ${card.name} salva!`);
-      loadAll();
+      await Promise.all([loadInvoices(), loadHistory()]);
     } catch { toast.error('Erro ao salvar'); }
     setSaving(null);
   };
@@ -196,55 +406,54 @@ export default function FaturaPage() {
   return (
     <div className="pb-24 md:pb-10 px-4 md:px-8 pt-6 md:pt-8 max-w-5xl mx-auto space-y-6">
 
-      {/* Avisos automáticos */}
       <DailyAlertsDialog month={month} />
 
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <FileSearch size={20} className="text-primary" />
-            Conferência de Faturas
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Digite o valor real cobrado pelo banco e compare com o calculado
-          </p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <FileSearch size={20} className="text-primary" />
+          Conferência de Faturas
+        </h1>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Digite o valor real cobrado pelo banco e compare com o calculado
+        </p>
       </div>
 
       <MonthSelector month={month} onChange={setMonth} />
 
-      {/* ✅ Resumo geral — corrigido para não extravazar no mobile */}
+      {/* ── Tabela histórica ── */}
+      {!historyLoading && historyRows.length > 0 && (
+        <HistoryTable
+          rows={historyRows}
+          onMonthClick={m => setMonth(m)}
+        />
+      )}
+
+      {/* ── Resumo do mês selecionado ── */}
       {!loading && cards.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
-          <div className="bg-card rounded-2xl p-2.5 sm:p-4 border border-border">
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
-              Calculado
-            </p>
-            <p className="text-xs sm:text-base font-bold text-muted-foreground tabular-nums leading-tight break-all">
+          <div className="bg-card rounded-2xl p-3 sm:p-4 border border-border">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Calculado</p>
+            <p className="text-sm sm:text-base font-bold text-muted-foreground tabular-nums break-all">
               {formatCurrency(totalCalculated)}
             </p>
           </div>
-          <div className="bg-card rounded-2xl p-2.5 sm:p-4 border border-border">
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
-              Real (banco)
-            </p>
-            <p className="text-xs sm:text-base font-bold tabular-nums leading-tight break-all">
+          <div className="bg-card rounded-2xl p-3 sm:p-4 border border-border">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Real (banco)</p>
+            <p className="text-sm sm:text-base font-bold tabular-nums break-all">
               {formatCurrency(totalActual)}
             </p>
           </div>
           <div className={cn(
-            'rounded-2xl p-2.5 sm:p-4 border',
+            'rounded-2xl p-3 sm:p-4 border',
             Math.abs(totalDiff) < 0.01
-              ? 'bg-success/10 border-success/30'
-              : 'bg-warning/10 border-warning/30',
+              ? 'bg-emerald-500/10 border-emerald-500/30'
+              : 'bg-amber-500/10 border-amber-500/30',
           )}>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1 leading-tight">
-              Diferença
-            </p>
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Diferença</p>
             <p className={cn(
-              'text-xs sm:text-base font-bold tabular-nums leading-tight break-all',
-              Math.abs(totalDiff) < 0.01 ? 'text-success' : 'text-warning',
+              'text-sm sm:text-base font-bold tabular-nums break-all',
+              Math.abs(totalDiff) < 0.01 ? 'text-emerald-400' : 'text-amber-400',
             )}>
               {totalDiff >= 0 ? '+' : ''}{formatCurrency(totalDiff)}
             </p>
@@ -252,7 +461,7 @@ export default function FaturaPage() {
         </div>
       )}
 
-      {/* Lista de cartões */}
+      {/* ── Lista de cartões do mês ── */}
       {loading ? (
         <p className="text-xs text-muted-foreground text-center py-10">Carregando...</p>
       ) : cards.length === 0 ? (
