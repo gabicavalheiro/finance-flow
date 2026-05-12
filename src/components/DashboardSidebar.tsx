@@ -3,18 +3,19 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreditCard as CardType, FixedIncome, Expense, FixedExpense, VariableTransaction } from '@/lib/types';
-import { computeInstallmentsForMonth } from '@/lib/store';
+import { computeInstallmentsForMonth, CardInvoice } from '@/lib/store';
 import { getBudgets, Budget } from '@/lib/budgets';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import BudgetSettingsDialog from '@/components/BudgetSettingsDialog';
 
 interface Props {
-  cards: CardType[];
-  incomes: FixedIncome[];
-  expenses: Expense[];
+  cards:         CardType[];
+  incomes:       FixedIncome[];
+  expenses:      Expense[];
   fixedExpenses: FixedExpense[];
-  varTxs?: VariableTransaction[];  // ✅ OPCIONAL
-  month: string;
+  varTxs?:       VariableTransaction[];
+  invoices?:     CardInvoice[];   // ← usa actualAmount quando disponível
+  month:         string;
 }
 
 function fmt(v: number) {
@@ -37,11 +38,13 @@ function dayDateLabel(day: number, todayDay: number): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 
-export default function DashboardSidebar({ cards, incomes, expenses, fixedExpenses, varTxs = [], month }: Props) {
+export default function DashboardSidebar({
+  cards, incomes, expenses, fixedExpenses, varTxs = [], invoices = [], month,
+}: Props) {
   const today = new Date().getDate();
 
-  const [budgets, setBudgets]         = useState<Budget[]>([]);
-  const [budgetOpen, setBudgetOpen]   = useState(false);
+  const [budgets, setBudgets]       = useState<Budget[]>([]);
+  const [budgetOpen, setBudgetOpen] = useState(false);
 
   const loadBudgets = useCallback(async () => {
     const data = await getBudgets();
@@ -56,15 +59,28 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
     [expenses, cards, month],
   );
 
-  // ✅ CORREÇÃO: Incluir transações variáveis no cálculo
-  const totalCard   = installments.reduce((s, i) => s + i.amount, 0);
+  // Mapa de invoices confirmadas — usa actualAmount quando disponível
+  const invoiceMap = useMemo(
+    () => new Map(invoices.map(inv => [inv.cardId, inv])),
+    [invoices],
+  );
+
+  // totalCard: prefere valor real da fatura quando confirmado
+  const totalCard = useMemo(() =>
+    cards.reduce((sum, card) => {
+      const confirmed = invoiceMap.get(card.id);
+      if (confirmed && confirmed.actualAmount > 0) return sum + confirmed.actualAmount;
+      return sum + installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+    }, 0),
+  [cards, invoiceMap, installments]);
+
   const totalFix    = fixedExpenses.reduce((s, f) => s + f.amount, 0);
   const totalVarExp = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const totalVarInc = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  
-  const totalExp    = totalCard + totalFix + totalVarExp;  // ✅ Agora inclui gastos variáveis
-  const totalInc    = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;  // ✅ Agora inclui receitas variáveis
-  const balance     = totalInc - totalExp;
+
+  const totalExp = totalCard + totalFix + totalVarExp;
+  const totalInc = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
+  const balance  = totalInc - totalExp;
 
   // ── Alertas ativos ─────────────────────────────────────────────────────────
   const activeAlerts = useMemo(() => {
@@ -122,7 +138,6 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
     const map: Record<string, number> = {};
     for (const i of installments) map[i.category] = (map[i.category] || 0) + i.amount;
     for (const f of fixedExpenses) map[f.category] = (map[f.category] || 0) + f.amount;
-    // ✅ ADICIONADO: Incluir gastos variáveis
     for (const v of varTxs.filter(t => t.type === 'expense')) {
       map[v.category] = (map[v.category] || 0) + v.amount;
     }
@@ -131,7 +146,10 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
 
   // ── Próximos eventos ordenados ─────────────────────────────────────────────
   const events = useMemo(() => {
-    const list: { id: string; label: string; date: string; sortDay: number; amount: number; type: 'income' | 'expense' }[] = [];
+    const list: {
+      id: string; label: string; date: string;
+      sortDay: number; amount: number; type: 'income' | 'expense';
+    }[] = [];
 
     for (const inc of incomes) {
       if (!inc.receiveDay || inc.receiveDay > 100) continue;
@@ -176,14 +194,11 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
     <>
       <div className="bg-card rounded-3xl border border-border p-5 space-y-5">
 
-        {/* ── Seção: Saldo ── */}
+        {/* ── Saldo ── */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Saldo do mês</span>
-            <span className={cn(
-              'text-lg font-bold',
-              balance >= 0 ? 'text-emerald-400' : 'text-red-400',
-            )}>
+            <span className={cn('text-lg font-bold', balance >= 0 ? 'text-emerald-400' : 'text-red-400')}>
               {fmt(balance)}
             </span>
           </div>
@@ -212,12 +227,8 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
             </span>
             {activeAlerts.map(alert => (
               <div key={alert.id} className={cn('rounded-xl p-3 border', alert.bg)}>
-                <p className={cn('text-xs font-semibold mb-0.5', alert.color)}>
-                  {alert.label}
-                </p>
-                <p className="text-[10px] text-muted-foreground leading-snug">
-                  {alert.sub}
-                </p>
+                <p className={cn('text-xs font-semibold mb-0.5', alert.color)}>{alert.label}</p>
+                <p className="text-[10px] text-muted-foreground leading-snug">{alert.sub}</p>
               </div>
             ))}
           </div>
@@ -293,7 +304,6 @@ export default function DashboardSidebar({ cards, incomes, expenses, fixedExpens
 
       </div>
 
-      {/* Dialog de configuração de orçamento */}
       <BudgetSettingsDialog
         open={budgetOpen}
         onClose={() => setBudgetOpen(false)}

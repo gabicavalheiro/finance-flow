@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Wallet, TrendingDown, TrendingUp, Scale, Pencil, Trash2,
   ArrowDownCircle, ArrowUpCircle, Zap, Banknote, ArrowLeftRight,
-  CreditCard as CreditCardIcon, FileText, Tag, ChartNoAxesCombined, ChevronRight,
+  CreditCard as CreditCardIcon, FileText, ChartNoAxesCombined, ChevronRight,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
@@ -16,6 +16,7 @@ import TransactionFilterBar from '@/components/TransactionFilterBar';
 import DashboardPatrimonioTab from '@/components/DashboardPatrimonioTab';
 import DashboardGoalsWidget from '@/components/DashboardGoalsWidget';
 import DashboardSidebar from '@/components/DashboardSidebar';
+import BillsChecklist from '@/components/BillsChecklist';
 import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
@@ -269,6 +270,7 @@ export default function Dashboard() {
                   expenses={expenses}
                   fixedExpenses={fixedExpenses}
                   varTxs={varTxs}
+                  invoices={invoices}
                   month={month}
                 />
               </div>
@@ -404,6 +406,17 @@ export default function Dashboard() {
                 </motion.div>
               )}
 
+              {/* ── Checklist de contas ── */}
+              <BillsChecklist
+                month={month}
+                fixedExpenses={fixedExpenses}
+                incomes={incomes}
+                cards={cards}
+                expenses={expenses}
+                invoices={invoices}
+                onUpdated={loadAll}
+              />
+
               {/* Widget de metas */}
               {hasGoalsModule && (
                 <DashboardGoalsWidget monthlyBalance={balance} />
@@ -428,7 +441,7 @@ export default function Dashboard() {
                                 <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} strokeWidth={0} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                            <Tooltip formatter={(v) => formatCurrency(v as number)} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -448,40 +461,45 @@ export default function Dashboard() {
                 {/* Lançamentos */}
                 <div className={cn(
                   'bg-card rounded-2xl border border-border overflow-hidden',
-                  pieData.length === 0 ? 'col-span-2' : '',
+                  pieData.length === 0 ? 'md:col-span-2' : '',
                 )}>
-                  {/* Filtros + chips de cartão */}
-                  <div className="px-4 pt-4 pb-2 border-b border-border space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">Lançamentos</p>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setBulkEditOpen(true)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all border border-transparent hover:border-border"
-                        >
-                          <Tag size={12} /> Editar em massa
-                        </button>
-                        <TransactionFilterBar
-                          open={filterOpen}
-                          onToggle={() => setFilterOpen(v => !v)}
-                          filters={filters}
-                          setFilters={setFilters}
-                          activeCount={activeCount}
-                          clearFilters={clearFilters}
-                          availableCategories={availableCategories}
-                          cards={cards}
-                        />
-                      </div>
+                  {/* Cabeçalho da lista */}
+                  <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                      Lançamentos
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {/* TransactionFilterBar gerencia seu próprio botão trigger */}
+                      <TransactionFilterBar
+                        open={filterOpen}
+                        onToggle={() => setFilterOpen(v => !v)}
+                        filters={filters}
+                        setFilters={setFilters}
+                        activeCount={activeCount}
+                        clearFilters={clearFilters}
+                        availableCategories={availableCategories}
+                        cards={cards}
+                      />
+                      {/* Edição em massa */}
+                      <button
+                        onClick={() => setBulkEditOpen(true)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border border-border text-muted-foreground hover:border-muted-foreground/50 transition-all"
+                      >
+                        <Pencil size={10} />
+                        Editar
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Chips de cartão */}
-                    {cards.length > 0 && (
-                      <ScrollArea className="w-full">
+                  {/* Filtro por cartão */}
+                  {cards.length > 1 && (
+                    <div className="px-4 pb-2">
+                      <ScrollArea>
                         <div className="flex gap-1.5 pb-1">
                           <button
                             onClick={() => setSelectedCardId(null)}
                             className={cn(
-                              'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                              'shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
                               !selectedCardId
                                 ? 'border-primary text-primary bg-primary/10'
                                 : 'border-border text-muted-foreground hover:border-muted-foreground/50',
@@ -490,8 +508,8 @@ export default function Dashboard() {
                             Todos
                           </button>
                           {cards.map(card => {
-                            const cardSpent = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-                            const isActive  = selectedCardId === card.id;
+                            const isActive   = selectedCardId === card.id;
+                            const cardSpent  = allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
                             return (
                               <button
                                 key={card.id}
@@ -512,8 +530,8 @@ export default function Dashboard() {
                         </div>
                         <ScrollBar orientation="horizontal" />
                       </ScrollArea>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Lista */}
                   <div className="px-4 pb-4 space-y-1 max-h-[480px] overflow-y-auto">
@@ -530,6 +548,7 @@ export default function Dashboard() {
                     ) : (
                       <>
                         <AnimatePresence mode="popLayout">
+                          {/* Parcelas de cartão */}
                           {visibleInstallments.slice(0, collapseInst.visible).map((inst, i) => {
                             const orig = getExpenseById(inst.expenseId);
                             return (
@@ -543,23 +562,25 @@ export default function Dashboard() {
                                   <p className="text-sm font-medium truncate">{inst.expenseName}</p>
                                   <p className="text-xs text-muted-foreground">
                                     {inst.totalInstallments > 1
-                                      ? `${inst.installmentNumber}/${inst.totalInstallments}`
-                                      : 'À vista'}
-                                    {' · '}{cardMap.get(inst.cardId)?.name ?? ''}
+                                      ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardMap.get(inst.cardId)?.name ?? ''}`
+                                      : `À vista · ${cardMap.get(inst.cardId)?.name ?? ''}`}
                                   </p>
                                 </div>
-                                <span className="text-sm font-semibold">{formatCurrency(inst.amount)}</span>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  {orig && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                                      onClick={() => setEditingExpense(orig)}>
-                                      <Pencil size={12} />
-                                    </Button>
-                                  )}
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => setDeletingExpenseId(inst.expenseId)}>
+                                <span className="text-sm font-semibold text-destructive">{formatCurrency(inst.amount)}</span>
+                                {/* Ações */}
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => orig && setEditingExpense(orig)}
+                                    className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingExpenseId(inst.expenseId)}
+                                    className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  >
                                     <Trash2 size={12} />
-                                  </Button>
+                                  </button>
                                 </div>
                               </motion.div>
                             );
@@ -567,40 +588,55 @@ export default function Dashboard() {
                         </AnimatePresence>
                         <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
 
+                        {/* Variáveis */}
                         {visibleVarTxs.length > 0 && (
                           <>
                             {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
-                            {visibleVarTxs.slice(0, collapseVar.visible).map(tx => (
-                              <div key={tx.id} className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group">
-                                <CategoryIcon category={tx.category as any} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{tx.name}</p>
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                    {METHOD_ICONS[tx.paymentMethod] ?? null}
-                                    {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
-                                    {' · '}{tx.date.split('-').reverse().slice(0, 2).join('/')}
-                                  </p>
-                                </div>
-                                <span className="text-sm font-semibold"
-                                  style={{ color: tx.type === 'income' ? 'hsl(152 69% 45%)' : undefined }}>
-                                  {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
-                                </span>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                                    onClick={() => setEditingVar(tx)}>
-                                    <Pencil size={12} />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => setDeletingVarId(tx.id)}>
-                                    <Trash2 size={12} />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                            <AnimatePresence mode="popLayout">
+                              {visibleVarTxs.slice(0, collapseVar.visible).map((tx) => (
+                                <motion.div key={tx.id}
+                                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
+                                  className="flex items-center gap-3 py-2 px-2 rounded-xl hover:bg-secondary/50 transition-colors group"
+                                >
+                                  <CategoryIcon category={tx.category} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{tx.name}</p>
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                      {METHOD_ICONS[tx.paymentMethod] ?? null}
+                                      {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                                      {' · '}
+                                      {tx.date.split('-').reverse().join('/')}
+                                    </p>
+                                  </div>
+                                  <span className={cn(
+                                    'text-sm font-semibold',
+                                    tx.type === 'income' ? 'text-emerald-400' : 'text-destructive',
+                                  )}>
+                                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                                  </span>
+                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => setEditingVar(tx)}
+                                      className="p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      <Pencil size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeletingVarId(tx.id)}
+                                      className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
                             <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
                           </>
                         )}
 
+                        {/* Fixos */}
                         {visibleFixed.length > 0 && (
                           <>
                             {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
@@ -638,6 +674,7 @@ export default function Dashboard() {
                 expenses={expenses}
                 fixedExpenses={fixedExpenses}
                 varTxs={varTxs}
+                invoices={invoices}
                 month={month}
               />
             </div>
@@ -691,28 +728,38 @@ export default function Dashboard() {
         />
       )}
 
-      <AlertDialog open={!!deletingExpenseId} onOpenChange={v => { if (!v) setDeletingExpenseId(null); }}>
+      {/* Alert: deletar gasto de cartão */}
+      <AlertDialog open={!!deletingExpenseId} onOpenChange={open => { if (!open) setDeletingExpenseId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover gasto?</AlertDialogTitle>
-            <AlertDialogDescription>Todas as parcelas serão removidas. Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Esta ação remove o lançamento e todas as suas parcelas. Não pode ser desfeita.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteExpense}>Remover</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteExpense} className="bg-destructive hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!deletingVarId} onOpenChange={v => { if (!v) setDeletingVarId(null); }}>
+      {/* Alert: deletar variável */}
+      <AlertDialog open={!!deletingVarId} onOpenChange={open => { if (!open) setDeletingVarId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Este lançamento será removido permanentemente.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteVar}>Remover</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteVar} className="bg-destructive hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
