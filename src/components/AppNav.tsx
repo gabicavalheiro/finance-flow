@@ -2,7 +2,7 @@
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3,
   FileSearch, LogOut, Sun, Moon, Landmark, TrendingUp, Target,
-  Sparkles, MoreHorizontal, LucideIcon, X,
+  Sparkles, MoreHorizontal, LucideIcon, X, Repeat2,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { getActiveModuleIds, AVAILABLE_MODULES } from '@/lib/modules';
 
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2 };
 
 // ── 5 tabs principais — sempre visíveis ───────────────────────────────────────
 const MAIN_TABS = [
@@ -110,7 +110,9 @@ export default function AppNav() {
                 onClick={() => navigate(tab.path)}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-                  active ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-sidebar-accent/60',
+                  active
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent/60',
                 )}
               >
                 <tab.icon size={18} strokeWidth={active ? 2.5 : 1.8} />

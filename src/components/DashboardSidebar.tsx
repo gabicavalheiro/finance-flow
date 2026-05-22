@@ -7,15 +7,17 @@ import { computeInstallmentsForMonth, CardInvoice } from '@/lib/store';
 import { getBudgets, Budget } from '@/lib/budgets';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import BudgetSettingsDialog from '@/components/BudgetSettingsDialog';
+import { Subscription, monthlyAmount, subscriptionsAsInstallments } from '@/lib/subscriptions';
 
 interface Props {
-  cards:         CardType[];
-  incomes:       FixedIncome[];
-  expenses:      Expense[];
-  fixedExpenses: FixedExpense[];
-  varTxs?:       VariableTransaction[];
-  invoices?:     CardInvoice[];   // ← usa actualAmount quando disponível
-  month:         string;
+  cards:          CardType[];
+  incomes:        FixedIncome[];
+  expenses:       Expense[];
+  fixedExpenses:  FixedExpense[];
+  subscriptions?: Subscription[];
+  varTxs?:        VariableTransaction[];
+  invoices?:      CardInvoice[];
+  month:          string;
 }
 
 function fmt(v: number) {
@@ -39,7 +41,9 @@ function dayDateLabel(day: number, todayDay: number): string {
 }
 
 export default function DashboardSidebar({
-  cards, incomes, expenses, fixedExpenses, varTxs = [], invoices = [], month,
+  cards, incomes, expenses, fixedExpenses,
+  subscriptions = [],
+  varTxs = [], invoices = [], month,
 }: Props) {
   const today = new Date().getDate();
 
@@ -47,42 +51,62 @@ export default function DashboardSidebar({
   const [budgetOpen, setBudgetOpen] = useState(false);
 
   const loadBudgets = useCallback(async () => {
-    const data = await getBudgets();
-    setBudgets(data);
+    setBudgets(await getBudgets());
   }, []);
 
   useEffect(() => { loadBudgets(); }, [loadBudgets]);
 
-  // ── Parcelas do mês ────────────────────────────────────────────────────────
+  // ── Parcelas normais ──────────────────────────────────────────────────────
   const installments = useMemo(
     () => computeInstallmentsForMonth(expenses, cards, month),
     [expenses, cards, month],
   );
 
-  // Mapa de invoices confirmadas — usa actualAmount quando disponível
+  // ── Assinaturas → installments de cartão ──────────────────────────────────
+  const subInstallments = useMemo(
+    () => subscriptionsAsInstallments(subscriptions, month),
+    [subscriptions, month],
+  );
+
+  const allCardInstallments = useMemo(
+    () => [...installments, ...subInstallments],
+    [installments, subInstallments],
+  );
+
+  // ── Invoices ──────────────────────────────────────────────────────────────
   const invoiceMap = useMemo(
     () => new Map(invoices.map(inv => [inv.cardId, inv])),
     [invoices],
   );
 
-  // totalCard: prefere valor real da fatura quando confirmado
   const totalCard = useMemo(() =>
     cards.reduce((sum, card) => {
       const confirmed = invoiceMap.get(card.id);
       if (confirmed && confirmed.actualAmount > 0) return sum + confirmed.actualAmount;
-      return sum + installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+      return sum + allCardInstallments
+        .filter(i => i.cardId === card.id)
+        .reduce((s, i) => s + i.amount, 0);
     }, 0),
-  [cards, invoiceMap, installments]);
+  [cards, invoiceMap, allCardInstallments]);
 
-  const totalFix    = fixedExpenses.reduce((s, f) => s + f.amount, 0);
+  const totalFix = fixedExpenses.reduce((s, f) => s + f.amount, 0);
+
+  // Assinaturas SEM cartão → entram como gasto fixo
+  const totalSubsSemCartao = useMemo(
+    () => subscriptions
+      .filter(s => s.active && !s.cardId)
+      .reduce((s, sub) => s + monthlyAmount(sub), 0),
+    [subscriptions],
+  );
+
   const totalVarExp = varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const totalVarInc = varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
 
-  const totalExp = totalCard + totalFix + totalVarExp;
+  const totalExp = totalCard + totalFix + totalSubsSemCartao + totalVarExp;
   const totalInc = incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc;
   const balance  = totalInc - totalExp;
 
-  // ── Alertas ativos ─────────────────────────────────────────────────────────
+  // ── Alertas ───────────────────────────────────────────────────────────────
   const activeAlerts = useMemo(() => {
     const list: { id: string; label: string; sub: string; color: string; bg: string }[] = [];
 
@@ -95,7 +119,9 @@ export default function DashboardSidebar({
       .reduce((s, i) => s + i.amount, 0);
 
     for (const card of cards) {
-      const amt = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+      const amt = allCardInstallments
+        .filter(i => i.cardId === card.id)
+        .reduce((s, i) => s + i.amount, 0);
       if (amt === 0) continue;
 
       if (nextIncEntry?.receiveDay && card.dueDay < nextIncEntry.receiveDay && receivedSoFar < amt) {
@@ -109,7 +135,8 @@ export default function DashboardSidebar({
       }
 
       const du = daysUntil(card.dueDay);
-      if (du >= 0 && du <= 7 && !(nextIncEntry?.receiveDay && card.dueDay < nextIncEntry.receiveDay)) {
+      if (du >= 0 && du <= 7 &&
+        !(nextIncEntry?.receiveDay && card.dueDay < nextIncEntry.receiveDay)) {
         list.push({
           id: `fatura-${card.id}`,
           label: `Fatura ${card.name}`,
@@ -131,20 +158,23 @@ export default function DashboardSidebar({
     }
 
     return list;
-  }, [cards, incomes, installments, balance, today]);
+  }, [cards, incomes, allCardInstallments, balance, today]);
 
-  // ── Gastos por categoria ───────────────────────────────────────────────────
+  // ── Gastos por categoria ──────────────────────────────────────────────────
   const spentByCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const i of installments) map[i.category] = (map[i.category] || 0) + i.amount;
-    for (const f of fixedExpenses) map[f.category] = (map[f.category] || 0) + f.amount;
+    for (const i of allCardInstallments) map[i.category] = (map[i.category] || 0) + i.amount;
+    for (const f of fixedExpenses)        map[f.category] = (map[f.category] || 0) + f.amount;
     for (const v of varTxs.filter(t => t.type === 'expense')) {
       map[v.category] = (map[v.category] || 0) + v.amount;
     }
+    for (const s of subscriptions.filter(s => s.active && !s.cardId)) {
+      map[s.category] = (map[s.category] || 0) + monthlyAmount(s);
+    }
     return map;
-  }, [installments, fixedExpenses, varTxs]);
+  }, [allCardInstallments, fixedExpenses, varTxs, subscriptions]);
 
-  // ── Próximos eventos ordenados ─────────────────────────────────────────────
+  // ── Próximos eventos ──────────────────────────────────────────────────────
   const events = useMemo(() => {
     const list: {
       id: string; label: string; date: string;
@@ -164,7 +194,9 @@ export default function DashboardSidebar({
     }
 
     for (const card of cards) {
-      const amt = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+      const amt = allCardInstallments
+        .filter(i => i.cardId === card.id)
+        .reduce((s, i) => s + i.amount, 0);
       if (amt === 0) continue;
       list.push({
         id: `card-${card.id}`,
@@ -177,24 +209,30 @@ export default function DashboardSidebar({
     }
 
     return list.sort((a, b) => a.sortDay - b.sortDay).slice(0, 5);
-  }, [incomes, cards, installments, today]);
+  }, [incomes, cards, allCardInstallments, today]);
 
-  // ── Orçamentos ─────────────────────────────────────────────────────────────
-  const budgetUsage = useMemo(() => {
-    return budgets.map(b => {
+  // ── Orçamentos ────────────────────────────────────────────────────────────
+  const budgetUsage = useMemo(() =>
+    budgets.map(b => {
       const spent = spentByCategory[b.category] || 0;
       const pct   = b.amount > 0 ? Math.min((spent / b.amount) * 100, 100) : 0;
       const info  = resolveCategoryInfo(b.category);
       return { ...b, spent, pct, label: info.label, color: info.color };
-    });
-  }, [budgets, spentByCategory]);
+    }),
+  [budgets, spentByCategory]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Total assinaturas para exibir
+  const totalSubs = useMemo(
+    () => subscriptions.filter(s => s.active).reduce((s, sub) => s + monthlyAmount(sub), 0),
+    [subscriptions],
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <div className="bg-card rounded-3xl border border-border p-5 space-y-5">
 
-        {/* ── Saldo ── */}
+        {/* Saldo */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Saldo do mês</span>
@@ -217,9 +255,18 @@ export default function DashboardSidebar({
             <span>{fmt(totalInc)} receitas</span>
             <span>{fmt(totalExp)} gastos</span>
           </div>
+
+          {totalSubs > 0 && (
+            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-border/50">
+              <span className="text-muted-foreground">
+                Assinaturas ({subscriptions.filter(s => s.active).length}x)
+              </span>
+              <span className="text-destructive/70">{fmt(totalSubs)}</span>
+            </div>
+          )}
         </div>
 
-        {/* ── Alertas ── */}
+        {/* Alertas */}
         {activeAlerts.length > 0 && (
           <div className="space-y-2">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
@@ -234,7 +281,7 @@ export default function DashboardSidebar({
           </div>
         )}
 
-        {/* ── Orçamentos ── */}
+        {/* Orçamentos */}
         {budgetUsage.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -249,7 +296,6 @@ export default function DashboardSidebar({
                 Editar
               </button>
             </div>
-
             {budgetUsage.slice(0, 5).map(b => (
               <div key={b.category} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
@@ -275,7 +321,7 @@ export default function DashboardSidebar({
           </div>
         )}
 
-        {/* ── Próximos eventos ── */}
+        {/* Próximos eventos */}
         {events.length > 0 && (
           <div className="space-y-2">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
@@ -301,7 +347,6 @@ export default function DashboardSidebar({
             </div>
           </div>
         )}
-
       </div>
 
       <BudgetSettingsDialog

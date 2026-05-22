@@ -22,6 +22,7 @@ import ModulesPage from "./pages/ModulesPage";
 import LoansPage from "./pages/LoansPage";
 import InvestmentsPage from "./pages/InvestmentsPage";
 import GoalsPage from "./pages/GoalsPage";
+import SubscriptionsPage from "./pages/SubscriptionsPage"; // ← NOVO
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
 
@@ -40,7 +41,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 );
 
 // Páginas onde o FAB não faz sentido
-const FAB_HIDDEN_PATHS = ['/modules'];
+const FAB_HIDDEN_PATHS = ['/modules', '/subscriptions'];
 
 // FAB conectado ao refresh global — adicionar pelo botão flutuante
 // agora atualiza todas as páginas imediatamente.
@@ -63,16 +64,17 @@ function AppRoutes() {
 
         <main className="flex-1 min-w-0 md:pl-64">
           <Routes>
-            <Route path="/"            element={<Index />} />
-            <Route path="/cards"       element={<CardsPage />} />
-            <Route path="/fixed"       element={<FixedPage />} />
-            <Route path="/faturas"     element={<FaturaPage />} />
-            <Route path="/reports"     element={<ReportsPage />} />
-            <Route path="/modules"     element={<ModulesPage />} />
-            <Route path="/goals"       element={<GoalsPage />} />
-            <Route path="/loans"       element={<LoansPage />} />
-            <Route path="/investments" element={<InvestmentsPage />} />
-            <Route path="*"            element={<NotFound />} />
+            <Route path="/"               element={<Index />} />
+            <Route path="/cards"          element={<CardsPage />} />
+            <Route path="/fixed"          element={<FixedPage />} />
+            <Route path="/faturas"        element={<FaturaPage />} />
+            <Route path="/reports"        element={<ReportsPage />} />
+            <Route path="/modules"        element={<ModulesPage />} />
+            <Route path="/goals"          element={<GoalsPage />} />
+            <Route path="/loans"          element={<LoansPage />} />
+            <Route path="/investments"    element={<InvestmentsPage />} />
+            <Route path="/subscriptions"  element={<SubscriptionsPage />} /> {/* ← NOVO */}
+            <Route path="*"              element={<NotFound />} />
           </Routes>
         </main>
 

@@ -1,8 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// ─── Módulos opcionais — estado persistido no Supabase ───────────────────────
-// Tabela: user_module_settings  (user_id, module_id, active)
-// SQL de criação em: schema_modules.sql
-
+// src/lib/modules.ts
 import { supabase } from './supabase';
 
 async function uid(): Promise<string> {
@@ -11,18 +8,26 @@ async function uid(): Promise<string> {
   return user.id;
 }
 
-// ─── Definição dos módulos disponíveis ───────────────────────────────────────
 export interface AppModule {
   id: string;
   label: string;
   description: string;
-  icon: string;        // nome do ícone Lucide
+  icon: string;
   path: string;
-  accentColor: string; // HSL sem hsl(), ex: '25 95% 53%'
+  accentColor: string;
   priceLabel?: string;
 }
 
 export const AVAILABLE_MODULES: AppModule[] = [
+  {
+    id: 'subscriptions',
+    label: 'Assinaturas',
+    description: 'Gerencie suas assinaturas recorrentes (Netflix, Spotify, iCloud…). Elas aparecem automaticamente todo mês nos seus gastos.',
+    icon: 'Repeat2',
+    path: '/subscriptions',
+    accentColor: '262 83% 65%',
+    priceLabel: 'Módulo adicional',
+  },
   {
     id: 'goals',
     label: 'Metas',
@@ -52,20 +57,15 @@ export const AVAILABLE_MODULES: AppModule[] = [
   },
 ];
 
-// ─── CRUD Supabase ────────────────────────────────────────────────────────────
-
-/** Retorna os IDs dos módulos ativos para o usuário logado. */
 export async function getActiveModuleIds(): Promise<string[]> {
   const { data, error } = await supabase
     .from('user_module_settings')
     .select('module_id')
     .eq('active', true);
-
   if (error) { console.error('getActiveModuleIds:', error); return []; }
   return (data ?? []).map((r: any) => r.module_id as string);
 }
 
-/** Ativa um módulo para o usuário logado (upsert). */
 export async function activateModule(moduleId: string): Promise<void> {
   const userId = await uid();
   const { error } = await supabase
@@ -77,7 +77,6 @@ export async function activateModule(moduleId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Desativa um módulo para o usuário logado (upsert). */
 export async function deactivateModule(moduleId: string): Promise<void> {
   const userId = await uid();
   const { error } = await supabase
