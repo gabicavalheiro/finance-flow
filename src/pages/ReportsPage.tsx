@@ -1,5 +1,11 @@
-// src/pages/ReportsPage.tsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+// src/pages/ReportsPage.tsx — OTIMIZADO
+//
+// Mudança principal: usa useFinanceData() ao invés de fazer suas próprias
+// queries para cards, expenses, fixedExpenses e incomes.
+// Isso elimina 4 queries Supabase duplicadas toda vez que o usuário navega
+// para esta página (os dados já estão em cache no contexto).
+
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, TrendingDown, TrendingUp, Scale, ChevronDown, ChevronUp,
@@ -9,17 +15,17 @@ import {
 import MonthSelector from '@/components/MonthSelector';
 import { getCurrentMonth, formatCurrency, addMonths } from '@/lib/helpers';
 import {
-  getCards, getExpenses, getFixedExpenses, getIncomes,
   computeInstallmentsForMonth, computeCategoryTotals,
   getVariableForMonth,
 } from '@/lib/store';
-import { CreditCard, Expense, FixedExpense, FixedIncome, VariableTransaction } from '@/lib/types';
+import { VariableTransaction } from '@/lib/types';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import { cn } from '@/lib/utils';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip,
   CartesianGrid, ReferenceLine, Cell,
-  AreaChart, Area, LineChart, Line, Legend,
+  AreaChart, Area, LineChart, Line,
 } from 'recharts';
 
 // ─── Cores ────────────────────────────────────────────────────────────────────
@@ -31,7 +37,6 @@ const C = {
   greenMid: '#276647',
   greenDim: '#1a3d2b',
   purple:   '#8b5cf6',
-  amber:    '#f59e0b',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -114,8 +119,7 @@ function FlowTooltip({ active, payload, label }: any) {
       {entrada && (
         <p className="flex items-center justify-between gap-3 py-0.5">
           <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-400" />
-            Entradas
+            <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-400" /> Entradas
           </span>
           <span className="font-medium text-emerald-400">+{formatCurrency(entrada.value)}</span>
         </p>
@@ -123,8 +127,7 @@ function FlowTooltip({ active, payload, label }: any) {
       {saida && (
         <p className="flex items-center justify-between gap-3 py-0.5">
           <span className="flex items-center gap-1.5 text-red-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-red-400" />
-            Saídas
+            <span className="w-2 h-2 rounded-full shrink-0 bg-red-400" /> Saídas
           </span>
           <span className="font-medium text-red-400">-{formatCurrency(saida.value)}</span>
         </p>
@@ -132,8 +135,7 @@ function FlowTooltip({ active, payload, label }: any) {
       {saldo && (
         <p className="flex items-center justify-between gap-3 py-0.5 border-t border-border mt-1 pt-1">
           <span className="flex items-center gap-1.5 text-violet-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-violet-400" />
-            Saldo acum.
+            <span className="w-2 h-2 rounded-full shrink-0 bg-violet-400" /> Saldo acum.
           </span>
           <span className={cn('font-medium', saldo.value >= 0 ? 'text-emerald-400' : 'text-red-400')}>
             {saldo.value >= 0 ? '+' : ''}{formatCurrency(saldo.value)}
@@ -150,18 +152,18 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
   const balanceColor = fc.balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 84% 60%)';
   const stripColor   = fc.balance >= fc.totalIncome * 0.3
     ? 'hsl(152 69% 45%)' : fc.balance >= 0
-    ? 'hsl(38 92% 50%)' : 'hsl(0 72% 51%)';
+    ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)';
 
   return (
     <div className={cn(
       'bg-card rounded-2xl border border-border overflow-hidden',
-      fc.isCurrent && 'ring-1 ring-primary/40',
+      fc.isCurrent && 'ring-1 ring-primary/30',
     )}>
-      <div className="h-1" style={{ background: stripColor }} />
+      <div className="h-1 w-full" style={{ background: stripColor }} />
       <div className="p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <p className="text-sm font-semibold capitalize">{fc.label}</p>
+            <p className="font-semibold text-sm capitalize">{fc.label}</p>
             <div className="flex items-center gap-2 mt-1">
               <HealthBadge balance={fc.balance} income={fc.totalIncome} />
               {fc.isCurrent && (
@@ -171,30 +173,62 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
               )}
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <p className="text-xs text-muted-foreground">Saldo</p>
-            <p className="text-base font-bold" style={{ color: balanceColor }}>
+            <p className="text-base font-bold tabular-nums" style={{ color: balanceColor }}>
               {fc.balance >= 0 ? '+' : ''}{formatCurrency(fc.balance)}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="bg-secondary/50 rounded-xl p-2.5">
-            <p className="text-muted-foreground mb-0.5">Receitas</p>
-            <p className="font-semibold text-emerald-400">{formatCurrency(fc.totalIncome)}</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center justify-between bg-success/8 rounded-lg px-3 py-2">
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <TrendingUp size={10} className="text-success" /> Receitas
+            </span>
+            <span className="font-semibold text-success tabular-nums">{formatCurrency(fc.totalIncome)}</span>
           </div>
-          <div className="bg-secondary/50 rounded-xl p-2.5">
-            <p className="text-muted-foreground mb-0.5">Gastos</p>
-            <p className="font-semibold text-destructive">{formatCurrency(fc.totalExpense)}</p>
+          <div className="flex items-center justify-between bg-destructive/8 rounded-lg px-3 py-2">
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <TrendingDown size={10} className="text-destructive" /> Gastos
+            </span>
+            <span className="font-semibold text-destructive tabular-nums">{formatCurrency(fc.totalExpense)}</span>
           </div>
         </div>
+
+        {fc.cardBreakdown.some(c => c.amount > 0) && (
+          <div className="mt-3 space-y-1.5">
+            {fc.cardBreakdown.filter(c => c.amount > 0).map(card => {
+              const pct = fc.totalExpense > 0 ? (card.amount / fc.totalExpense) * 100 : 0;
+              return (
+                <div key={card.cardId}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(263 70% 58%)' }} />
+                      <span className="font-medium">{card.cardName}</span>
+                    </div>
+                    <span className="font-semibold tabular-nums">{formatCurrency(card.amount)}</span>
+                  </div>
+                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: 'hsl(263 70% 58%)' }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {fc.installmentDetail.length > 0 && (
           <>
             <button
-              onClick={() => setExpanded(v => !v)}
-              className="mt-3 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setExpanded(p => !p)}
+              className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               {expanded
@@ -238,32 +272,24 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [tab, setTab]           = useState<'previsao' | 'historico' | 'fluxo'>('previsao');
-  const [month, setMonth]       = useState(getCurrentMonth());
-  const [cards, setCards]       = useState<CreditCard[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [fixed, setFixed]       = useState<FixedExpense[]>([]);
-  const [incomes, setIncomes]   = useState<FixedIncome[]>([]);
-  const [varTxs, setVarTxs]     = useState<VariableTransaction[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [tab,    setTab]    = useState<'previsao' | 'historico' | 'fluxo'>('previsao');
+  const [month,  setMonth]  = useState(getCurrentMonth());
+  const [varTxs, setVarTxs] = useState<VariableTransaction[]>([]);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    const [c, e, f, i] = await Promise.all([
-      getCards(), getExpenses(), getFixedExpenses(), getIncomes(),
-    ]);
-    setCards(c); setExpenses(e); setFixed(f); setIncomes(i);
-    setLoading(false);
-  }, []);
+  // ── Dados do contexto global (sem query duplicada) ────────────────────────
+  const {
+    cards, expenses,
+    fixedExpenses: fixed,
+    incomes,
+    loading,
+  } = useFinanceData();
 
-  useEffect(() => { loadAll(); }, [loadAll]);
-
-  // Busca varTxs quando muda o mês (para aba fluxo e historico)
+  // Busca varTxs quando muda o mês (é dado por mês, não está no contexto)
   useEffect(() => {
     getVariableForMonth(month).then(setVarTxs);
   }, [month]);
 
-  // ── Histórico ─────────────────────────────────────────────────────────────
+  // ── Cálculos ──────────────────────────────────────────────────────────────
   const installments     = useMemo(() => computeInstallmentsForMonth(expenses, cards, month), [expenses, cards, month]);
   const categoryTotals   = useMemo(() => computeCategoryTotals(installments, fixed), [installments, fixed]);
   const totalFixedIncome = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
@@ -288,28 +314,20 @@ export default function ReportsPage() {
   // ── Fluxo diário ─────────────────────────────────────────────────────────
   const dailyFlowData = useMemo(() => {
     const days = daysInMonth(month);
-    // Mapa dia → { entrada, saida }
     const map: Record<number, { entrada: number; saida: number }> = {};
     for (let d = 1; d <= days; d++) map[d] = { entrada: 0, saida: 0 };
 
-    // 1. Ganhos fixos: pelo receiveDay
     for (const inc of incomes) {
       const day = inc.receiveDay ?? 1;
       if (day >= 1 && day <= days) map[day].entrada += inc.amount;
     }
-
-    // 2. Faturas de cartão: pelo dueDay do cartão
     for (const card of cards) {
       const amt = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
       if (amt === 0) continue;
       const day = Math.min(card.dueDay, days);
       map[day].saida += amt;
     }
-
-    // 3. Gastos fixos: dia 1 (não têm dia específico)
     for (const f of fixed) map[1].saida += f.amount;
-
-    // 4. Transações variáveis: pelo dia da data
     for (const tx of varTxs) {
       const day = parseInt(tx.date.split('-')[2], 10);
       if (day >= 1 && day <= days) {
@@ -318,7 +336,6 @@ export default function ReportsPage() {
       }
     }
 
-    // Montar array com acumulado
     let cumEntrada = 0;
     let cumSaida   = 0;
     return Array.from({ length: days }, (_, i) => {
@@ -330,16 +347,11 @@ export default function ReportsPage() {
         entradas: cumEntrada,
         saidas:   cumSaida,
         saldo:    cumEntrada - cumSaida,
-        // valores diários (não acumulados) para tooltip
         dEntrada: map[d].entrada,
         dSaida:   map[d].saida,
       };
     });
   }, [month, incomes, cards, installments, fixed, varTxs]);
-
-  const maxFlow = useMemo(() =>
-    Math.max(...dailyFlowData.map(d => Math.max(d.entradas, d.saidas)), 1),
-  [dailyFlowData]);
 
   // ── Previsão ──────────────────────────────────────────────────────────────
   const totalFixedExpense = useMemo(() => fixed.reduce((s, f) => s + f.amount, 0), [fixed]);
@@ -393,7 +405,6 @@ export default function ReportsPage() {
   return (
     <div className="pb-24 md:pb-10 max-w-5xl mx-auto">
 
-      {/* Cabeçalho */}
       <header className="px-4 md:px-8 pt-5 md:pt-8 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -406,7 +417,6 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="px-4 md:px-8 mb-5">
         <div className="flex gap-1 bg-muted/50 p-1 rounded-xl w-fit">
           {([
@@ -429,7 +439,9 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <p className="text-xs text-muted-foreground text-center py-16">Carregando...</p>
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
       ) : (
         <AnimatePresence mode="wait">
 
@@ -592,16 +604,16 @@ export default function ReportsPage() {
                           <span className="font-semibold tabular-nums">
                             {formatCurrency(cat.value)}
                             <span className="text-muted-foreground font-normal ml-1">
-                              ({totalHist > 0 ? ((cat.value / totalHist) * 100).toFixed(0) : 0}%)
+                              ({totalHist > 0 ? Math.round((cat.value / totalHist) * 100) : 0}%)
                             </span>
                           </span>
                         </div>
-                        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
                           <motion.div
                             className="h-full rounded-full"
-                            style={{ background: `hsl(${cat.color})` }}
+                            style={{ background: cat.color }}
                             initial={{ width: 0 }}
-                            animate={{ width: totalHist > 0 ? `${(cat.value / totalHist) * 100}%` : '0%' }}
+                            animate={{ width: `${totalHist > 0 ? (cat.value / totalHist) * 100 : 0}%` }}
                             transition={{ duration: 0.5, ease: 'easeOut' }}
                           />
                         </div>
@@ -610,38 +622,6 @@ export default function ReportsPage() {
                   </div>
                 )}
               </div>
-
-              {cards.length > 0 && (
-                <div className="bg-card rounded-2xl border border-border p-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Por cartão</p>
-                  <div className="space-y-3">
-                    {cards.map(card => {
-                      const cardTotal = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-                      const pct = totalHist > 0 ? (cardTotal / totalHist) * 100 : 0;
-                      return (
-                        <div key={card.id}>
-                          <div className="flex justify-between items-center text-xs mb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }} />
-                              <span className="font-medium">{card.name}</span>
-                            </div>
-                            <span className="font-semibold tabular-nums">{formatCurrency(cardTotal)}</span>
-                          </div>
-                          <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <motion.div
-                              className="h-full rounded-full"
-                              style={{ background: card.customGradient ?? 'hsl(263 70% 58%)' }}
-                              initial={{ width: 0 }}
-                              animate={{ width: `${pct}%` }}
-                              transition={{ duration: 0.5, ease: 'easeOut' }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
 
@@ -654,7 +634,6 @@ export default function ReportsPage() {
             >
               <MonthSelector month={month} onChange={setMonth} />
 
-              {/* Cards resumo do mês */}
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: 'Entradas', value: dailyFlowData[dailyFlowData.length - 1]?.entradas ?? 0, color: 'text-emerald-400' },
@@ -670,7 +649,7 @@ export default function ReportsPage() {
                 ))}
               </div>
 
-              {/* Gráfico de área — entradas e saídas acumuladas */}
+              {/* Entradas vs Saídas acumuladas */}
               <div className="bg-card rounded-2xl border border-border p-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
                   Entradas vs Saídas acumuladas
@@ -701,46 +680,17 @@ export default function ReportsPage() {
                       <YAxis
                         tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                         axisLine={false} tickLine={false} width={62}
-                        tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`}
-                        domain={[0, maxFlow * 1.1]}
+                        tickFormatter={v => `R$${(v / 1000).toFixed(1)}k`}
                       />
                       <Tooltip content={<FlowTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="entradas"
-                        name="Entradas"
-                        stroke={C.greenHot}
-                        strokeWidth={2}
-                        fill="url(#gradEntradas)"
-                        dot={false}
-                        activeDot={{ r: 4, fill: C.greenHot }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="saidas"
-                        name="Saídas"
-                        stroke={C.redHot}
-                        strokeWidth={2}
-                        fill="url(#gradSaidas)"
-                        dot={false}
-                        activeDot={{ r: 4, fill: C.redHot }}
-                      />
+                      <Area type="monotone" dataKey="entradas" name="Entradas" stroke={C.greenHot} strokeWidth={2} fill="url(#gradEntradas)" dot={false} />
+                      <Area type="monotone" dataKey="saidas"   name="Saídas"   stroke={C.redHot}   strokeWidth={2} fill="url(#gradSaidas)"   dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex items-center justify-center gap-6 mt-3">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-6 h-0.5 rounded-full inline-block" style={{ background: C.greenHot }} />
-                    Entradas acumuladas
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-6 h-0.5 rounded-full inline-block" style={{ background: C.redHot }} />
-                    Saídas acumuladas
-                  </div>
-                </div>
               </div>
 
-              {/* Gráfico de linha — saldo acumulado */}
+              {/* Saldo acumulado */}
               <div className="bg-card rounded-2xl border border-border p-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
                   Saldo acumulado do mês
@@ -766,13 +716,9 @@ export default function ReportsPage() {
                       <Tooltip content={<FlowTooltip />} />
                       <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 2" />
                       <Line
-                        type="monotone"
-                        dataKey="saldo"
-                        name="Saldo"
-                        stroke={C.purple}
-                        strokeWidth={2.5}
-                        dot={false}
-                        activeDot={{ r: 4, fill: C.purple }}
+                        type="monotone" dataKey="saldo" name="Saldo"
+                        stroke={C.purple} strokeWidth={2.5}
+                        dot={false} activeDot={{ r: 4, fill: C.purple }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -785,7 +731,6 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              {/* Legenda das fontes */}
               <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
                 <Activity size={13} className="text-primary mt-0.5 shrink-0" />
                 <p className="text-xs text-muted-foreground leading-relaxed">

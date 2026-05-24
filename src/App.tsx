@@ -1,5 +1,7 @@
-// src/App.tsx
-import { useState, useEffect } from 'react';
+// src/App.tsx — OTIMIZADO: React.lazy + Suspense para code splitting
+// Cada página carrega como chunk separado; só baixa quando o usuário navega.
+
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { ThemeProvider } from 'next-themes';
@@ -10,23 +12,42 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import AppNav from "@/components/AppNav";
 import QuickAddFAB from "@/components/QuickAddFAB";
-import Index from "./pages/Index";
-import CardsPage from "./pages/CardsPage";
-import FixedPage from "./pages/FixedPage";
-import ReportsPage from "./pages/ReportsPage";
-import FaturaPage from "./pages/FaturaPage";
-import AuthPage from "./pages/AuthPage";
-import PasswordResetPage from "./pages/PasswordResetPage";
-import NotFound from "./pages/NotFound";
-import ModulesPage from "./pages/ModulesPage";
-import LoansPage from "./pages/LoansPage";
-import InvestmentsPage from "./pages/InvestmentsPage";
-import GoalsPage from "./pages/GoalsPage";
-import SubscriptionsPage from "./pages/SubscriptionsPage"; // ← NOVO
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
 
-const queryClient = new QueryClient();
+// ── Lazy imports — cada página vira um chunk separado ─────────────────────────
+const Index             = lazy(() => import('./pages/Index'));
+const CardsPage         = lazy(() => import('./pages/CardsPage'));
+const FixedPage         = lazy(() => import('./pages/FixedPage'));
+const ReportsPage       = lazy(() => import('./pages/ReportsPage'));
+const FaturaPage        = lazy(() => import('./pages/FaturaPage'));
+const AuthPage          = lazy(() => import('./pages/AuthPage'));
+const PasswordResetPage = lazy(() => import('./pages/PasswordResetPage'));
+const NotFound          = lazy(() => import('./pages/NotFound'));
+const ModulesPage       = lazy(() => import('./pages/ModulesPage'));
+const LoansPage         = lazy(() => import('./pages/LoansPage'));
+const InvestmentsPage   = lazy(() => import('./pages/InvestmentsPage'));
+const GoalsPage         = lazy(() => import('./pages/GoalsPage'));
+const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
+
+// ── Fallback mínimo enquanto chunk carrega ────────────────────────────────────
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
+// ── QueryClient configurado — sem refetch automático em foco de janela ────────
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+    },
+  },
+});
 
 const Providers = ({ children }: { children: React.ReactNode }) => (
   <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="financeflow-theme">
@@ -40,11 +61,9 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
   </ThemeProvider>
 );
 
-// Páginas onde o FAB não faz sentido
+// Páginas onde o FAB não aparece
 const FAB_HIDDEN_PATHS = ['/modules', '/subscriptions'];
 
-// FAB conectado ao refresh global — adicionar pelo botão flutuante
-// agora atualiza todas as páginas imediatamente.
 function ConnectedFAB() {
   const { refresh } = useFinanceData();
   return <QuickAddFAB onAdded={refresh} />;
@@ -56,28 +75,26 @@ function AppRoutes() {
   const showFAB  = !FAB_HIDDEN_PATHS.includes(location.pathname);
 
   return (
-    // FinanceDataProvider envolve todas as rotas autenticadas,
-    // permitindo que Index, FixedPage e FaturaPage compartilhem os mesmos dados.
     <FinanceDataProvider>
       <div className="flex min-h-screen bg-background">
         <AppNav />
-
         <main className="flex-1 min-w-0 md:pl-64">
-          <Routes>
-            <Route path="/"               element={<Index />} />
-            <Route path="/cards"          element={<CardsPage />} />
-            <Route path="/fixed"          element={<FixedPage />} />
-            <Route path="/faturas"        element={<FaturaPage />} />
-            <Route path="/reports"        element={<ReportsPage />} />
-            <Route path="/modules"        element={<ModulesPage />} />
-            <Route path="/goals"          element={<GoalsPage />} />
-            <Route path="/loans"          element={<LoansPage />} />
-            <Route path="/investments"    element={<InvestmentsPage />} />
-            <Route path="/subscriptions"  element={<SubscriptionsPage />} /> {/* ← NOVO */}
-            <Route path="*"              element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/"              element={<Index />} />
+              <Route path="/cards"         element={<CardsPage />} />
+              <Route path="/fixed"         element={<FixedPage />} />
+              <Route path="/faturas"       element={<FaturaPage />} />
+              <Route path="/reports"       element={<ReportsPage />} />
+              <Route path="/modules"       element={<ModulesPage />} />
+              <Route path="/goals"         element={<GoalsPage />} />
+              <Route path="/loans"         element={<LoansPage />} />
+              <Route path="/investments"   element={<InvestmentsPage />} />
+              <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="*"              element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </main>
-
         {showFAB && <ConnectedFAB />}
       </div>
     </FinanceDataProvider>
@@ -85,8 +102,8 @@ function AppRoutes() {
 }
 
 const App = () => {
-  const [session, setSession]                       = useState<Session | null>(null);
-  const [loading, setLoading]                       = useState(true);
+  const [session,            setSession]            = useState<Session | null>(null);
+  const [loading,            setLoading]            = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
@@ -113,13 +130,17 @@ const App = () => {
     <Providers>
       <BrowserRouter>
         {isPasswordRecovery ? (
-          <Routes>
-            <Route path="*" element={<PasswordResetPage onDone={() => {}} />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="*" element={<PasswordResetPage onDone={() => {}} />} />
+            </Routes>
+          </Suspense>
         ) : !session ? (
-          <Routes>
-            <Route path="*" element={<AuthPage />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="*" element={<AuthPage />} />
+            </Routes>
+          </Suspense>
         ) : (
           <AppRoutes />
         )}

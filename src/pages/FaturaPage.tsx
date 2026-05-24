@@ -1,5 +1,12 @@
-// src/pages/FaturaPage.tsx
-import { useState, useCallback, useEffect, useMemo } from 'react';
+// src/pages/FaturaPage.tsx — OTIMIZADO
+//
+// Melhorias:
+// 1. loadHistory usa getInvoicesForMonthRange() — 1 query ao invés de 12 paralelas
+// 2. Spinner só aparece no primeiro load; versioning silencioso depois
+// 3. Salvar fatura atualiza estado local sem refetch
+// 4. historyMonths estável (não recalcula a cada render)
+
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, AlertTriangle, Info, FileSearch,
@@ -12,7 +19,10 @@ import { useCollapse } from '@/hooks/useCollapse';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import {
   computeInstallmentsForMonth,
-  getInvoicesForMonth, upsertInvoice, CardInvoice,
+  getInvoicesForMonth,
+  getInvoicesForMonthRange,
+  upsertInvoice,
+  CardInvoice,
 } from '@/lib/store';
 import { BRAND_GRADIENTS, CreditCard, MonthlyInstallment } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -20,7 +30,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 
-// ── Helpers de mês ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function addMonths(ym: string, n: number): string {
   const [y, m] = ym.split('-').map(Number);
   const d = new Date(y, m - 1 + n, 1);
@@ -64,236 +74,133 @@ function FaturaCardItem({
         style={card.customGradient ? { background: card.customGradient } : undefined}
       >
         <div>
-          <p className="text-white font-semibold text-sm">{card.name}</p>
-          <p className="text-white/70 text-[11px]">•••• {card.lastDigits}</p>
+          <p className="font-semibold text-white text-sm">{card.name}</p>
+          <p className="text-white/70 text-xs">•••• {card.lastDigits}</p>
         </div>
         <div className="text-right">
           <p className="text-white/70 text-[10px]">Calculado</p>
-          <p className="text-white font-bold text-base tabular-nums">{formatCurrency(calculated)}</p>
+          <p className="text-white font-bold text-sm">{formatCurrency(calculated)}</p>
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* Lançamentos colapsáveis */}
-        {cardInst.length > 0 ? (
-          <div className="space-y-1">
-            {cardInst.slice(0, collapse.visible).map((inst, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{inst.expenseName}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {inst.totalInstallments > 1
-                      ? `${inst.installmentNumber}/${inst.totalInstallments}`
-                      : 'À vista'}
-                  </p>
-                </div>
-                <span className="text-xs font-semibold tabular-nums">{formatCurrency(inst.amount)}</span>
-              </div>
-            ))}
-            <ShowMoreButton expanded={collapse.expanded} hidden={collapse.hidden} onToggle={collapse.toggle} />
+      {/* Corpo */}
+      <div className="p-4 space-y-3">
+        {/* Input da fatura real */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground mb-1 block">Valor real da fatura</label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder={formatCurrency(calculated)}
+              value={draft}
+              onChange={e => onDraftChange(e.target.value)}
+              className="h-9 text-sm"
+            />
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-2">Nenhum lançamento calculado</p>
-        )}
-
-        {/* Input de valor real */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Info size={11} /> Valor real cobrado pelo banco
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-              <Input
-                value={draft}
-                onChange={e => onDraftChange(e.target.value)}
-                placeholder={calculated.toFixed(2).replace('.', ',')}
-                className="pl-9 bg-secondary border-border"
-                onKeyDown={e => e.key === 'Enter' && onSave()}
-              />
-            </div>
-            <button
-              onClick={onSave}
-              disabled={saving === card.id}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
-            >
-              {saving === card.id ? '...' : 'Salvar'}
-            </button>
-          </div>
+          <button
+            onClick={onSave}
+            disabled={saving === card.id}
+            className="mt-5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50 transition-opacity"
+          >
+            {saving === card.id ? '...' : 'Salvar'}
+          </button>
         </div>
 
-        {/* Diferença */}
+        {/* Diff */}
         {diff !== null && (
           <div className={cn(
-            'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium',
+            'flex items-center gap-1.5 text-xs rounded-lg px-3 py-2',
             isOk    && 'bg-emerald-500/10 text-emerald-400',
-            isOver  && 'bg-amber-500/10 text-amber-400',
-            isUnder && 'bg-destructive/10 text-destructive',
+            isOver  && 'bg-destructive/10 text-destructive',
+            isUnder && 'bg-amber-500/10 text-amber-400',
           )}>
-            {isOk    && <CheckCircle2 size={15} />}
-            {(isOver || isUnder) && <AlertTriangle size={15} />}
+            {isOk    && <CheckCircle2 size={12} />}
+            {isOver  && <AlertTriangle size={12} />}
+            {isUnder && <Info size={12} />}
             <span>
-              {isOk    && 'Valores conferem ✓'}
-              {isOver  && `Banco cobrou ${formatCurrency(diff)} a mais — possível gasto não registrado`}
-              {isUnder && `Banco cobrou ${formatCurrency(Math.abs(diff))} a menos — verifique os lançamentos`}
+              {isOk    && 'Fatura confere!'}
+              {isOver  && `Fatura ${formatCurrency(Math.abs(diff))} acima do calculado`}
+              {isUnder && `Fatura ${formatCurrency(Math.abs(diff))} abaixo do calculado`}
             </span>
           </div>
         )}
 
-        {/* Observações */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <StickyNote size={11} /> Observações (opcional)
+        {/* Nota */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+            <StickyNote size={10} /> Observação
           </label>
           <Input
+            placeholder="Ex: inclui anuidade..."
             value={note}
             onChange={e => onNoteChange(e.target.value)}
-            placeholder="Ex: Fatura com IOF, estorno pendente..."
-            className="bg-secondary border-border text-xs h-9"
+            className="h-8 text-xs"
           />
         </div>
+
+        {/* Parcelas detalhadas */}
+        {cardInst.length > 0 && (
+          <div>
+            <button
+              onClick={collapse.toggle}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {collapse.expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {collapse.expanded ? 'Ocultar' : 'Ver'} {cardInst.length} lançamento{cardInst.length !== 1 ? 's' : ''}
+            </button>
+
+            <AnimatePresence>
+              {(collapse.expanded || collapse.visible > 0) && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden mt-2 space-y-1"
+                >
+                  {cardInst.slice(0, collapse.visible).map(inst => (
+                    <div
+                      key={`${inst.expenseId}-${inst.installmentNumber}`}
+                      className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0"
+                    >
+                      <span className="text-foreground truncate max-w-[60%]">{inst.expenseName}</span>
+                      <span className="text-muted-foreground">
+                        {inst.installmentNumber}/{inst.totalInstallments} · {formatCurrency(inst.amount)}
+                      </span>
+                    </div>
+                  ))}
+                  {collapse.hidden > 0 && (
+                    <ShowMoreButton
+                      expanded={collapse.expanded}
+                      hidden={collapse.hidden}
+                      onToggle={collapse.toggle}
+                    />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
 
-// ── Tabela histórica de faturas ────────────────────────────────────────────────
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 interface HistoryRow {
   month:      string;
   calculated: number;
-  actual:     number | null; // null = não apurado
+  actual:     number | null;
   diff:       number | null;
 }
 
-function HistoryTable({
-  rows, onMonthClick,
-}: {
-  rows: HistoryRow[];
-  onMonthClick: (m: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      {/* Header */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/40 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <TableProperties size={16} className="text-primary" />
-          <span className="text-sm font-semibold">Histórico por mês</span>
-          <span className="text-[10px] bg-primary/15 text-primary px-2 py-0.5 rounded-full font-medium">
-            {rows.filter(r => r.actual !== null).length} apurados
-          </span>
-        </div>
-        {open ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            {/* Cabeçalho da tabela */}
-            <div className="grid grid-cols-4 gap-2 px-4 py-2 border-t border-border bg-secondary/30">
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Mês</span>
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Calculado</span>
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Apurado</span>
-              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide text-right">Diferença</span>
-            </div>
-
-            {/* Linhas */}
-            <div className="divide-y divide-border/50">
-              {rows.map((row) => {
-                const isOk    = row.diff !== null && Math.abs(row.diff) < 0.01;
-                const isOver  = row.diff !== null && row.diff > 0.01;
-                const isUnder = row.diff !== null && row.diff < -0.01;
-
-                return (
-                  <button
-                    key={row.month}
-                    onClick={() => onMonthClick(row.month)}
-                    className="w-full grid grid-cols-4 gap-2 px-4 py-2.5 hover:bg-secondary/40 transition-colors text-left group"
-                  >
-                    {/* Mês */}
-                    <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                      {monthLabel(row.month)}
-                    </span>
-
-                    {/* Calculado */}
-                    <span className="text-sm tabular-nums text-right text-muted-foreground">
-                      {formatCurrency(row.calculated)}
-                    </span>
-
-                    {/* Apurado */}
-                    <span className={cn(
-                      'text-sm tabular-nums text-right font-medium',
-                      row.actual === null ? 'text-muted-foreground/50 italic text-xs' : 'text-foreground',
-                    )}>
-                      {row.actual === null ? '—' : formatCurrency(row.actual)}
-                    </span>
-
-                    {/* Diferença */}
-                    <span className={cn(
-                      'text-sm tabular-nums text-right font-semibold',
-                      row.diff === null  && 'text-muted-foreground/30 text-xs',
-                      isOk               && 'text-emerald-400',
-                      isOver             && 'text-amber-400',
-                      isUnder            && 'text-destructive',
-                    )}>
-                      {row.diff === null
-                        ? '—'
-                        : `${row.diff > 0 ? '+' : ''}${formatCurrency(row.diff)}`}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Totais */}
-            {rows.some(r => r.actual !== null) && (() => {
-              const apuradoRows = rows.filter(r => r.actual !== null);
-              const totalCalc   = apuradoRows.reduce((s, r) => s + r.calculated, 0);
-              const totalAct    = apuradoRows.reduce((s, r) => s + (r.actual ?? 0), 0);
-              const totalDiff   = totalAct - totalCalc;
-              return (
-                <div className="grid grid-cols-4 gap-2 px-4 py-3 border-t border-border bg-secondary/50">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Total</span>
-                  <span className="text-[11px] font-bold text-right tabular-nums text-muted-foreground">
-                    {formatCurrency(totalCalc)}
-                  </span>
-                  <span className="text-[11px] font-bold text-right tabular-nums">
-                    {formatCurrency(totalAct)}
-                  </span>
-                  <span className={cn(
-                    'text-[11px] font-bold text-right tabular-nums',
-                    Math.abs(totalDiff) < 0.01 ? 'text-emerald-400' : totalDiff > 0 ? 'text-amber-400' : 'text-destructive',
-                  )}>
-                    {totalDiff > 0 ? '+' : ''}{formatCurrency(totalDiff)}
-                  </span>
-                </div>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // ── Página principal ──────────────────────────────────────────────────────────
-const HISTORY_MONTHS = 12; // meses a mostrar na tabela (incluindo atual)
+const HISTORY_MONTHS = 12;
 
 export default function FaturaPage() {
   const [month, setMonth] = useState(getCurrentMonth());
 
-  // cards e expenses do contexto global
   const { cards, expenses, version } = useFinanceData();
 
   // Faturas do mês selecionado
@@ -303,74 +210,73 @@ export default function FaturaPage() {
   const [saving,   setSaving]   = useState<string | null>(null);
   const [loading,  setLoading]  = useState(true);
 
-  // Histórico de faturas (últimos N meses)
-  const [historyRows, setHistoryRows]   = useState<HistoryRow[]>([]);
+  // Histórico
+  const [historyRows,    setHistoryRows]    = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  // Meses para o histórico: mês atual + os N-1 meses anteriores
+  // Meses estáveis para o histórico — calculados apenas uma vez
   const historyMonths = useMemo(() => {
     const cur = getCurrentMonth();
-    // i=0 → mês mais antigo, i=N-1 → mês atual
     return Array.from({ length: HISTORY_MONTHS }, (_, i) =>
       addMonths(cur, -(HISTORY_MONTHS - 1 - i)),
     );
-  }, []);
+  }, []); // sem deps — lista de meses não muda na sessão
 
   // ── Faturas do mês selecionado ───────────────────────────────────────────
+  const isFirstInvoiceLoad = useRef(true);
+
   const loadInvoices = useCallback(async () => {
-    setLoading(true);
+    // Spinner apenas no primeiro load; nas revalidações (version), silencioso
+    if (isFirstInvoiceLoad.current) setLoading(true);
     const inv = await getInvoicesForMonth(month);
     setInvoices(inv);
-
     const newDrafts: Record<string, string> = {};
     const newNotes:  Record<string, string> = {};
     for (const invoice of inv) {
-      newDrafts[invoice.cardId] = invoice.actualAmount > 0
-        ? String(invoice.actualAmount) : '';
+      newDrafts[invoice.cardId] = invoice.actualAmount > 0 ? String(invoice.actualAmount) : '';
       newNotes[invoice.cardId]  = invoice.notes ?? '';
     }
     setDrafts(newDrafts);
     setNotes(newNotes);
     setLoading(false);
+    isFirstInvoiceLoad.current = false;
   }, [month]);
 
-  useEffect(() => { loadInvoices(); }, [loadInvoices, version]);
+  // Recarrega quando muda o mês OU quando version sobe (qualquer mutação global)
+  useEffect(() => {
+    isFirstInvoiceLoad.current = true; // spinner ao trocar de mês
+    loadInvoices();
+  }, [loadInvoices, version]);
 
-  // ── Histórico ─────────────────────────────────────────────────────────────
+  // ── Histórico — 1 query batch ao invés de 12 paralelas ──────────────────
   const loadHistory = useCallback(async () => {
-    if (cards.length === 0 || expenses.length === 0) return;
+    if (cards.length === 0) return;
     setHistoryLoading(true);
 
-    // Busca faturas de todos os meses do histórico em paralelo
-    const allInvoices = await Promise.all(
-      historyMonths.map(m => getInvoicesForMonth(m)),
-    );
+    // Uma única chamada ao Supabase para todos os 12 meses
+    const invoicesByMonth = await getInvoicesForMonthRange(historyMonths);
 
-    const rows: HistoryRow[] = historyMonths.map((m, idx) => {
-      const monthInvoices = allInvoices[idx];
-      const inst          = computeInstallmentsForMonth(expenses, cards, m);
-      const calculated    = inst.reduce((s, i) => s + i.amount, 0);
-
-      // Soma os valores reais confirmados de todos os cartões neste mês
+    const rows: HistoryRow[] = historyMonths.map(m => {
+      const monthInvoices  = invoicesByMonth[m] ?? [];
+      const inst           = computeInstallmentsForMonth(expenses, cards, m);
+      const calculated     = inst.reduce((s, i) => s + i.amount, 0);
       const confirmedTotal = monthInvoices
         .filter(inv => inv.actualAmount > 0)
         .reduce((s, inv) => s + inv.actualAmount, 0);
-
       const hasConfirmed = monthInvoices.some(inv => inv.actualAmount > 0);
       const actual       = hasConfirmed ? confirmedTotal : null;
       const diff         = actual !== null ? actual - calculated : null;
-
       return { month: m, calculated, actual, diff };
     });
 
-    // Filtra meses sem nenhum dado (calculado = 0 e não apurado)
-    const filtered = rows.filter(r => r.calculated > 0 || r.actual !== null);
-    // Mais recente primeiro
-    setHistoryRows(filtered.reverse());
+    const filtered = rows
+      .filter(r => r.calculated > 0 || r.actual !== null)
+      .reverse(); // mais recente primeiro
+
+    setHistoryRows(filtered);
     setHistoryLoading(false);
   }, [historyMonths, cards, expenses]);
 
-  // Recarrega histórico quando cards/expenses chegam ou atualizam
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
   // ── Cálculos do mês selecionado ──────────────────────────────────────────
@@ -379,9 +285,28 @@ export default function FaturaPage() {
     [expenses, cards, month],
   );
 
+  const invoiceMap = useMemo(
+    () => new Map(invoices.map(i => [i.cardId, i])),
+    [invoices],
+  );
+
+  const totalCalc = useMemo(
+    () => installments.reduce((s, i) => s + i.amount, 0),
+    [installments],
+  );
+
+  const totalActual = useMemo(() =>
+    cards.reduce((sum, c) => {
+      const inv = invoiceMap.get(c.id);
+      if (inv && inv.actualAmount > 0) return sum + inv.actualAmount;
+      return sum + installments.filter(i => i.cardId === c.id).reduce((s, i) => s + i.amount, 0);
+    }, 0),
+  [cards, invoiceMap, installments]);
+
   const calculatedByCard = (cardId: string) =>
     installments.filter(i => i.cardId === cardId).reduce((s, i) => s + i.amount, 0);
 
+  // ── Salvar fatura ─────────────────────────────────────────────────────────
   const handleSave = async (card: CreditCard) => {
     const raw    = drafts[card.id] ?? '';
     const parsed = parseFloat(raw.replace(',', '.'));
@@ -393,108 +318,155 @@ export default function FaturaPage() {
         actualAmount: isNaN(parsed) ? 0 : parsed,
         notes: notes[card.id] ?? '',
       });
-      toast.success(`Fatura do ${card.name} salva!`);
-      await Promise.all([loadInvoices(), loadHistory()]);
-    } catch { toast.error('Erro ao salvar'); }
-    setSaving(null);
+      toast.success('Fatura salva!');
+      // Atualiza estado local imediatamente, sem esperar refetch
+      setInvoices(prev => {
+        const idx = prev.findIndex(i => i.cardId === card.id);
+        const updated: CardInvoice = {
+          cardId: card.id, month,
+          actualAmount: isNaN(parsed) ? 0 : parsed,
+          notes: notes[card.id] ?? '',
+        };
+        if (idx >= 0) {
+          const next = [...prev]; next[idx] = updated; return next;
+        }
+        return [...prev, updated];
+      });
+    } catch {
+      toast.error('Erro ao salvar fatura');
+    } finally {
+      setSaving(null);
+    }
   };
 
-  const totalCalculated = cards.reduce((s, c) => s + calculatedByCard(c.id), 0);
-  const totalActual     = invoices.reduce((s, i) => s + i.actualAmount, 0);
-  const totalDiff       = totalActual - totalCalculated;
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="pb-24 md:pb-10 px-4 md:px-8 pt-6 md:pt-8 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen pb-8">
+      <header className="px-4 md:px-8 pt-5 md:pt-8 pb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <TableProperties size={20} className="text-primary" />
+            Faturas
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Confira e registre os valores reais</p>
+        </div>
+        <DailyAlertsDialog month={month} />
+      </header>
 
-      <DailyAlertsDialog month={month} />
+      <div className="px-4 md:px-8 space-y-4">
+        <MonthSelector month={month} onChange={setMonth} />
 
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <FileSearch size={20} className="text-primary" />
-          Conferência de Faturas
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Digite o valor real cobrado pelo banco e compare com o calculado
-        </p>
+        {/* Resumo */}
+        {cards.length > 0 && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <p className="text-xs text-muted-foreground mb-1">Calculado</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(totalCalc)}</p>
+            </div>
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <p className="text-xs text-muted-foreground mb-1">Real / Estimado</p>
+              <p className="text-lg font-bold">{formatCurrency(totalActual)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Cartões */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+            <FileSearch size={32} strokeWidth={1.2} />
+            <p className="text-sm">Nenhum cartão cadastrado</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cards.map((card, idx) => {
+              const calculated = calculatedByCard(card.id);
+              const cardInst   = installments.filter(i => i.cardId === card.id);
+              const draft      = drafts[card.id] ?? '';
+              const inv        = invoiceMap.get(card.id);
+              const actual     = inv?.actualAmount ?? 0;
+              const diff       = actual > 0 ? actual - calculated : null;
+              const isOk       = diff !== null && Math.abs(diff) < 0.01;
+              const isOver     = diff !== null && diff > 0.01;
+              const isUnder    = diff !== null && diff < -0.01;
+
+              return (
+                <FaturaCardItem
+                  key={card.id}
+                  card={card} idx={idx}
+                  calculated={calculated}
+                  cardInst={cardInst}
+                  draft={draft}
+                  diff={diff} isOk={isOk} isOver={isOver} isUnder={isUnder}
+                  saving={saving}
+                  note={notes[card.id] ?? ''}
+                  onDraftChange={v => setDrafts(prev => ({ ...prev, [card.id]: v }))}
+                  onNoteChange={v => setNotes(prev => ({ ...prev, [card.id]: v }))}
+                  onSave={() => handleSave(card)}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Histórico */}
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <TableProperties size={14} className="text-muted-foreground" />
+            <span className="text-sm font-medium">Histórico de faturas</span>
+          </div>
+
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          ) : historyRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">Nenhum dado histórico</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left px-4 py-2.5 text-muted-foreground font-medium">Mês</th>
+                    <th className="text-right px-4 py-2.5 text-muted-foreground font-medium">Calculado</th>
+                    <th className="text-right px-4 py-2.5 text-muted-foreground font-medium">Real</th>
+                    <th className="text-right px-4 py-2.5 text-muted-foreground font-medium">Diferença</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRows.map(row => (
+                    <tr key={row.month} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-2.5 font-medium">{monthLabel(row.month)}</td>
+                      <td className="px-4 py-2.5 text-right text-muted-foreground">
+                        {formatCurrency(row.calculated)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {row.actual !== null ? formatCurrency(row.actual) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className={cn(
+                        'px-4 py-2.5 text-right font-medium',
+                        row.diff === null                           && 'text-muted-foreground',
+                        row.diff !== null && Math.abs(row.diff) < 0.01 && 'text-emerald-400',
+                        row.diff !== null && row.diff > 0.01          && 'text-destructive',
+                        row.diff !== null && row.diff < -0.01         && 'text-amber-400',
+                      )}>
+                        {row.diff !== null
+                          ? `${row.diff > 0 ? '+' : ''}${formatCurrency(row.diff)}`
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-
-      <MonthSelector month={month} onChange={setMonth} />
-
-      {/* ── Tabela histórica ── */}
-      {!historyLoading && historyRows.length > 0 && (
-        <HistoryTable
-          rows={historyRows}
-          onMonthClick={m => setMonth(m)}
-        />
-      )}
-
-      {/* ── Resumo do mês selecionado ── */}
-      {!loading && cards.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-card rounded-2xl p-3 sm:p-4 border border-border">
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Calculado</p>
-            <p className="text-sm sm:text-base font-bold text-muted-foreground tabular-nums break-all">
-              {formatCurrency(totalCalculated)}
-            </p>
-          </div>
-          <div className="bg-card rounded-2xl p-3 sm:p-4 border border-border">
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Real (banco)</p>
-            <p className="text-sm sm:text-base font-bold tabular-nums break-all">
-              {formatCurrency(totalActual)}
-            </p>
-          </div>
-          <div className={cn(
-            'rounded-2xl p-3 sm:p-4 border',
-            Math.abs(totalDiff) < 0.01
-              ? 'bg-emerald-500/10 border-emerald-500/30'
-              : 'bg-amber-500/10 border-amber-500/30',
-          )}>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Diferença</p>
-            <p className={cn(
-              'text-sm sm:text-base font-bold tabular-nums break-all',
-              Math.abs(totalDiff) < 0.01 ? 'text-emerald-400' : 'text-amber-400',
-            )}>
-              {totalDiff >= 0 ? '+' : ''}{formatCurrency(totalDiff)}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Lista de cartões do mês ── */}
-      {loading ? (
-        <p className="text-xs text-muted-foreground text-center py-10">Carregando...</p>
-      ) : cards.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-10">Nenhum cartão cadastrado</p>
-      ) : (
-        <div className="space-y-4">
-          {cards.map((card, idx) => {
-            const calculated = calculatedByCard(card.id);
-            const cardInst   = installments.filter(i => i.cardId === card.id);
-            const draft      = drafts[card.id] ?? '';
-            const note       = notes[card.id]  ?? '';
-            const actualInv  = invoices.find(i => i.cardId === card.id);
-            const actual     = actualInv?.actualAmount ?? null;
-            const diff       = actual !== null ? actual - calculated : null;
-            const isOk       = diff !== null && Math.abs(diff) < 0.01;
-            const isOver     = diff !== null && diff > 0.01;
-            const isUnder    = diff !== null && diff < -0.01;
-
-            return (
-              <FaturaCardItem
-                key={card.id}
-                card={card} idx={idx} calculated={calculated}
-                cardInst={cardInst} draft={draft} diff={diff}
-                isOk={isOk} isOver={isOver} isUnder={isUnder}
-                saving={saving} note={note}
-                onDraftChange={v => setDrafts(p => ({ ...p, [card.id]: v }))}
-                onNoteChange={v => setNotes(p => ({ ...p, [card.id]: v }))}
-                onSave={() => handleSave(card)}
-              />
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

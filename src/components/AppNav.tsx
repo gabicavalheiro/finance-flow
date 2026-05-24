@@ -1,4 +1,11 @@
-// src/components/AppNav.tsx
+// src/components/AppNav.tsx — OTIMIZADO
+//
+// Problema original: activeModuleIds era um estado local com duas chamadas a
+// getActiveModuleIds() (mount + toda troca de rota), causando delay visível.
+//
+// Solução: consome activeModuleIds direto do FinanceDataContext — os dados já
+// estão carregados quando o nav renderiza, sem nenhuma query adicional.
+
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3,
   FileSearch, LogOut, Sun, Moon, Landmark, TrendingUp, Target,
@@ -16,7 +23,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getActiveModuleIds, AVAILABLE_MODULES } from '@/lib/modules';
+import { AVAILABLE_MODULES } from '@/lib/modules';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
 
 const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2 };
 
@@ -33,24 +41,18 @@ export default function AppNav() {
   const location            = useLocation();
   const navigate            = useNavigate();
   const { theme, setTheme } = useTheme();
-  const [userName, setUserName]               = useState('');
-  const [mounted, setMounted]                 = useState(false);
-  const [activeModuleIds, setActiveModuleIds] = useState<string[]>([]);
-  const [moreOpen, setMoreOpen]               = useState(false);
+  const [userName, setUserName] = useState('');
+  const [mounted,  setMounted]  = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const loadModules = async () => {
-    try { setActiveModuleIds(await getActiveModuleIds()); }
-    catch { /* silencioso */ }
-  };
+  // ✅ Dados do contexto — instantâneo, sem query extra
+  const { activeModuleIds } = useFinanceData();
 
   useEffect(() => {
     setMounted(true);
     supabase.auth.getUser().then(({ data: { user } }) =>
       setUserName(user?.user_metadata?.name ?? ''));
-    loadModules();
   }, []);
-
-  useEffect(() => { loadModules(); }, [location.pathname]);
 
   // Fecha o "Mais" ao trocar de rota
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
@@ -59,19 +61,15 @@ export default function AppNav() {
     .filter(m => activeModuleIds.includes(m.id))
     .map(m => ({ path: m.path, label: m.label, icon: MODULE_ICONS[m.icon] ?? Sparkles }));
 
-  // Tabs que ficam no sheet "Mais": módulos ativos + Módulos (gerenciar) + Tema + Sair
   const moreTabs = [
     ...moduleTabs,
     { path: '/modules', label: 'Módulos', icon: Sparkles },
   ];
 
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-  const isDark      = mounted ? theme === 'dark' : true;
-
-  const iconSrc = '/financeflow-icon-purple-bg.svg';
-
-  // Verifica se alguma tab do "Mais" está ativa (para destacar o botão Mais)
+  const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const isDark       = mounted ? theme === 'dark' : true;
   const moreIsActive = moreTabs.some(t => location.pathname === t.path);
+  const iconSrc      = '/financeflow-icon-purple-bg.svg';
 
   const LogoutDialog = ({ children }: { children: React.ReactNode }) => (
     <AlertDialog>
@@ -132,7 +130,7 @@ export default function AppNav() {
           </button>
           <LogoutDialog>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all">
-              <LogOut size={18} strokeWidth={1.8} />Sair
+              <LogOut size={18} strokeWidth={1.8} /> Sair
             </button>
           </LogoutDialog>
         </div>
@@ -144,7 +142,7 @@ export default function AppNav() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-border">
         <div className="flex items-center h-16">
 
-          {/* 5 tabs principais — sempre visíveis, distribuídas igualmente */}
+          {/* 5 tabs principais — sempre visíveis */}
           {MAIN_TABS.map(tab => {
             const active = location.pathname === tab.path;
             return (
@@ -165,7 +163,7 @@ export default function AppNav() {
             );
           })}
 
-          {/* Botão "Mais" — abre sheet com o restante */}
+          {/* Botão "Mais" */}
           <button
             onClick={() => setMoreOpen(v => !v)}
             className={cn(
