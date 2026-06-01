@@ -11,157 +11,208 @@
     --gradient-end: 220 70% 55%;
     --success: 152 69% 45%;
     --warning: 38 92% 50%;
+
+    /* Sidebar width controlada pelo AppNav */
+    --sidebar-w: 256px;
   }
 
-  /* ── DARK (padrão) ── */
+  /* ── DARK — roxo profundo ── */
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    --background:         252 20% 7%;
+    --foreground:         240 10% 96%;
 
-    --card: 240 6% 10%;
-    --card-foreground: 0 0% 98%;
+    --card:               255 18% 10%;
+    --card-foreground:    240 10% 96%;
 
-    --popover: 240 6% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover:            255 18% 10%;
+    --popover-foreground: 240 10% 96%;
 
-    --primary: 263 70% 58%;
+    --primary:            263 70% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 16%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary:          255 15% 15%;
+    --secondary-foreground: 240 8% 90%;
 
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 55%;
+    --muted:              255 12% 14%;
+    --muted-foreground:   255 8% 52%;
 
-    --accent: 220 70% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent:             220 70% 55%;
+    --accent-foreground:  0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive:        0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 4% 18%;
-    --input: 240 4% 18%;
-    --ring: 263 70% 58%;
+    --border:             255 12% 18%;
+    --input:              255 12% 18%;
+    --ring:               263 70% 58%;
 
-    --sidebar-background: 240 6% 10%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 263 70% 58%;
+    --sidebar-background: 255 22% 8%;
+    --sidebar-foreground: 240 10% 94%;
+    --sidebar-primary:    263 70% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 5% 16%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 4% 18%;
-    --sidebar-ring: 263 70% 58%;
+    --sidebar-accent:     255 15% 13%;
+    --sidebar-accent-foreground: 240 8% 90%;
+    --sidebar-border:     255 12% 15%;
+    --sidebar-ring:       263 70% 58%;
   }
 
   /* ── LIGHT ── */
   .light {
-    --background: 240 20% 97%;
-    --foreground: 240 10% 10%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
-
-    --popover: 0 0% 100%;
+    --background:         263 30% 96%;    /* levíssimo roxo no fundo */
+    --foreground:         240 10% 10%;
+    --card:               0 0% 100%;
+    --card-foreground:    240 10% 10%;
+    --popover:            0 0% 100%;
     --popover-foreground: 240 10% 10%;
-
-    --primary: 263 70% 55%;
+    --primary:            263 70% 55%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 10% 91%;
+    --secondary:          240 10% 91%;
     --secondary-foreground: 240 10% 20%;
-
-    --muted: 240 8% 88%;
-    --muted-foreground: 240 5% 42%;
-
-    --accent: 220 70% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
+    --muted:              240 8% 88%;
+    --muted-foreground:   240 5% 42%;
+    --accent:             220 70% 55%;
+    --accent-foreground:  0 0% 100%;
+    --destructive:        0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 240 8% 82%;
-    --input: 240 8% 82%;
-    --ring: 263 70% 55%;
-
-    --sidebar-background: 240 15% 95%;
+    --border:             263 10% 82%;   /* borda com toque roxo */
+    --input:              263 10% 82%;
+    --ring:               263 70% 55%;
+    --sidebar-background: 263 20% 93%;   /* sidebar light levemente roxa */
     --sidebar-foreground: 240 10% 10%;
-    --sidebar-primary: 263 70% 55%;
+    --sidebar-primary:    263 70% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 10% 88%;
+    --sidebar-accent:     240 10% 88%;
     --sidebar-accent-foreground: 240 10% 20%;
-    --sidebar-border: 240 8% 82%;
-    --sidebar-ring: 263 70% 55%;
+    --sidebar-border:     263 15% 80%;   /* borda com toque roxo */
+    --sidebar-ring:       263 70% 55%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
   }
 
-  /* Esconder spinners nativos de input[type=number] em todos os browsers */
+  /* ── GLOW roxo ambiente — dark ── */
+  .dark body::before {
+    content: '';
+    position: fixed;
+    top: -25%;
+    right: -15%;
+    width: 60vw;
+    height: 60vw;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(263 70% 58% / 0.20) 0%,
+      hsl(263 65% 50% / 0.10) 40%,
+      transparent 68%
+    );
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(50px);
+  }
+
+  /* ── GLOW secundário dark — baixo esquerdo ── */
+  .dark body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    left: 5%;
+    width: 35vw;
+    height: 35vw;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(220 70% 55% / 0.10) 0%,
+      transparent 65%
+    );
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(50px);
+  }
+
+  /* ── GLOW roxo — light (topo direito) ── */
+  .light body::before {
+    content: '';
+    position: fixed;
+    top: -25%;
+    right: -15%;
+    width: 65vw;
+    height: 65vw;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(263 70% 58% / 0.18) 0%,
+      hsl(263 60% 52% / 0.09) 45%,
+      transparent 68%
+    );
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(50px);
+  }
+
+  /* ── GLOW índigo — light (baixo esquerdo) ── */
+  .light body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    left: 0%;
+    width: 45vw;
+    height: 45vw;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      hsl(220 70% 55% / 0.10) 0%,
+      transparent 65%
+    );
+    pointer-events: none;
+    z-index: 0;
+    filter: blur(55px);
+  }
+
   input[type='number']::-webkit-outer-spin-button,
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-
-  input[type='number'] {
-    -moz-appearance: textfield;
-  }
+  input[type='number'] { -moz-appearance: textfield; }
 }
 
 @layer utilities {
   .gradient-primary {
     background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
   }
+  .gradient-card-visa        { background: linear-gradient(135deg, hsl(220 70% 55%), hsl(200 80% 50%)); }
+  .gradient-card-mastercard  { background: linear-gradient(135deg, hsl(0 80% 55%), hsl(30 90% 55%)); }
+  .gradient-card-elo         { background: linear-gradient(135deg, hsl(45 90% 50%), hsl(30 85% 45%)); }
+  .gradient-card-amex        { background: linear-gradient(135deg, hsl(210 30% 40%), hsl(210 20% 55%)); }
+  .gradient-card-default     { background: linear-gradient(135deg, hsl(263 70% 58%), hsl(280 60% 45%)); }
 
-  .gradient-card-visa {
-    background: linear-gradient(135deg, hsl(220 70% 55%), hsl(200 80% 50%));
-  }
-
-  .gradient-card-mastercard {
-    background: linear-gradient(135deg, hsl(0 80% 55%), hsl(30 90% 55%));
-  }
-
-  .gradient-card-elo {
-    background: linear-gradient(135deg, hsl(45 90% 50%), hsl(30 85% 45%));
-  }
-
-  .gradient-card-amex {
-    background: linear-gradient(135deg, hsl(210 30% 40%), hsl(210 20% 55%));
-  }
-
-  .gradient-card-default {
-    background: linear-gradient(135deg, hsl(263 70% 58%), hsl(280 60% 45%));
-  }
-
-  /* ── Dark glass ── */
   .glass {
-    background: hsl(240 6% 10% / 0.85);
+    background: hsl(255 18% 10% / 0.85);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(240 4% 18% / 0.5);
+    border: 1px solid hsl(255 12% 18% / 0.6);
   }
-
-  /* ── Light glass ── */
   .light .glass {
     background: hsl(0 0% 100% / 0.88);
     backdrop-filter: blur(12px);
     border: 1px solid hsl(240 8% 82% / 0.7);
   }
+
+  /* Main content se ajusta ao sidebar (controlado pelo AppNav via CSS var) */
+  .main-content {
+    transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @media (min-width: 768px) {
+    .main-content {
+      padding-left: var(--sidebar-w, 256px);
+    }
+  }
 }
 
-/* Esconde scrollbar mas mantém o scroll funcional */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE e Edge */
-  scrollbar-width: none;     /* Firefox */
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari, Opera */
-}
- 
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
