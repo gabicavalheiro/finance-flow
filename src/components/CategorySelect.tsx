@@ -19,6 +19,8 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
   const [open, setOpen]             = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dropUp, setDropUp]         = useState(false);
+  const [listMaxHeight, setListMaxHeight] = useState(216);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedRef  = useRef<HTMLButtonElement>(null);
 
@@ -62,6 +64,23 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
   // Scroll até item selecionado ao abrir
   useEffect(() => {
     if (open) setTimeout(() => selectedRef.current?.scrollIntoView({ block: 'nearest' }), 60);
+  }, [open]);
+
+  // Decide se o dropdown abre pra baixo ou pra cima (e quanto de altura tem
+  // disponível), pra não ficar cortado quando o trigger está perto do fim
+  // da tela (ex: dentro de um popup/modal) — sem isso, categorias abaixo da
+  // dobra simplesmente não apareciam.
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect       = containerRef.current.getBoundingClientRect();
+    const FOOTER      = 56; // botão "criar nova categoria" + bordas
+    const MARGIN      = 12;
+    const spaceBelow  = window.innerHeight - rect.bottom - MARGIN;
+    const spaceAbove  = rect.top - MARGIN;
+    const preferUp    = spaceBelow < 220 && spaceAbove > spaceBelow;
+    setDropUp(preferUp);
+    const available   = (preferUp ? spaceAbove : spaceBelow) - FOOTER;
+    setListMaxHeight(Math.max(120, Math.min(216, available)));
   }, [open]);
 
   const handleSelect = useCallback((id: string) => {
@@ -115,10 +134,13 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
 
         {/* ── Dropdown sem Radix — scroll nativo ── */}
         {open && (
-          <div className="absolute left-0 right-0 z-[9999] mt-1 flex flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl">
+          <div className={cn(
+            'absolute left-0 right-0 z-[9999] flex flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl',
+            dropUp ? 'bottom-full mb-1' : 'top-full mt-1',
+          )}>
 
             {/* Lista */}
-            <div style={{ overflowY: 'scroll', maxHeight: 216, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div style={{ overflowY: 'scroll', maxHeight: listMaxHeight, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <style>{`.__cs::-webkit-scrollbar{display:none}`}</style>
               <div className="__cs p-1.5 space-y-0.5">
 

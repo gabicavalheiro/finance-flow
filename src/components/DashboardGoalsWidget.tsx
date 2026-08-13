@@ -31,8 +31,8 @@ export default function DashboardGoalsWidget({ monthlyBalance }: Props) {
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
       className="relative rounded-3xl overflow-hidden"
       style={{
-        background: 'hsl(263 70% 58% / 0.05)',
-        border: '1px solid hsl(263 70% 58% / 0.15)',
+        background: 'hsl(0 0% 60% / 0.05)',
+        border: '1px solid hsl(0 0% 60% / 0.15)',
       }}
     >
 
@@ -45,7 +45,7 @@ export default function DashboardGoalsWidget({ monthlyBalance }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl flex items-center justify-center"
-              style={{ background: 'hsl(263 70% 58% / 0.1)', backdropFilter: 'blur(8px)' }}>
+              style={{ background: 'hsl(0 0% 60% / 0.1)', backdropFilter: 'blur(8px)' }}>
               <Target size={16} className="text-primary" />
             </div>
             <div>

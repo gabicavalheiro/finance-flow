@@ -11,6 +11,7 @@
 
 import { supabase } from './supabase';
 import { queryCache } from './queryCache';
+import { addMonths, getInvoiceMonth } from './helpers';
 import {
   CreditCard, Expense, FixedExpense, FixedIncome,
   MonthlyInstallment, VariableTransaction,
@@ -47,6 +48,7 @@ function dbToCard(r: any): CreditCard {
     closingDay: r.closing_day,
     dueDay: r.due_day ?? r.closing_day + 7,
     customGradient: r.custom_gradient ?? undefined,
+    active: r.active ?? true,
   };
 }
 function cardToDb(c: CreditCard, userId: string) {
@@ -55,6 +57,7 @@ function cardToDb(c: CreditCard, userId: string) {
     last_digits: c.lastDigits, limit: c.limit,
     closing_day: c.closingDay, due_day: c.dueDay,
     custom_gradient: c.customGradient ?? null,
+    active: c.active ?? true,
   };
 }
 
@@ -140,6 +143,51 @@ export async function deleteCard(id: string): Promise<void> {
   if (error) throw error;
   queryCache.invalidate('cards');
   queryCache.invalidate('expenses');
+}
+export async function setCardActive(id: string, active: boolean): Promise<void> {
+  const userId = await uid();
+  const { error } = await supabase.from('cards').update({ active }).eq('id', id).eq('user_id', userId);
+  if (error) throw error;
+  queryCache.invalidate('cards');
+}
+
+export interface CardPendingSummary {
+  /** Parcelas ainda não vencidas a partir do mês informado (inclusive) */
+  count: number;
+  /** Soma dessas parcelas */
+  amount: number;
+  /** Último mês (YYYY-MM) em que ainda há parcela pendente, ou null se não há nenhuma */
+  finalMonth: string | null;
+}
+
+/**
+ * Quanto ainda falta pagar de compras parceladas num cartão, a partir de um
+ * mês de referência (normalmente o mês atual). Usado pra avisar o usuário
+ * antes de bloquear um cartão — as parcelas continuam existindo mesmo com o
+ * cartão bloqueado, então isso precisa continuar visível em algum lugar.
+ */
+export function getCardPendingInstallments(
+  expenses: Expense[],
+  card: CreditCard,
+  fromMonth: string,
+): CardPendingSummary {
+  let count = 0;
+  let amount = 0;
+  let finalMonth: string | null = null;
+
+  for (const exp of expenses) {
+    if (exp.cardId !== card.id) continue;
+    const firstInvoiceMonth = getInvoiceMonth(exp.date, card);
+    for (let i = 0; i < exp.installments; i++) {
+      const instMonth = addMonths(firstInvoiceMonth, i);
+      if (instMonth < fromMonth) continue;
+      count++;
+      amount += exp.totalAmount / exp.installments;
+      if (!finalMonth || instMonth > finalMonth) finalMonth = instMonth;
+    }
+  }
+
+  return { count, amount, finalMonth };
 }
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
@@ -365,7 +413,7 @@ export async function upsertInvoice(invoice: CardInvoice): Promise<void> {
       actual_amount: invoice.actualAmount,
       notes:         invoice.notes ?? null,
     },
-    { onConflict: 'card_id,month' },
+    { onConflict: 'user_id,card_id,month' },
   );
   if (error) throw error;
   queryCache.invalidate(`invoices:${invoice.month}`);
@@ -380,23 +428,15 @@ export function computeInstallmentsForMonth(
   const result: MonthlyInstallment[] = [];
 
   for (const exp of expenses) {
-    const [ey, em] = exp.date.split('-').map(Number);
     const card = cards.find(c => c.id === exp.cardId);
     if (!card) continue;
 
-    let startYear  = ey;
-    let startMonth = em;
-    const expDay   = parseInt(exp.date.split('-')[2], 10);
-    if (expDay > card.closingDay) {
-      startMonth += 1;
-      if (startMonth > 12) { startMonth = 1; startYear += 1; }
-    }
+    // Mês de vencimento da 1ª parcela (considera fechamento + vencimento juntos)
+    const firstInvoiceMonth = getInvoiceMonth(exp.date, card);
 
     for (let i = 0; i < exp.installments; i++) {
-      let instMonth = startMonth + i;
-      let instYear  = startYear;
-      while (instMonth > 12) { instMonth -= 12; instYear += 1; }
-      const instMonthStr = `${instYear}-${String(instMonth).padStart(2, '0')}`;
+      // Cada parcela seguinte vence exatamente 1 mês após a anterior
+      const instMonthStr = addMonths(firstInvoiceMonth, i);
       if (instMonthStr !== month) continue;
 
       result.push({

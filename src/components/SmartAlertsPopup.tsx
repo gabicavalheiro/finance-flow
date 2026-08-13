@@ -289,7 +289,7 @@ export default function SmartAlertsPopup() {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Bell size={16} className="text-[var(--color-primary,#7c3aed)]" />
+                <Bell size={16} className="text-[var(--color-primary,#8a8a8a)]" />
                 <span className="text-white font-semibold text-sm">Alertas Financeiros</span>
                 <div className="flex gap-1.5 ml-1">
                   {(['critical','warning','info','success'] as AlertSeverity[]).map(sev => {

@@ -191,8 +191,8 @@ export default function BillsChecklist({
     <div
       className="relative rounded-3xl overflow-hidden"
       style={{
-        background: 'hsl(263 70% 58% / 0.05)',
-        border: '1px solid hsl(263 70% 58% / 0.15)',
+        background: 'hsl(0 0% 60% / 0.05)',
+        border: '1px solid hsl(0 0% 60% / 0.15)',
       }}
     >
 
@@ -208,7 +208,7 @@ export default function BillsChecklist({
       >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ background: 'hsl(263 70% 58% / 0.12)', backdropFilter: 'blur(8px)' }}>
+            style={{ background: 'hsl(0 0% 60% / 0.12)', backdropFilter: 'blur(8px)' }}>
             <ListChecks size={16} className="text-primary" />
           </div>
           <div>
@@ -226,7 +226,7 @@ export default function BillsChecklist({
                 className="h-full rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.5 }}
-                style={{ background: progress === 100 ? 'hsl(152 69% 50%)' : 'hsl(263 70% 65%)' }}
+                style={{ background: progress === 100 ? 'hsl(152 69% 50%)' : 'hsl(0 0% 55%)' }}
               />
             </div>
             <span className="text-[11px] text-muted-foreground tabular-nums w-8">{Math.round(progress)}%</span>

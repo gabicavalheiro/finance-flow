@@ -54,7 +54,7 @@ export default function TransactionFilterBar({
           <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background: 'hsl(263 70% 58% / 0.15)', color: 'hsl(263 70% 68%)' }}>
+                style={{ background: 'hsl(0 0% 60% / 0.15)', color: 'hsl(0 0% 75%)' }}>
                 <SlidersHorizontal size={15} />
               </div>
               <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export default function TransactionFilterBar({
                     <Chip
                       key={c.id}
                       active={filters.cardId === c.id}
-                      dot={c.customGradient ?? '263 70% 58%'}
+                      dot={c.customGradient ?? '0 0% 60%'}
                       onClick={() => set({ cardId: filters.cardId === c.id ? '' : c.id })}
                     >
                       {c.name}
@@ -174,7 +174,7 @@ export default function TransactionFilterBar({
               <Button
                 onClick={onToggle}
                 className="flex-1 text-white text-sm"
-                style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+                style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
               >
                 {activeCount > 0 ? 'Ver resultados' : 'Fechar'}
               </Button>

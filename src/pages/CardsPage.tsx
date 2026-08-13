@@ -1,15 +1,19 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, Pencil, CalendarX2, CalendarCheck } from 'lucide-react';
+import { Trash2, Pencil, CalendarX2, CalendarCheck, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import AddCardDialog from '@/components/AddCardDialog';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
 import EditCardDialog from '@/components/EditCardDialog';
 import MonthSelector from '@/components/MonthSelector';
 import ShowMoreButton from '@/components/ShowMoreButton';
 import { useCollapse } from '@/hooks/useCollapse';
-import { getCards, deleteCard, getExpenses, computeInstallmentsForMonth } from '@/lib/store';
+import {
+  getCards, deleteCard, getExpenses, computeInstallmentsForMonth, getInvoicesForMonth, CardInvoice,
+  setCardActive, getCardPendingInstallments, CardPendingSummary,
+} from '@/lib/store';
+import { getSubscriptions, subscriptionsAsInstallments, Subscription } from '@/lib/subscriptions';
 import { BRAND_GRADIENTS, CreditCard, Expense } from '@/lib/types';
-import { formatCurrency, getCurrentMonth } from '@/lib/helpers';
+import { formatCurrency, getCurrentMonth, getMonthLabel } from '@/lib/helpers';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -20,27 +24,38 @@ import { MonthlyInstallment } from '@/lib/types';
 
 // ── Sub-componente para cada cartão com seu próprio collapse ──
 function CardItem({
-  card, idx, month, installments, onEdit, onDelete, onAdded,
+  card, idx, month, installments, actualAmount, pending, onEdit, onDelete, onToggleActive, onAdded,
 }: {
   card: CreditCard;
   idx: number;
   month: string;
   installments: MonthlyInstallment[];
+  /** Valor real confirmado em Faturas (sobrescreve o calculado quando definido) */
+  actualAmount?: number;
+  /** Parcelas ainda pendentes deste cartão (mesmo bloqueado, continuam contando) */
+  pending: CardPendingSummary;
   onEdit: (c: CreditCard) => void;
   onDelete: (id: string) => void;
+  onToggleActive: (c: CreditCard) => void;
   onAdded: () => void;
 }) {
-  const cardInst = installments.filter(i => i.cardId === card.id);
-  const spent    = cardInst.reduce((s, i) => s + i.amount, 0);
-  const usedPct  = Math.min((spent / card.limit) * 100, 100);
-  const collapse = useCollapse(cardInst.length);
+  const cardInst   = installments.filter(i => i.cardId === card.id);
+  const calculated = cardInst.reduce((s, i) => s + i.amount, 0);
+  const hasActual  = actualAmount != null && actualAmount > 0;
+  const spent      = hasActual ? actualAmount! : calculated;
+  const usedPct    = Math.min((spent / card.limit) * 100, 100);
+  const collapse   = useCollapse(cardInst.length);
+  const isBlocked  = card.active === false;
 
   return (
     <motion.div key={card.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
       {/* Face do cartão */}
       <div
-        className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white`}
-        style={card.customGradient ? { background: card.customGradient } : undefined}
+        className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white transition-all`}
+        style={{
+          ...(card.customGradient ? { background: card.customGradient } : undefined),
+          ...(isBlocked ? { filter: 'grayscale(0.85)', opacity: 0.72 } : undefined),
+        }}
       >
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
         <div className="absolute -right-2 top-8 w-16 h-16 rounded-full bg-white/10" />
@@ -49,9 +64,23 @@ function CardItem({
           <div className="flex justify-between items-start mb-6">
             <div>
               <p className="text-xs font-medium opacity-80 mb-0.5">{card.brand.toUpperCase()}</p>
-              <p className="text-base font-bold">{card.name}</p>
+              <p className="text-base font-bold flex items-center gap-1.5">
+                {card.name}
+                {isBlocked && (
+                  <span className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black/30">
+                    <Lock size={9} /> Bloqueado
+                  </span>
+                )}
+              </p>
             </div>
             <div className="flex gap-1">
+              <button
+                onClick={() => onToggleActive(card)}
+                className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                aria-label={isBlocked ? 'Reativar cartão' : 'Bloquear cartão'}
+              >
+                {isBlocked ? <Unlock size={13} /> : <Lock size={13} />}
+              </button>
               <button onClick={() => onEdit(card)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
                 <Pencil size={13} />
               </button>
@@ -69,7 +98,9 @@ function CardItem({
               <p className="text-base font-bold">{formatCurrency(card.limit - spent)}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] opacity-70 mb-0.5">Fatura {month.split('-').reverse().join('/')}</p>
+              <p className="text-[10px] opacity-70 mb-0.5">
+                Fatura {month.split('-').reverse().join('/')}{hasActual ? ' · real' : ''}
+              </p>
               <p className="text-base font-semibold">{formatCurrency(spent)}</p>
             </div>
           </div>
@@ -120,8 +151,27 @@ function CardItem({
         </div>
       )}
 
+      {/* Aviso de parcelas pendentes — continua visível mesmo bloqueado */}
+      {isBlocked && pending.count > 0 && (
+        <div className="mt-2 flex items-start gap-2 bg-warning/10 border border-warning/25 rounded-xl px-3 py-2.5">
+          <AlertTriangle size={13} className="text-warning mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="text-foreground font-medium">
+              Ainda restam {pending.count} parcela{pending.count > 1 ? 's' : ''} ({formatCurrency(pending.amount)})
+            </span>{' '}
+            deste cartão até {pending.finalMonth ? getMonthLabel(pending.finalMonth) : '–'}.
+          </p>
+        </div>
+      )}
+
       <div className="mt-2">
-        <AddExpenseDialog cards={[card]} onAdded={onAdded} />
+        {isBlocked ? (
+          <div className="flex items-center justify-center gap-2 border border-dashed border-muted-foreground/30 rounded-2xl h-12 text-xs text-muted-foreground">
+            <Lock size={12} /> Cartão bloqueado — reative pra adicionar novos gastos
+          </div>
+        ) : (
+          <AddExpenseDialog cards={[card]} onAdded={onAdded} />
+        )}
       </div>
     </motion.div>
   );
@@ -131,20 +181,51 @@ export default function CardsPage() {
   const [month, setMonth]                   = useState(getCurrentMonth());
   const [cards, setCards]                   = useState<CreditCard[]>([]);
   const [expenses, setExpenses]             = useState<Expense[]>([]);
+  const [subscriptions, setSubscriptions]   = useState<Subscription[]>([]);
+  const [invoices, setInvoices]             = useState<CardInvoice[]>([]);
   const [editingCard, setEditingCard]       = useState<CreditCard | null>(null);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
+  const [blockConfirm, setBlockConfirm]     = useState<{ card: CreditCard; pending: CardPendingSummary } | null>(null);
   const [loading, setLoading]               = useState(true);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [c, e] = await Promise.all([getCards(), getExpenses()]);
-    setCards(c); setExpenses(e);
+    const [c, e, s] = await Promise.all([getCards(), getExpenses(), getSubscriptions()]);
+    setCards(c); setExpenses(e); setSubscriptions(s);
     setLoading(false);
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  const installments = computeInstallmentsForMonth(expenses, cards, month);
+  // Faturas com valor real confirmado (tela Faturas) — sobrescreve o calculado
+  useEffect(() => {
+    getInvoicesForMonth(month).then(setInvoices).catch(() => {});
+  }, [month]);
+
+  const actualByCard = new Map(invoices.map(inv => [inv.cardId, inv.actualAmount]));
+
+  // Assinaturas vinculadas a um cartão entram na fatura do mês igual a um gasto normal
+  const installments = [
+    ...computeInstallmentsForMonth(expenses, cards, month),
+    ...subscriptionsAsInstallments(subscriptions, month),
+  ];
+
+  // Parcelas ainda pendentes por cartão, sempre a partir do mês atual real —
+  // independe do mês que está sendo visualizado na tela.
+  const pendingByCard = useMemo(() => {
+    const map = new Map<string, CardPendingSummary>();
+    const currentMonth = getCurrentMonth();
+    cards.forEach(card => map.set(card.id, getCardPendingInstallments(expenses, card, currentMonth)));
+    return map;
+  }, [cards, expenses]);
+
+  const blockedWithPending = cards
+    .filter(c => c.active === false)
+    .map(c => ({ card: c, pending: pendingByCard.get(c.id) ?? { count: 0, amount: 0, finalMonth: null } }))
+    .filter(x => x.pending.count > 0);
+
+  // Cartões ativos primeiro, bloqueados no fim — mas nenhum some da tela
+  const sortedCards = [...cards].sort((a, b) => Number(a.active === false) - Number(b.active === false));
 
   const confirmDelete = async () => {
     if (!deletingCardId) return;
@@ -155,6 +236,30 @@ export default function CardsPage() {
       loadAll();
     } catch {
       toast.error('Erro ao remover cartão');
+    }
+  };
+
+  const handleToggleActive = (card: CreditCard) => {
+    if (card.active === false) {
+      // Reativar não precisa de confirmação
+      setCardActive(card.id, true)
+        .then(() => { toast.success(`${card.name} reativado`); loadAll(); })
+        .catch(() => toast.error('Erro ao reativar cartão'));
+      return;
+    }
+    const pending = pendingByCard.get(card.id) ?? { count: 0, amount: 0, finalMonth: null };
+    setBlockConfirm({ card, pending });
+  };
+
+  const confirmBlock = async () => {
+    if (!blockConfirm) return;
+    try {
+      await setCardActive(blockConfirm.card.id, false);
+      toast.success(`${blockConfirm.card.name} bloqueado`);
+      setBlockConfirm(null);
+      loadAll();
+    } catch {
+      toast.error('Erro ao bloquear cartão');
     }
   };
 
@@ -172,6 +277,30 @@ export default function CardsPage() {
         </p>
       </div>
 
+      {/* Módulo: cartões bloqueados com parcelas pendentes */}
+      {blockedWithPending.length > 0 && (
+        <div className="bg-warning/8 border border-warning/25 rounded-2xl p-4 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={14} className="text-warning" />
+            <p className="text-xs font-semibold text-warning uppercase tracking-wide">
+              Cartões bloqueados com parcelas pendentes
+            </p>
+          </div>
+          {blockedWithPending.map(({ card, pending }) => (
+            <div key={card.id} className="flex items-center justify-between gap-3 bg-card/60 rounded-xl px-3 py-2.5 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <Lock size={12} className="text-muted-foreground shrink-0" />
+                <span className="font-medium truncate">{card.name}</span>
+              </div>
+              <span className="text-muted-foreground text-right shrink-0">
+                {pending.count} parcela{pending.count > 1 ? 's' : ''} · <span className="font-semibold text-foreground">{formatCurrency(pending.amount)}</span>
+                {' '}até {pending.finalMonth ? getMonthLabel(pending.finalMonth) : '–'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Grid de cartões */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {loading && (
@@ -182,15 +311,18 @@ export default function CardsPage() {
           <p className="text-xs text-muted-foreground text-center py-10 col-span-full">Nenhum cartão cadastrado</p>
         )}
 
-        {cards.map((card, idx) => (
+        {sortedCards.map((card, idx) => (
           <CardItem
             key={card.id}
             card={card}
             idx={idx}
             month={month}
             installments={installments}
+            actualAmount={actualByCard.get(card.id)}
+            pending={pendingByCard.get(card.id) ?? { count: 0, amount: 0, finalMonth: null }}
             onEdit={setEditingCard}
             onDelete={setDeletingCardId}
+            onToggleActive={handleToggleActive}
             onAdded={loadAll}
           />
         ))}
@@ -221,6 +353,36 @@ export default function CardsPage() {
             <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Block card dialog */}
+      <AlertDialog open={!!blockConfirm} onOpenChange={v => !v && setBlockConfirm(null)}>
+        <AlertDialogContent className="bg-card border-border max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bloquear {blockConfirm?.card.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {blockConfirm && blockConfirm.pending.count > 0 ? (
+                <>
+                  Você não vai poder adicionar novos gastos nesse cartão. Mas atenção:{' '}
+                  <span className="text-foreground font-medium">
+                    ainda restam {blockConfirm.pending.count} parcela{blockConfirm.pending.count > 1 ? 's' : ''}
+                    {' '}({formatCurrency(blockConfirm.pending.amount)}) até{' '}
+                    {blockConfirm.pending.finalMonth ? getMonthLabel(blockConfirm.pending.finalMonth) : '–'}
+                  </span>
+                  . Elas continuam aparecendo normalmente até serem pagas.
+                </>
+              ) : (
+                'Você não vai poder adicionar novos gastos nesse cartão até reativá-lo.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-secondary border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBlock} className="bg-warning hover:bg-warning/90">
+              Bloquear
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -110,7 +110,7 @@ export default function EditFixedExpenseDialog({ expense, open, onClose, onSaved
             </Button>
             <Button
               className="flex-1 text-white"
-              style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+              style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
               onClick={handleSave}
               disabled={saving}
             >

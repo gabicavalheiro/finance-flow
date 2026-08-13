@@ -255,10 +255,10 @@ export default function BulkEditCategoryDialog({
                 style={{
                   background: mode === 'delete'
                     ? 'hsl(0 72% 51% / 0.15)'
-                    : 'hsl(263 70% 58% / 0.15)',
+                    : 'hsl(0 0% 60% / 0.15)',
                   color: mode === 'delete'
                     ? 'hsl(0 72% 61%)'
-                    : 'hsl(263 70% 68%)',
+                    : 'hsl(0 0% 75%)',
                 }}
               >
                 {mode === 'delete' ? <Trash2 size={15} /> : <Tag size={15} />}
@@ -328,7 +328,7 @@ export default function BulkEditCategoryDialog({
                       : 'bg-secondary border-border text-muted-foreground hover:text-foreground',
                   )}
                   style={filter === tab.key
-                    ? { background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }
+                    ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }
                     : undefined}
                 >
                   {tab.label}
@@ -501,7 +501,7 @@ export default function BulkEditCategoryDialog({
                   onClick={handleApply}
                   disabled={saving || selectedCount === 0}
                   className="flex-1 text-white"
-                  style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+                  style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
                 >
                   {saving
                     ? <><Loader2 size={14} className="animate-spin mr-1.5" /> Salvando...</>

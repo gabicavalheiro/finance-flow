@@ -61,7 +61,7 @@ export default function DayPicker({ value, onChange }: Props) {
           <div
             className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
             style={!isBusinessDay
-              ? { background: 'hsl(263 70% 58% / 0.15)', color: 'hsl(263 70% 68%)' }
+              ? { background: 'hsl(0 0% 60% / 0.15)', color: 'hsl(0 0% 75%)' }
               : { background: 'hsl(240 5% 20%)', color: 'hsl(240 5% 55%)' }}
           >
             <CalendarDays size={13} />

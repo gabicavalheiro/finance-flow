@@ -86,7 +86,7 @@ export default function EditCardDialog({ card, open, onClose, onSaved }: Props) 
                 {suggestions.map(bank => (
                   <button key={bank.name} onMouseDown={() => selectBank(bank)}
                     className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-secondary transition-colors text-sm">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: bank.gradient ?? 'hsl(263 70% 58%)' }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: bank.gradient ?? 'hsl(0 0% 60%)' }} />
                     {bank.name}
                   </button>
                 ))}

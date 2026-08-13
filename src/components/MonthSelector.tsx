@@ -99,7 +99,7 @@ export default function MonthSelector({ month, onChange }: Props) {
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full mt-2 left-0 right-0 rounded-2xl shadow-2xl overflow-hidden"
             style={{
-              background: 'linear-gradient(180deg, hsl(263 55% 12%) 0%, hsl(245 50% 9%) 100%)',
+              background: 'linear-gradient(180deg, hsl(0 0% 12%) 0%, hsl(0 0% 8%) 100%)',
               border: '1px solid hsl(var(--border))',
             }}
           >
@@ -113,7 +113,7 @@ export default function MonthSelector({ month, onChange }: Props) {
                   className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-all"
                   style={
                     y === selYear
-                      ? { background: 'linear-gradient(135deg, hsl(263 70% 55%), hsl(220 70% 50%))', color: '#fff' }
+                      ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))', color: '#fff' }
                       : { background: 'transparent', color: 'hsl(var(--muted-foreground))' }
                   }
                 >
@@ -139,8 +139,8 @@ export default function MonthSelector({ month, onChange }: Props) {
                     className="relative py-2 rounded-xl text-xs font-medium transition-all"
                     style={
                       isActive
-                        ? { background: 'linear-gradient(135deg, hsl(263 70% 55%), hsl(220 70% 50%))', color: '#fff' }
-                        : { background: 'hsl(var(--secondary))', color: isToday ? 'hsl(263 70% 72%)' : 'hsl(var(--muted-foreground))' }
+                        ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))', color: '#fff' }
+                        : { background: 'hsl(var(--secondary))', color: isToday ? 'hsl(0 0% 85%)' : 'hsl(var(--muted-foreground))' }
                     }
                     onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'; }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'; }}

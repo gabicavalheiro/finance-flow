@@ -98,9 +98,9 @@ export default function AppNav() {
         )}
         style={{
           background: active
-            ? 'linear-gradient(90deg, rgba(124,58,237,0.28) 0%, rgba(109,40,217,0.10) 100%)'
+            ? 'linear-gradient(90deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%)'
             : undefined,
-          border: active ? '1px solid rgba(139,92,246,0.28)' : '1px solid transparent',
+          border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
         }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'hsl(var(--sidebar-accent))'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
@@ -172,7 +172,7 @@ export default function AppNav() {
           borderRadius: 20,
           background: 'hsl(var(--sidebar-background))',
           border: '1px solid hsl(var(--sidebar-border))',
-          boxShadow: '0 4px 24px rgba(109,40,217,0.12), 0 0 0 1px rgba(109,40,217,0.06)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.05)',
         }}
       >
         {/* ── Logo ── */}
@@ -247,7 +247,7 @@ export default function AppNav() {
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}
+                style={{ background: 'linear-gradient(135deg, #333333, #111111)' }}
               >
                 {initials}
               </div>
@@ -261,7 +261,7 @@ export default function AppNav() {
               <TooltipTrigger asChild>
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-[11px] font-bold text-white mx-auto mb-2 cursor-default"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}
+                  style={{ background: 'linear-gradient(135deg, #333333, #111111)' }}
                 >
                   {initials}
                 </div>
@@ -362,13 +362,13 @@ export default function AppNav() {
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 h-full relative transition-all"
-                style={{ color: active ? '#a78bfa' : 'hsl(var(--muted-foreground))' }}
+                style={{ color: active ? '#e5e5e5' : 'hsl(var(--muted-foreground))' }}
               >
                 {active && (
                   <motion.span
                     layoutId="mob-pip"
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
-                    style={{ background: '#8b5cf6' }}
+                    style={{ background: '#a3a3a3' }}
                   />
                 )}
                 <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />
@@ -379,13 +379,13 @@ export default function AppNav() {
           <button
             onClick={() => setMoreOpen(v => !v)}
             className="flex flex-1 flex-col items-center justify-center gap-0.5 h-full relative transition-all"
-            style={{ color: moreOpen || moreIsActive ? '#a78bfa' : 'hsl(var(--muted-foreground))' }}
+            style={{ color: moreOpen || moreIsActive ? '#e5e5e5' : 'hsl(var(--muted-foreground))' }}
           >
             {(moreOpen || moreIsActive) && (
               <motion.span
                 layoutId="mob-pip"
                 className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
-                style={{ background: '#8b5cf6' }}
+                style={{ background: '#a3a3a3' }}
               />
             )}
             {moreOpen ? <X size={20} strokeWidth={2} /> : <MoreHorizontal size={20} strokeWidth={1.7} />}
@@ -423,9 +423,9 @@ export default function AppNav() {
                       onClick={() => navigate(tab.path)}
                       className="flex flex-col items-center gap-2 py-3 rounded-2xl text-xs font-medium transition-all border"
                       style={{
-                        background: active ? 'rgba(124,58,237,0.12)' : 'hsl(var(--secondary))',
-                        border: active ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent',
-                        color: active ? '#a78bfa' : 'hsl(var(--muted-foreground))',
+                        background: active ? 'rgba(255,255,255,0.10)' : 'hsl(var(--secondary))',
+                        border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
+                        color: active ? '#e5e5e5' : 'hsl(var(--muted-foreground))',
                       }}
                     >
                       <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />

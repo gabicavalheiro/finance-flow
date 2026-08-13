@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { getCurrentMonth, addMonths, generateId } from '@/lib/helpers';
+import { getCurrentMonth, addMonths, generateId, getPurchaseDateForInvoiceMonth } from '@/lib/helpers';
 import {
   ExpenseCategory, IncomeCategory, PaymentMethod,
   PAYMENT_METHOD_CONFIG, VariableTransaction, Expense, CreditCard,
@@ -46,20 +46,12 @@ const METHOD_ICON: Record<PaymentMethod, React.ReactNode> = {
 };
 
 // ─── Helper: data de compra correta para o cartão ─────────────────────────────
+// "Qual parcela cai este mês?" → a parcela `currInst` vence no mês atual;
+// reconstrói a data de compra original a partir do mês de vencimento da 1ª parcela.
 function computePurchaseDate(card: CreditCard, currInst: number): string {
-  const closing      = card.closingDay ?? 10;
-  const due          = card.dueDay ?? (closing + 7);
-  const cur          = getCurrentMonth();
-  const billingMonth = addMonths(cur, -(currInst - 1));
-
-  // Se dueDay < closingDay, getBillingMonth aplica +1. Para cair em billingMonth,
-  // a compra deve ser no mês anterior.
-  const purchaseMonth = due < closing
-    ? addMonths(billingMonth, -1)
-    : billingMonth;
-
-  const [y, m] = purchaseMonth.split('-').map(Number);
-  return `${y}-${String(m).padStart(2, '0')}-01`;
+  const cur = getCurrentMonth();
+  const firstInstDueMonth = addMonths(cur, -(currInst - 1));
+  return getPurchaseDateForInvoiceMonth(firstInstDueMonth, card);
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -115,7 +107,9 @@ export default function UnifiedTransactionDialog({
   // ── Carrega cartões quando entra em modo card ─────────────────────────────
   useEffect(() => {
     if (isCard && cards.length === 0) {
-      getCards().then(c => {
+      getCards().then(all => {
+        // Cartões bloqueados não aparecem pra novos gastos
+        const c = all.filter(x => x.active !== false);
         setCards(c);
         if (c.length > 0) setCardId(c[0].id);
       });

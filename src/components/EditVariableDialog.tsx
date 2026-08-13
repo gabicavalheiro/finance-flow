@@ -85,7 +85,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
                 onClick={() => handleTypeChange(t)}
                 className="flex-1 text-sm font-medium py-2 rounded-lg transition-all duration-200"
                 style={{
-                  background: type === t ? 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' : 'transparent',
+                  background: type === t ? 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' : 'transparent',
                   color: type === t ? '#fff' : 'hsl(240 5% 55%)',
                 }}
               >
@@ -158,7 +158,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
             </Button>
             <Button
               className="flex-1"
-              style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+              style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
               onClick={handleSubmit}
               disabled={saving}
             >

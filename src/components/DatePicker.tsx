@@ -63,7 +63,7 @@ export default function DatePicker({ value, onChange, className }: Props) {
         <style>{`
           .dp-custom .rdp-day_selected,
           .dp-custom .rdp-day_selected:hover {
-            background: linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%)) !important;
+            background: linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%)) !important;
             color: white !important;
             font-weight: 600;
           }

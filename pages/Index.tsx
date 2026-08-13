@@ -5,7 +5,7 @@ import {
   TrendingDown, TrendingUp, Pencil, Trash2, Wallet,
   Zap, Banknote, ArrowLeftRight, Scale,
   CreditCard as CreditCardIcon, FileText, ChartNoAxesCombined,
-  ChevronLeft, ChevronRight, Eye, EyeOff, ArrowUpRight, ArrowDownRight, Lock,
+  ChevronLeft, ChevronRight, Eye, EyeOff, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
@@ -39,7 +39,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { resolveCategoryInfo } from '@/lib/customCategories';
@@ -49,8 +49,8 @@ import BalanceBreakdownSheet from '@/components/BalanceBreakdownSheet';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const PIE_COLORS = [
-  'hsl(263 70% 58%)', 'hsl(220 70% 55%)', 'hsl(30 90% 55%)', 'hsl(152 69% 45%)',
-  'hsl(0 72% 51%)',   'hsl(280 70% 58%)', 'hsl(320 70% 55%)', 'hsl(45 90% 50%)',
+  'hsl(0 0% 60%)', 'hsl(0 0% 45%)', 'hsl(30 90% 55%)', 'hsl(152 69% 45%)',
+  'hsl(0 72% 51%)',   'hsl(195 70% 50%)', 'hsl(320 70% 55%)', 'hsl(45 90% 50%)',
 ];
 
 const METHOD_ICONS: Record<string, React.ReactNode> = {
@@ -141,7 +141,7 @@ const CARD_BRAND_GRADIENTS: Record<string, string> = {
   mastercard: 'linear-gradient(135deg, #9f1239 0%, #c2410c 60%, #ea580c 100%)',
   elo:        'linear-gradient(135deg, #92400e 0%, #b45309 60%, #d97706 100%)',
   amex:       'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-  other:      'linear-gradient(135deg, #4c1d95 0%, #6d28d9 60%, #7c3aed 100%)',
+  other:      'linear-gradient(135deg, #262626 0%, #404040 60%, #525252 100%)',
 };
 
 // Símbolo da bandeira
@@ -281,7 +281,6 @@ function CardCarousel({
                   opacity: isActive ? 1 : 0.65,
                   transform: isActive ? 'scale(1)' : 'scale(0.94)',
                   transition: 'opacity 0.3s ease, transform 0.3s ease',
-                  filter: card.active === false ? 'grayscale(0.85)' : undefined,
                 }}
               >
 
@@ -293,19 +292,10 @@ function CardCarousel({
                   style={{ border: '1px solid rgba(255,255,255,0.16)' }} />
 
                 {/* Badge vencimento */}
-                <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-xl"
+                <div className="absolute top-4 right-4 px-2.5 py-1 rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
-                  <p className="text-white/75 text-[10px] font-medium whitespace-nowrap">Vence dia {card.dueDay}</p>
+                  <p className="text-white/75 text-[10px] font-medium">Vence dia {card.dueDay}</p>
                 </div>
-
-                {/* Badge bloqueado */}
-                {card.active === false && (
-                  <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-xl flex items-center gap-1"
-                    style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)' }}>
-                    <Lock size={9} className="text-white/85" />
-                    <p className="text-white/85 text-[10px] font-medium whitespace-nowrap">Bloqueado</p>
-                  </div>
-                )}
 
                 <div className="relative z-10 p-5 h-full flex flex-col justify-between">
                   {/* Topo */}
@@ -363,7 +353,7 @@ function CardCarousel({
               style={{
                 width: i === activeIdx ? 20 : 6,
                 height: 6,
-                background: i === activeIdx ? 'hsl(263 70% 58%)' : 'hsl(var(--border))',
+                background: i === activeIdx ? 'hsl(0 0% 60%)' : 'hsl(var(--border))',
               }}
             />
           ))}
@@ -460,14 +450,9 @@ export default function Dashboard() {
 
   const totalCardCalculated = useMemo(() => allInstallments.reduce((s, i) => s + i.amount, 0), [allInstallments]);
   const totalLimit          = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
-  // Usa o valor real confirmado em Faturas quando existir, senão o calculado
   const installmentsByCard  = useMemo(() => new Map(
-    cards.map(c => {
-      const confirmed = invoiceMap.get(c.id);
-      const calculated = allInstallments.filter(i => i.cardId === c.id).reduce((s, i) => s + i.amount, 0);
-      return [c.id, confirmed && confirmed.actualAmount > 0 ? confirmed.actualAmount : calculated];
-    })
-  ), [cards, allInstallments, invoiceMap]);
+    cards.map(c => [c.id, allInstallments.filter(i => i.cardId === c.id).reduce((s, i) => s + i.amount, 0)])
+  ), [cards, allInstallments]);
 
   const totalVarInc  = useMemo(() => varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),  [varTxs]);
   const totalVarExp  = useMemo(() => varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [varTxs]);
@@ -512,16 +497,8 @@ export default function Dashboard() {
     varTxs.filter(t => t.type === 'expense').forEach(t => {
       totals[t.category] = (totals[t.category] || 0) + t.amount;
     });
-    // Agrupa por label resolvido — categorias diferentes (ex: custom deletada
-    // e a categoria padrão "other") podem cair ambas em "Outros" e não devem
-    // aparecer como linhas duplicadas.
-    const byLabel: Record<string, number> = {};
-    Object.entries(totals).filter(([, v]) => v > 0).forEach(([key, value]) => {
-      const label = resolveCategoryInfo(key).label;
-      byLabel[label] = (byLabel[label] || 0) + value;
-    });
-    return Object.entries(byLabel)
-      .map(([name, value]) => ({ name, value }))
+    return Object.entries(totals).filter(([, v]) => v > 0)
+      .map(([key, value]) => ({ name: resolveCategoryInfo(key).label, value }))
       .sort((a, b) => b.value - a.value).slice(0, 8);
   }, [allInstallments, fixedExpenses, varTxs]);
 
@@ -595,7 +572,7 @@ export default function Dashboard() {
             <Sheet>
               <SheetTrigger asChild>
                 <button className="p-2 rounded-xl transition-colors"
-                  style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)', color: 'rgb(196,181,253)' }}>
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgb(230,230,230)' }}>
                   <ChartNoAxesCombined size={16} />
                 </button>
               </SheetTrigger>
@@ -629,8 +606,8 @@ export default function Dashboard() {
                   value={balance}
                   sub={`${Math.round(expenseRatio)}% da renda comprometida`}
                   icon={<Scale size={17} className="text-white" />}
-                  gradient="linear-gradient(135deg, #3b0764 0%, #4c1d95 35%, #1e3a8a 75%, #1e40af 100%)"
-                  accentColor="rgba(167,139,250,0.6)"
+                  gradient="linear-gradient(135deg, #171717 0%, #2e2e2e 35%, #404040 75%, #525252 100%)"
+                  accentColor="rgba(212,212,212,0.6)"
                   delay={0}
                   onClick={() => setBreakdownOpen(true)}
                   hidden={hidden}
@@ -718,9 +695,19 @@ export default function Dashboard() {
                         <div className="w-32 h-32 shrink-0">
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                              <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={56} dataKey="value" stroke="none" isAnimationActive={false}>
+                              <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={56} dataKey="value" stroke="none">
                                 {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} opacity={0.9} />)}
                               </Pie>
+                              <Tooltip
+                                formatter={(v: number) => [formatCurrency(v), '']}
+                                contentStyle={{
+                                  background: 'hsl(240 10% 8%)',
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  color: 'white',
+                                }}
+                              />
                             </PieChart>
                           </ResponsiveContainer>
                         </div>

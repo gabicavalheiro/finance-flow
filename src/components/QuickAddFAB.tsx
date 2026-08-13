@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, FileSpreadsheet, X } from 'lucide-react';
 import UnifiedTransactionDialog from '@/components/UnifiedTransactionDialog';
+import ImportSpreadsheetDialog from '@/components/ImportSpreadsheetDialog';
 
 interface Props {
   onAdded?: () => void;
@@ -11,11 +12,17 @@ export default function QuickAddFAB({ onAdded }: Props) {
   const [expanded, setExpanded]   = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'expense' | 'income'>('expense');
+  const [importOpen, setImportOpen] = useState(false);
 
   const open = (type: 'expense' | 'income') => {
     setDialogType(type);
     setExpanded(false);
     setDialogOpen(true);
+  };
+
+  const openImport = () => {
+    setExpanded(false);
+    setImportOpen(true);
   };
 
   return (
@@ -41,6 +48,21 @@ export default function QuickAddFAB({ onAdded }: Props) {
         <AnimatePresence>
           {expanded && (
             <>
+              {/* Importar planilha */}
+              <motion.button
+                key="import"
+                initial={{ opacity: 0, y: 12, scale: 0.85 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.85 }}
+                transition={{ delay: 0.1 }}
+                onClick={openImport}
+                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, hsl(220 70% 55%), hsl(263 70% 58%))' }}
+              >
+                <FileSpreadsheet size={18} />
+                Importar planilha
+              </motion.button>
+
               {/* Receita */}
               <motion.button
                 key="income"
@@ -82,7 +104,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
           style={{
             background: expanded
               ? 'hsl(var(--muted-foreground))'
-              : 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))',
+              : 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))',
           }}
           aria-label={expanded ? 'Fechar' : 'Novo lançamento'}
         >
@@ -101,6 +123,13 @@ export default function QuickAddFAB({ onAdded }: Props) {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         defaultType={dialogType}
+        onAdded={onAdded}
+      />
+
+      {/* ── Importar planilha ── */}
+      <ImportSpreadsheetDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
         onAdded={onAdded}
       />
     </>

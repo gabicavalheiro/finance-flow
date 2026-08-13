@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Pencil, Trash2, CheckCircle2, Circle,
   Repeat2, Pause, Play, ExternalLink,
-  ChevronDown, ChevronUp, Loader2, Tags,
+  ChevronDown, ChevronUp, Loader2,
   CreditCard as CreditCardIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,11 +16,6 @@ import {
   deleteSubscription, toggleSubscriptionPaid, toggleSubscriptionActive,
   monthlyAmount,
 } from '@/lib/subscriptions';
-import {
-  computeInstallmentsForMonth, getVariableForMonth,
-  deleteExpense, deleteFixedExpense, deleteVariableTransaction,
-} from '@/lib/store';
-import { VariableTransaction, PAYMENT_METHOD_CONFIG, Expense, FixedExpense } from '@/lib/types';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,9 +30,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import CurrencyInput from '@/components/CurrencyInput';
-import EditExpenseDialog from '@/components/EditExpenseDialog';
-import EditFixedExpenseDialog from '@/components/EditFixedExpenseDialog';
-import EditVariableDialog from '@/components/EditVariableDialog';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -76,13 +68,11 @@ const EMPTY_FORM: FormState = {
 interface FormDialogProps {
   open:     boolean;
   editing?: Subscription;
-  /** Pré-preenche o formulário de uma nova assinatura (ex: a partir de um lançamento identificado) */
-  prefill?: Partial<FormState>;
   onClose:  () => void;
   onSaved:  () => void;
 }
 
-function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDialogProps) {
+function FormDialog({ open, editing, onClose, onSaved }: FormDialogProps) {
   const { cards } = useFinanceData();
   const [form,   setForm]   = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -99,9 +89,9 @@ function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDialogProp
         url:          editing.url ?? '',
         notes:        editing.notes ?? '',
         cardId:       editing.cardId ?? '',
-      } : { ...EMPTY_FORM, ...prefill });
+      } : EMPTY_FORM);
     }
-  }, [open, editing, prefill]);
+  }, [open, editing]);
 
   // Função nomeada — evita ambiguidade <K extends> com JSX em .tsx
   function setField<K extends keyof FormState>(key: K, val: FormState[K]) {
@@ -312,7 +302,7 @@ function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDialogProp
           </Button>
           <Button
             className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
             onClick={handleSave}
             disabled={saving}
           >
@@ -474,116 +464,23 @@ function SubCard({
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
-// ─── Lançamentos categoria "Assinatura" fora do controle de assinaturas ──────
-interface IdentifiedItem {
-  id:     string;
-  name:   string;
-  amount: number;
-  source: 'Cartão' | 'Fixo' | 'Variável';
-  detail?: string;
-  cardId?: string;
-  // Referência ao lançamento original, pra permitir editar/remover na raiz
-  expense?:      Expense;
-  fixedExpense?: FixedExpense;
-  variableTx?:   VariableTransaction;
-}
-
 export default function SubscriptionsPage() {
-  const { cards, expenses, fixedExpenses, refresh: refreshFinance } = useFinanceData();
+  const { cards } = useFinanceData();
   const [subs,       setSubs]       = useState<Subscription[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [month]                     = useState(getCurrentMonth());
   const [formOpen,   setFormOpen]   = useState(false);
   const [editing,    setEditing]    = useState<Subscription | undefined>();
-  const [prefill,    setPrefill]    = useState<Partial<FormState> | undefined>();
   const [toDelete,   setToDelete]   = useState<Subscription | null>(null);
   const [loadingId,  setLoadingId]  = useState<string | null>(null);
   const [showPaused, setShowPaused] = useState(false);
-  const [variableTx, setVariableTx] = useState<VariableTransaction[]>([]);
-
-  // Edição/remoção do lançamento raiz (a partir da lista "Identificados")
-  const [editingCardExpense,  setEditingCardExpense]  = useState<Expense | null>(null);
-  const [editingFixedExpense, setEditingFixedExpense] = useState<FixedExpense | null>(null);
-  const [editingVarTx,        setEditingVarTx]        = useState<VariableTransaction | null>(null);
-  const [deletingIdentified,  setDeletingIdentified]  = useState<IdentifiedItem | null>(null);
-  const [deletingRoot,        setDeletingRoot]        = useState(false);
-  // Item de origem quando a assinatura é criada via "+" em "Identificados" —
-  // usado pra remover o lançamento avulso original e não contar em dobro.
-  const [quickAddSource, setQuickAddSource] = useState<IdentifiedItem | null>(null);
 
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
 
-  // Busca lançamentos variáveis (PIX/dinheiro/etc.) do mês, só para identificar
-  // os que estão na categoria "Assinatura"
-  const loadVariableTx = useCallback(() => {
-    getVariableForMonth(month).then(setVariableTx).catch(() => {});
-  }, [month]);
-  useEffect(() => { loadVariableTx(); }, [loadVariableTx]);
-
-  // Nomes já cadastrados no controle formal de assinaturas — usado pra sumir
-  // da lista de "identificados" assim que o item for adicionado (ou já existir).
-  const subNames = useMemo(
-    () => new Set(subs.map(s => s.name.trim().toLowerCase())),
-    [subs],
-  );
-
-  // Todo lançamento (cartão, fixo ou variável) categorizado como "Assinatura"
-  // que ainda não está cadastrado no controle formal acima. Apenas identificação
-  // — não entra nos totais Mensal/Anual/Pagas, pra não duplicar valores.
-  const identified = useMemo<IdentifiedItem[]>(() => {
-    const items: IdentifiedItem[] = [];
-
-    const expenseMap = new Map(expenses.map(e => [e.id, e]));
-    computeInstallmentsForMonth(expenses, cards, month)
-      .filter(inst => inst.category === 'subscription')
-      .forEach(inst => {
-        items.push({
-          id:      `card-${inst.expenseId}-${inst.installmentNumber}`,
-          name:    inst.expenseName,
-          amount:  inst.amount,
-          source:  'Cartão',
-          detail:  cardMap.get(inst.cardId)?.name,
-          cardId:  inst.cardId,
-          expense: expenseMap.get(inst.expenseId),
-        });
-      });
-
-    fixedExpenses
-      .filter(fx => fx.category === 'subscription')
-      .forEach(fx => {
-        items.push({
-          id: `fixed-${fx.id}`, name: fx.name, amount: fx.amount,
-          source: 'Fixo', fixedExpense: fx,
-        });
-      });
-
-    variableTx
-      .filter(tx => tx.type === 'expense' && tx.category === 'subscription')
-      .forEach(tx => {
-        items.push({
-          id:         `var-${tx.id}`,
-          name:       tx.name,
-          amount:     tx.amount,
-          source:     'Variável',
-          detail:     PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label,
-          variableTx: tx,
-        });
-      });
-
-    // Remove os que já foram cadastrados (por nome) no controle formal
-    return items.filter(item => !subNames.has(item.name.trim().toLowerCase()));
-  }, [expenses, cards, cardMap, fixedExpenses, variableTx, month, subNames]);
-
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      setSubs(await getSubscriptions());
-    } catch (e) {
-      console.error('Erro ao carregar assinaturas:', e);
-      toast.error('Não consegui carregar as assinaturas. Tenta recarregar a página.');
-    } finally {
-      setLoading(false);
-    }
+    setSubs(await getSubscriptions());
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -610,72 +507,8 @@ export default function SubscriptionsPage() {
     [active, month],
   );
 
-  const handleEdit   = (s: Subscription) => { setPrefill(undefined); setQuickAddSource(null); setEditing(s); setFormOpen(true); };
-  const handleAddNew = () => { setEditing(undefined); setPrefill(undefined); setQuickAddSource(null); setFormOpen(true); };
-  const handleQuickAdd = (item: IdentifiedItem) => {
-    setEditing(undefined);
-    setPrefill({
-      name:   item.name,
-      amount: item.amount,
-      cardId: item.cardId ?? '',
-    });
-    setQuickAddSource(item);
-    setFormOpen(true);
-  };
-
-  // Depois de criar a assinatura a partir de um item identificado, remove o
-  // lançamento avulso original — senão o mesmo gasto conta duas vezes (uma
-  // como lançamento solto, outra como assinatura recorrente).
-  const handleFormSaved = async () => {
-    await load();
-    if (quickAddSource) {
-      try {
-        if (quickAddSource.expense) {
-          await deleteExpense(quickAddSource.expense.id);
-          refreshFinance();
-        } else if (quickAddSource.fixedExpense) {
-          await deleteFixedExpense(quickAddSource.fixedExpense.id);
-          refreshFinance();
-        } else if (quickAddSource.variableTx) {
-          await deleteVariableTransaction(quickAddSource.variableTx.id);
-          loadVariableTx();
-        }
-      } catch {
-        toast.error('Assinatura criada, mas não consegui remover o lançamento original — remova manualmente pra não contar em dobro.');
-      } finally {
-        setQuickAddSource(null);
-      }
-    }
-  };
-
-  const handleEditIdentified = (item: IdentifiedItem) => {
-    if (item.expense) setEditingCardExpense(item.expense);
-    else if (item.fixedExpense) setEditingFixedExpense(item.fixedExpense);
-    else if (item.variableTx) setEditingVarTx(item.variableTx);
-  };
-
-  const confirmDeleteIdentified = async () => {
-    if (!deletingIdentified) return;
-    setDeletingRoot(true);
-    try {
-      if (deletingIdentified.expense) {
-        await deleteExpense(deletingIdentified.expense.id);
-        refreshFinance();
-      } else if (deletingIdentified.fixedExpense) {
-        await deleteFixedExpense(deletingIdentified.fixedExpense.id);
-        refreshFinance();
-      } else if (deletingIdentified.variableTx) {
-        await deleteVariableTransaction(deletingIdentified.variableTx.id);
-        loadVariableTx();
-      }
-      toast.success('Lançamento removido');
-    } catch {
-      toast.error('Erro ao remover lançamento');
-    } finally {
-      setDeletingRoot(false);
-      setDeletingIdentified(null);
-    }
-  };
+  const handleEdit   = (s: Subscription) => { setEditing(s); setFormOpen(true); };
+  const handleAddNew = () => { setEditing(undefined); setFormOpen(true); };
 
   const handleTogglePaid = async (sub: Subscription) => {
     setLoadingId(sub.id);
@@ -760,7 +593,7 @@ export default function SubscriptionsPage() {
           onClick={handleAddNew}
           size="sm"
           className="gap-2 text-white"
-          style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+          style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
         >
           <Plus size={16} />
           Nova
@@ -825,7 +658,7 @@ export default function SubscriptionsPage() {
           <Button
             onClick={handleAddNew}
             className="mt-4 gap-2 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
           >
             <Plus size={16} /> Adicionar assinatura
           </Button>
@@ -835,64 +668,6 @@ export default function SubscriptionsPage() {
           <AnimatePresence mode="popLayout">
             {renderCards(active)}
           </AnimatePresence>
-        </div>
-      )}
-
-      {/* Identificados nos lançamentos (categoria Assinatura, fora do controle acima) */}
-      {!loading && identified.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Tags size={14} className="text-muted-foreground" />
-            <p className="text-sm font-semibold">Identificados nos lançamentos</p>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
-              {identified.length}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Categorizados como "Assinatura" em Cartões, Fixos ou Lançamentos, mas ainda não cadastrados acima. Não entram nos totais.
-          </p>
-          <div className="space-y-2">
-            {identified.map(item => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-border bg-secondary/30"
-              >
-                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
-                  <Tags size={14} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.source}{item.detail ? ` · ${item.detail}` : ''}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(item.amount)}</p>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleQuickAdd(item)}
-                    title="Cadastrar como assinatura"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all"
-                  >
-                    <Plus size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleEditIdentified(item)}
-                    title="Editar lançamento"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => setDeletingIdentified(item)}
-                    title="Remover lançamento"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -925,9 +700,8 @@ export default function SubscriptionsPage() {
       <FormDialog
         open={formOpen}
         editing={editing}
-        prefill={prefill}
-        onClose={() => { setFormOpen(false); setEditing(undefined); setPrefill(undefined); setQuickAddSource(null); }}
-        onSaved={handleFormSaved}
+        onClose={() => { setFormOpen(false); setEditing(undefined); }}
+        onSaved={load}
       />
 
       {/* Delete confirm */}
@@ -944,56 +718,6 @@ export default function SubscriptionsPage() {
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
               onClick={handleDelete}
-            >
-              Remover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Editar lançamento raiz (a partir de "Identificados nos lançamentos") */}
-      {editingCardExpense && (
-        <EditExpenseDialog
-          expense={editingCardExpense}
-          cards={cards}
-          open={!!editingCardExpense}
-          onClose={() => setEditingCardExpense(null)}
-          onSaved={() => { setEditingCardExpense(null); refreshFinance(); }}
-        />
-      )}
-      {editingFixedExpense && (
-        <EditFixedExpenseDialog
-          expense={editingFixedExpense}
-          open={!!editingFixedExpense}
-          onClose={() => setEditingFixedExpense(null)}
-          onSaved={() => { setEditingFixedExpense(null); refreshFinance(); }}
-        />
-      )}
-      {editingVarTx && (
-        <EditVariableDialog
-          transaction={editingVarTx}
-          open={!!editingVarTx}
-          onClose={() => setEditingVarTx(null)}
-          onSaved={() => { setEditingVarTx(null); loadVariableTx(); }}
-        />
-      )}
-
-      {/* Remover lançamento raiz */}
-      <AlertDialog open={!!deletingIdentified} onOpenChange={o => { if (!o) setDeletingIdentified(null); }}>
-        <AlertDialogContent className="bg-card border-border max-w-xs rounded-3xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remover lançamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Deseja remover <strong>{deletingIdentified?.name}</strong>
-              {deletingIdentified?.source === 'Cartão' ? ' (todas as parcelas)' : ''}? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingRoot}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              onClick={confirmDeleteIdentified}
-              disabled={deletingRoot}
             >
               Remover
             </AlertDialogAction>

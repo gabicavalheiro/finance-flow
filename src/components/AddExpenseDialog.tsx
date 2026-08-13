@@ -8,7 +8,7 @@ import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
 import { addExpense } from '@/lib/store';
-import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
+import { generateId, getCurrentMonth, addMonths, getPurchaseDateForInvoiceMonth } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -75,17 +75,15 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
     lastEdited.current = 'total';
   };
 
+  // "Qual parcela cai este mês?" → a parcela `currInst` vence no mês atual;
+  // reconstrói a data de compra original a partir do mês de vencimento da 1ª parcela.
   const computePurchaseDate = (): string => {
     if (!useInstRef || totalInst <= 1) return date;
-    const card       = cards.find(c => c.id === cardId);
-    const closing    = card?.closingDay ?? 10;
-    const cur        = getCurrentMonth();
-    const monthsBack = currInst - 1;
-    const billing    = addMonths(cur, -monthsBack);
-    const [y, m]     = billing.split('-').map(Number);
-    const purchaseDay = closing + 1;
-    const d = new Date(y, m - 1, purchaseDay);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return date;
+    const cur = getCurrentMonth();
+    const firstInstDueMonth = addMonths(cur, -(currInst - 1));
+    return getPurchaseDateForInvoiceMonth(firstInstDueMonth, card);
   };
 
   const handleSubmit = async () => {

@@ -11,6 +11,9 @@ export interface CreditCard {
   /** Dia do mês em que a fatura vence (ex: 17) */
   dueDay: number;
   customGradient?: string;
+  /** false = cartão bloqueado/inativo — some das seleções de novo gasto, mas
+   *  permanece visível com o que ainda falta pagar até o fim das parcelas. */
+  active: boolean;
 }
 
 export type ExpenseCategory =
@@ -79,7 +82,7 @@ export const INCOME_CATEGORY_CONFIG: Record<IncomeCategory, { label: string; ico
   salary:       { label: 'Salário',       icon: 'Briefcase',        color: '152 69% 45%'  },
   freelance:    { label: 'Freelance',      icon: 'Laptop',           color: '210 70% 55%'  },
   rental:       { label: 'Aluguel',        icon: 'Building2',        color: '45 90% 50%'   },
-  investment:   { label: 'Investimento',   icon: 'TrendingUp',       color: '263 70% 58%'  },
+  investment:   { label: 'Investimento',   icon: 'TrendingUp',       color: '0 0% 60%'  },
   bonus:        { label: 'Bônus',          icon: 'Gift',             color: '320 70% 55%'  },
   other_income: { label: 'Outros ganhos',  icon: 'CircleDollarSign', color: '240 5% 55%'   },
 };
@@ -93,7 +96,7 @@ export const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; icon: str
   shopping:     { label: 'Compras',     icon: 'ShoppingBag',     color: '320 70% 55%' },
   home:         { label: 'Casa',        icon: 'Home',            color: '152 69% 45%' },
   travel:       { label: 'Viagem',      icon: 'Plane',           color: '45 90% 50%'  },
-  subscription: { label: 'Assinatura',  icon: 'Repeat',          color: '263 70% 58%' },
+  subscription: { label: 'Assinatura',  icon: 'Repeat',          color: '0 0% 60%' },
   loan:         { label: 'Empréstimo',  icon: 'Landmark',        color: '38 92% 50%'  },
   pix_credit:   { label: 'PIX Crédito', icon: 'Zap',             color: '155 70% 42%' },
   other:        { label: 'Outros',      icon: 'MoreHorizontal',  color: '240 5% 55%'  },

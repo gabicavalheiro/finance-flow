@@ -8,7 +8,7 @@ import { CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditCard, ExpenseCategory, Expense } from '@/lib/types';
 import { addExpense, getCards } from '@/lib/store';
-import { generateId, getCurrentMonth, addMonths } from '@/lib/helpers';
+import { generateId, getCurrentMonth, addMonths, getPurchaseDateForInvoiceMonth } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import CategorySelect from '@/components/CategorySelect';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -89,24 +89,15 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
     lastEdited.current = 'total';
   };
 
+  // "Qual parcela cai este mês?" → a parcela `currInst` vence no mês atual;
+  // reconstrói a data de compra original a partir do mês de vencimento da 1ª parcela.
   const computePurchaseDate = (): string => {
     if (!useInstRef || totalInst <= 1) return date;
-    const card         = cards.find(c => c.id === cardId);
-    const closing      = card?.closingDay ?? 10;
-    const due          = card?.dueDay ?? (closing + 7);
-    const cur          = getCurrentMonth();
-    const monthsBack   = currInst - 1;
-    const billingMonth = addMonths(cur, -monthsBack);
-  
-    // Se dueDay < closingDay, getBillingMonth aplica +1 extra ao mês de exibição.
-    // Para que a parcela apareça em billingMonth, a compra precisa ser em billingMonth-1.
-    const purchaseMonth = due < closing
-      ? addMonths(billingMonth, -1)
-      : billingMonth;
-  
-    const [y, m] = purchaseMonth.split('-').map(Number);
-    // Dia 1 é sempre ≤ qualquer closingDay — nunca dispara o push de "após fechamento".
-    return `${y}-${String(m).padStart(2, '0')}-01`;
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return date;
+    const cur = getCurrentMonth();
+    const firstInstDueMonth = addMonths(cur, -(currInst - 1));
+    return getPurchaseDateForInvoiceMonth(firstInstDueMonth, card);
   };
 
   const handleSubmit = async () => {
@@ -315,7 +306,7 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
             onClick={handleSubmit}
             disabled={saving}
             className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
           >
             {saving ? 'Salvando...' : 'Adicionar'}
           </Button>

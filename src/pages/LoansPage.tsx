@@ -15,6 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import CurrencyInput from '@/components/CurrencyInput';
+import DatePicker from '@/components/DatePicker';
 import {
   Loan, getLoans, addLoan, updateLoan, deleteLoan,
 } from '@/lib/store_modules';
@@ -82,55 +84,63 @@ function LoanDialog({
           <div className="space-y-1">
             <Label className="text-xs">Nome</Label>
             <Input placeholder="Ex: Crédito pessoal" value={form.name}
+              className="bg-secondary border-border"
               onChange={e => set('name', e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Instituição</Label>
             <Input placeholder="Ex: Banco do Brasil" value={form.institution}
+              className="bg-secondary border-border"
               onChange={e => set('institution', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Valor total (R$)</Label>
-              <Input type="number" min={0} placeholder="0,00"
-                value={form.totalAmount || ''}
-                onChange={e => set('totalAmount', parseFloat(e.target.value) || 0)} />
+              <CurrencyInput
+                value={form.totalAmount ? String(form.totalAmount) : ''}
+                onChange={v => set('totalAmount', parseFloat(v) || 0)}
+                className="bg-secondary border-border" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Saldo restante (R$)</Label>
-              <Input type="number" min={0} placeholder="0,00"
-                value={form.remainingAmount || ''}
-                onChange={e => set('remainingAmount', parseFloat(e.target.value) || 0)} />
+              <CurrencyInput
+                value={form.remainingAmount ? String(form.remainingAmount) : ''}
+                onChange={v => set('remainingAmount', parseFloat(v) || 0)}
+                className="bg-secondary border-border" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Parcelas</Label>
               <Input type="number" min={1} value={form.installments}
+                className="bg-secondary border-border"
                 onChange={e => set('installments', parseInt(e.target.value) || 1)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Parcelas pagas</Label>
               <Input type="number" min={0} value={form.paidInstallments}
+                className="bg-secondary border-border"
                 onChange={e => set('paidInstallments', parseInt(e.target.value) || 0)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Parcela mensal (R$)</Label>
-              <Input type="number" min={0} value={form.monthlyPayment || ''}
-                onChange={e => set('monthlyPayment', parseFloat(e.target.value) || 0)} />
+              <CurrencyInput
+                value={form.monthlyPayment ? String(form.monthlyPayment) : ''}
+                onChange={v => set('monthlyPayment', parseFloat(v) || 0)}
+                className="bg-secondary border-border" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Juros (% a.m.)</Label>
               <Input type="number" min={0} step={0.01} value={form.interestRate || ''}
+                className="bg-secondary border-border"
                 onChange={e => set('interestRate', parseFloat(e.target.value) || 0)} />
             </div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Data de início</Label>
-            <Input type="date" value={form.startDate}
-              onChange={e => set('startDate', e.target.value)} />
+            <DatePicker value={form.startDate} onChange={v => set('startDate', v)} />
           </div>
         </div>
 

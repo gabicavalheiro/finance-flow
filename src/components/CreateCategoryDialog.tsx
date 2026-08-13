@@ -41,7 +41,7 @@ const ICON_OPTIONS = [
 ];
 
 const COLOR_OPTIONS = [
-  '263 70% 58%', '220 70% 55%', '30 90% 55%',  '152 69% 45%',
+  '0 0% 60%', '0 0% 45%', '30 90% 55%',  '152 69% 45%',
   '0 72% 51%',   '280 70% 58%', '320 70% 55%', '45 90% 50%',
   '200 80% 50%', '210 70% 55%', '38 92% 50%',  '155 70% 42%',
   '340 80% 50%', '145 75% 40%', '25 95% 50%',  '0 0% 55%',
@@ -57,12 +57,12 @@ interface Props {
 export default function CreateCategoryDialog({ open, onClose, defaultType, onCreated }: Props) {
   const [label, setLabel]          = useState('');
   const [icon, setIcon]            = useState('MoreHorizontal');
-  const [color, setColor]          = useState('263 70% 58%');
+  const [color, setColor]          = useState('0 0% 60%');
   const [categoryType, setCatType] = useState<'expense' | 'income' | 'both'>(defaultType);
   const [saving, setSaving]        = useState(false);
 
   const reset = () => {
-    setLabel(''); setIcon('MoreHorizontal'); setColor('263 70% 58%');
+    setLabel(''); setIcon('MoreHorizontal'); setColor('0 0% 60%');
     setCatType(defaultType);
   };
 
@@ -183,7 +183,7 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
             onClick={handleSave}
             disabled={saving}
             className="w-full"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
           >
             {saving ? 'Salvando...' : 'Criar categoria'}
           </Button>

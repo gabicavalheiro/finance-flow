@@ -10,27 +10,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, TrendingDown, TrendingUp, Scale, ChevronDown, ChevronUp,
   Sparkles, AlertTriangle, CheckCircle2, Clock, CreditCard as CreditCardIcon,
-  Activity, Flame, PartyPopper, Pencil, ListChecks, X as XIcon, PieChart,
+  Activity,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import { getCurrentMonth, formatCurrency, addMonths } from '@/lib/helpers';
 import {
-  computeInstallmentsForMonth,
-  getVariableForMonth, updateExpense, updateFixedExpense,
+  computeInstallmentsForMonth, computeCategoryTotals,
+  getVariableForMonth,
 } from '@/lib/store';
-import { VariableTransaction, Expense, FixedExpense, ExpenseCategory } from '@/lib/types';
-import { SUBSCRIPTION_CATEGORIES, monthlyAmount } from '@/lib/subscriptions';
+import { VariableTransaction } from '@/lib/types';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import { cn } from '@/lib/utils';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import CategorySelect from '@/components/CategorySelect';
-import EditExpenseDialog from '@/components/EditExpenseDialog';
-import EditFixedExpenseDialog from '@/components/EditFixedExpenseDialog';
-import CategoryIcon from '@/components/CategoryIcon';
-import { toast } from 'sonner';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip,
   CartesianGrid, ReferenceLine, Cell,
@@ -45,7 +36,7 @@ const C = {
   greenHot: '#3fb87a',
   greenMid: '#276647',
   greenDim: '#1a3d2b',
-  purple:   '#8b5cf6',
+  purple:   '#8a8a8a',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,21 +67,6 @@ interface MonthForecast {
     name: string; amount: number;
     installmentNumber: number; totalInstallments: number; cardName: string;
   }[];
-}
-
-interface CategoryLineItem {
-  id: string;
-  name: string;
-  amount: number;
-  source: 'Cartão' | 'Fixo' | 'Assinatura';
-  detail?: string;
-  expense?: Expense;
-  fixedExpense?: FixedExpense;
-}
-
-interface Insight {
-  icon: 'flame' | 'party' | 'sparkle';
-  text: string;
 }
 
 // ─── Badge de saúde ───────────────────────────────────────────────────────────
@@ -228,7 +204,7 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
                 <div key={card.cardId}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(263 70% 58%)' }} />
+                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(0 0% 60%)' }} />
                       <span className="font-medium">{card.cardName}</span>
                     </div>
                     <span className="font-semibold tabular-nums">{formatCurrency(card.amount)}</span>
@@ -236,7 +212,7 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
                   <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
-                      style={{ background: 'hsl(263 70% 58%)' }}
+                      style={{ background: 'hsl(0 0% 60%)' }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -296,7 +272,7 @@ function ForecastCard({ fc }: { fc: MonthForecast }) {
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [tab,    setTab]    = useState<'previsao' | 'historico' | 'categorias' | 'fluxo'>('previsao');
+  const [tab,    setTab]    = useState<'previsao' | 'historico' | 'fluxo'>('previsao');
   const [month,  setMonth]  = useState(getCurrentMonth());
   const [varTxs, setVarTxs] = useState<VariableTransaction[]>([]);
 
@@ -305,9 +281,7 @@ export default function ReportsPage() {
     cards, expenses,
     fixedExpenses: fixed,
     incomes,
-    subscriptions,
     loading,
-    refresh,
   } = useFinanceData();
 
   // Busca varTxs quando muda o mês (é dado por mês, não está no contexto)
@@ -317,178 +291,16 @@ export default function ReportsPage() {
 
   // ── Cálculos ──────────────────────────────────────────────────────────────
   const installments     = useMemo(() => computeInstallmentsForMonth(expenses, cards, month), [expenses, cards, month]);
+  const categoryTotals   = useMemo(() => computeCategoryTotals(installments, fixed), [installments, fixed]);
   const totalFixedIncome = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
-  const cardMap          = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
-
-  // Detalhe por categoria — agrupa por LABEL resolvido (não pela key crua),
-  // porque categorias diferentes (ex: custom deletada e a categoria padrão
-  // "other") podem cair ambas em "Outros" e não devem aparecer como linhas
-  // duplicadas. Guarda também os lançamentos individuais, usados no popup.
-  const expenseMap = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
-
-  const categoryDetails = useMemo(() => {
-    const map = new Map<string, { label: string; color: string; sampleKey: string; items: CategoryLineItem[] }>();
-    const addItem = (key: string, item: CategoryLineItem) => {
-      const info = resolveCategoryInfo(key);
-      let entry = map.get(info.label);
-      if (!entry) { entry = { label: info.label, color: info.color, sampleKey: key, items: [] }; map.set(info.label, entry); }
-      entry.items.push(item);
-    };
-
-    installments.forEach(inst => addItem(inst.category, {
-      id:     `card-${inst.expenseId}-${inst.installmentNumber}`,
-      name:   inst.expenseName,
-      amount: inst.amount,
-      source: 'Cartão',
-      detail: inst.totalInstallments > 1
-        ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardMap.get(inst.cardId)?.name ?? 'Cartão'}`
-        : cardMap.get(inst.cardId)?.name ?? 'Cartão',
-      expense: expenseMap.get(inst.expenseId),
-    }));
-
-    fixed.forEach(fx => addItem(fx.category, {
-      id: `fixed-${fx.id}`, name: fx.name, amount: fx.amount, source: 'Fixo',
-      fixedExpense: fx,
-    }));
-
-    // Assinaturas (módulo Assinaturas — tabela separada de expenses/fixed).
-    // Sempre bucketadas em "Assinatura" (categoria padrão do app), já que a
-    // categoria interna da assinatura (streaming, música...) não é uma
-    // ExpenseCategory reconhecida pelo resto do app.
-    subscriptions.filter(s => s.active).forEach(sub => {
-      const subType  = SUBSCRIPTION_CATEGORIES.find(c => c.value === sub.category)?.label;
-      const cardName = sub.cardId ? cardMap.get(sub.cardId)?.name : undefined;
-      const detail = [
-        subType,
-        cardName ? `Cartão ${cardName}` : 'Sem cartão vinculado',
-        sub.billingCycle === 'annual' ? 'anual, valor rateado' : undefined,
-      ].filter(Boolean).join(' · ');
-      addItem('subscription', {
-        id: `sub-${sub.id}`,
-        name: sub.name,
-        amount: monthlyAmount(sub),
-        source: 'Assinatura',
-        detail,
-      });
-    });
-
-    return map;
-  }, [installments, fixed, cardMap, expenseMap, subscriptions]);
 
   const categoryList = useMemo(() =>
-    Array.from(categoryDetails.entries())
-      .map(([label, d]) => ({ label, color: d.color, sampleKey: d.sampleKey, value: d.items.reduce((s, i) => s + i.amount, 0) }))
+    Object.entries(categoryTotals)
+      .map(([key, value]) => ({ key, ...resolveCategoryInfo(key), value }))
       .sort((a, b) => b.value - a.value),
-  [categoryDetails]);
+  [categoryTotals]);
 
   const totalHist = categoryList.reduce((s, c) => s + c.value, 0);
-
-  // Totais do mês anterior por categoria (só cartão + fixo, mesma base do
-  // categoryList acima) — usado para gerar os insights de comparação.
-  const prevMonth = useMemo(() => addMonths(month, -1), [month]);
-  const prevCategoryTotals = useMemo(() => {
-    const prevInst = computeInstallmentsForMonth(expenses, cards, prevMonth);
-    const totals = new Map<string, number>();
-    const add = (key: string, amount: number) => {
-      const label = resolveCategoryInfo(key).label;
-      totals.set(label, (totals.get(label) ?? 0) + amount);
-    };
-    prevInst.forEach(i => add(i.category, i.amount));
-    fixed.forEach(f => add(f.category, f.amount));
-    return totals;
-  }, [expenses, cards, prevMonth, fixed]);
-
-  // Mensagens motivacionais/casuais sobre os gastos do mês.
-  const insights = useMemo((): Insight[] => {
-    if (categoryList.length === 0 || totalHist === 0) return [];
-    const msgs: Insight[] = [];
-
-    const top = categoryList[0];
-    const topPct = Math.round((top.value / totalHist) * 100);
-    msgs.push(topPct >= 30
-      ? { icon: 'flame', text: `Boa, esse mês você se passou com ${top.label.toLowerCase()}: ${formatCurrency(top.value)} (${topPct}% do total).` }
-      : { icon: 'sparkle', text: `Seu maior gasto foi com ${top.label.toLowerCase()}: ${formatCurrency(top.value)}.` });
-
-    let biggestIncrease: { label: string; pct: number } | null = null;
-    let biggestDecrease: { label: string; pct: number } | null = null;
-    categoryList.forEach(cat => {
-      const prev = prevCategoryTotals.get(cat.label) ?? 0;
-      if (prev < 20) return; // base pequena/inexistente demais pra comparar
-      const pct = ((cat.value - prev) / prev) * 100;
-      if (pct >= 25 && (!biggestIncrease || pct > biggestIncrease.pct)) biggestIncrease = { label: cat.label, pct };
-      if (pct <= -25 && (!biggestDecrease || pct < biggestDecrease.pct)) biggestDecrease = { label: cat.label, pct };
-    });
-
-    if (biggestIncrease) msgs.push({
-      icon: 'flame',
-      text: `${biggestIncrease.label} subiu ${Math.round(biggestIncrease.pct)}% em relação ao mês passado.`,
-    });
-    if (biggestDecrease) msgs.push({
-      icon: 'party',
-      text: `Mandou bem! ${biggestDecrease.label} caiu ${Math.round(Math.abs(biggestDecrease.pct))}% em relação ao mês passado.`,
-    });
-
-    return msgs.slice(0, 3);
-  }, [categoryList, totalHist, prevCategoryTotals]);
-
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const selectedItems = selectedCategory
-    ? [...(categoryDetails.get(selectedCategory)?.items ?? [])].sort((a, b) => b.amount - a.amount)
-    : [];
-
-  // Seleção múltipla dentro do popup — permite reclassificar vários
-  // lançamentos de uma vez (ex: mover tudo que caiu errado em "Outros").
-  const [selectMode, setSelectMode]   = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkCategory, setBulkCategory] = useState<string>('');
-  const [bulkSaving, setBulkSaving]     = useState(false);
-
-  const closeCategoryPopup = () => {
-    setSelectedCategory(null);
-    setSelectMode(false);
-    setSelectedIds(new Set());
-    setBulkCategory('');
-  };
-
-  const toggleSelected = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const handleBulkApply = async () => {
-    if (!bulkCategory || selectedIds.size === 0) return;
-    const items = selectedItems.filter(i => selectedIds.has(i.id));
-    setBulkSaving(true);
-    try {
-      await Promise.all(items.map(item => {
-        if (item.expense) return updateExpense({ ...item.expense, category: bulkCategory as ExpenseCategory });
-        if (item.fixedExpense) return updateFixedExpense(item.fixedExpense.id, { category: bulkCategory as ExpenseCategory });
-        return Promise.resolve();
-      }));
-      toast.success(`${items.length} lançamento${items.length > 1 ? 's' : ''} atualizado${items.length > 1 ? 's' : ''}!`);
-      await refresh();
-      setSelectMode(false);
-      setSelectedIds(new Set());
-      setBulkCategory('');
-    } catch {
-      toast.error('Erro ao atualizar os lançamentos selecionados');
-    }
-    setBulkSaving(false);
-  };
-
-  // Edição de um lançamento a partir do popup — fecha o popup e abre o
-  // dialog de edição correspondente (gasto de cartão ou gasto fixo).
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [editingFixed, setEditingFixed]     = useState<FixedExpense | null>(null);
-
-  const handleEditItem = (item: CategoryLineItem) => {
-    closeCategoryPopup();
-    if (item.expense) setEditingExpense(item.expense);
-    else if (item.fixedExpense) setEditingFixed(item.fixedExpense);
-  };
 
   const barDataHist = useMemo(() =>
     Array.from({ length: 6 }, (_, i) => {
@@ -543,6 +355,7 @@ export default function ReportsPage() {
 
   // ── Previsão ──────────────────────────────────────────────────────────────
   const totalFixedExpense = useMemo(() => fixed.reduce((s, f) => s + f.amount, 0), [fixed]);
+  const cardMap           = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const current           = getCurrentMonth();
 
   const forecasts = useMemo((): MonthForecast[] =>
@@ -607,10 +420,9 @@ export default function ReportsPage() {
       <div className="px-4 md:px-8 mb-5">
         <div className="flex gap-1 bg-muted/50 p-1 rounded-xl w-fit">
           {([
-            { key: 'previsao',   label: 'Previsão',   icon: <Sparkles  size={12} /> },
-            { key: 'historico',  label: 'Histórico',  icon: <BarChart3 size={12} /> },
-            { key: 'categorias', label: 'Categorias', icon: <PieChart  size={12} /> },
-            { key: 'fluxo',      label: 'Fluxo',       icon: <Activity  size={12} /> },
+            { key: 'previsao',  label: 'Previsão',  icon: <Sparkles size={12} /> },
+            { key: 'historico', label: 'Histórico', icon: <BarChart3 size={12} /> },
+            { key: 'fluxo',     label: 'Fluxo',     icon: <Activity  size={12} /> },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -777,67 +589,19 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-            </motion.div>
-          )}
-
-          {/* ── CATEGORIAS ── */}
-          {tab === 'categorias' && (
-            <motion.div
-              key="categorias"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="px-4 md:px-8 space-y-4"
-            >
-              <MonthSelector month={month} onChange={setMonth} />
-
-              <div className="bg-card rounded-2xl p-4 border border-border">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                  <TrendingDown size={10} className="text-destructive" /> Total gasto — {monthLabel(month, false)}
-                </p>
-                <p className="text-lg font-bold text-destructive tabular-nums">{formatCurrency(totalHist)}</p>
-              </div>
-
-              {insights.length > 0 && (
-                <div className="bg-card rounded-2xl border border-border p-4 space-y-2.5">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                    Resumo do mês
-                  </p>
-                  {insights.map((ins, i) => {
-                    const style = ins.icon === 'flame'
-                      ? { Icon: Flame,       cls: 'text-warning bg-warning/12 border-warning/25' }
-                      : ins.icon === 'party'
-                      ? { Icon: PartyPopper, cls: 'text-success bg-success/12 border-success/25' }
-                      : { Icon: Sparkles,    cls: 'text-primary bg-primary/12 border-primary/25' };
-                    return (
-                      <div key={i} className={cn('flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed', style.cls)}>
-                        <style.Icon size={14} className="mt-0.5 shrink-0" />
-                        <span className="text-foreground/90">{ins.text}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">
                   Gastos por categoria — {monthLabel(month, false)}
                 </p>
-                <p className="text-[10px] text-muted-foreground mb-4">Toque numa categoria pra ver os lançamentos</p>
                 {categoryList.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-4">Sem gastos neste mês</p>
                 ) : (
                   <div className="space-y-3">
                     {categoryList.map(cat => (
-                      <button
-                        key={cat.label}
-                        onClick={() => { setSelectedCategory(cat.label); setSelectMode(false); setSelectedIds(new Set()); setBulkCategory(''); }}
-                        className="w-full text-left group"
-                      >
+                      <div key={cat.key}>
                         <div className="flex justify-between items-center text-xs mb-1.5">
-                          <span className="flex items-center gap-2 min-w-0">
-                            <CategoryIcon category={cat.sampleKey} size={14} />
-                            <span className="font-medium group-hover:text-primary transition-colors truncate">{cat.label}</span>
-                          </span>
-                          <span className="font-semibold tabular-nums shrink-0 ml-2">
+                          <span className="font-medium">{cat.label}</span>
+                          <span className="font-semibold tabular-nums">
                             {formatCurrency(cat.value)}
                             <span className="text-muted-foreground font-normal ml-1">
                               ({totalHist > 0 ? Math.round((cat.value / totalHist) * 100) : 0}%)
@@ -847,13 +611,13 @@ export default function ReportsPage() {
                         <div className="h-2 bg-secondary rounded-full overflow-hidden">
                           <motion.div
                             className="h-full rounded-full"
-                            style={{ background: `hsl(${cat.color})` }}
+                            style={{ background: cat.color }}
                             initial={{ width: 0 }}
                             animate={{ width: `${totalHist > 0 ? (cat.value / totalHist) * 100 : 0}%` }}
                             transition={{ duration: 0.5, ease: 'easeOut' }}
                           />
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -978,110 +742,6 @@ export default function ReportsPage() {
           )}
 
         </AnimatePresence>
-      )}
-
-      {/* ── Popup de lançamentos da categoria ── */}
-      <Dialog open={!!selectedCategory} onOpenChange={(open) => !open && closeCategoryPopup()}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-3 pr-6">
-              <DialogTitle>{selectedCategory}</DialogTitle>
-              {selectedItems.length > 1 && (
-                <button
-                  onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()); }}
-                  className={cn(
-                    'flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg transition-colors shrink-0',
-                    selectMode ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
-                  )}
-                >
-                  {selectMode ? <XIcon size={12} /> : <ListChecks size={12} />}
-                  {selectMode ? 'Cancelar' : 'Selecionar'}
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {monthLabel(month, false)} · {formatCurrency(selectedItems.reduce((s, i) => s + i.amount, 0))}
-            </p>
-          </DialogHeader>
-
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto -mx-1 px-1">
-            {selectedItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Nenhum lançamento encontrado</p>
-            ) : (
-              selectedItems.map(item => {
-                const editable = !!(item.expense || item.fixedExpense);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => selectMode && editable && toggleSelected(item.id)}
-                    className={cn(
-                      'flex items-center gap-2 bg-muted/40 rounded-xl px-3 py-2.5',
-                      selectMode && editable && 'cursor-pointer hover:bg-muted/70',
-                    )}
-                  >
-                    {selectMode && (
-                      <Checkbox
-                        checked={selectedIds.has(item.id)}
-                        disabled={!editable}
-                        onCheckedChange={() => editable && toggleSelected(item.id)}
-                        onClick={e => e.stopPropagation()}
-                        className="shrink-0"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {item.source}{item.detail ? ` · ${item.detail}` : ''}
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(item.amount)}</span>
-                    {!selectMode && editable && (
-                      <button
-                        onClick={() => handleEditItem(item)}
-                        className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                        aria-label="Editar lançamento"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {selectMode && selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 pt-1 border-t border-border -mx-6 px-6 mt-1">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
-              </span>
-              <div className="flex-1 min-w-0">
-                <CategorySelect type="expense" value={bulkCategory} onChange={setBulkCategory} />
-              </div>
-              <Button size="sm" disabled={!bulkCategory || bulkSaving} onClick={handleBulkApply} className="shrink-0">
-                {bulkSaving ? 'Aplicando...' : 'Aplicar'}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {editingExpense && (
-        <EditExpenseDialog
-          expense={editingExpense}
-          cards={cards}
-          open={!!editingExpense}
-          onClose={() => setEditingExpense(null)}
-          onSaved={refresh}
-        />
-      )}
-      {editingFixed && (
-        <EditFixedExpenseDialog
-          expense={editingFixed}
-          open={!!editingFixed}
-          onClose={() => setEditingFixed(null)}
-          onSaved={refresh}
-        />
       )}
     </div>
   );
