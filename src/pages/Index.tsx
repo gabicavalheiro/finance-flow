@@ -34,7 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -412,8 +412,7 @@ export default function Dashboard() {
   const subscriptions = rawSubs     ?? [];
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) =>
-      setUserName(user?.user_metadata?.name ?? ''));
+    getUser().then(user => setUserName(user?.name ?? ''));
   }, []);
 
   useEffect(() => {

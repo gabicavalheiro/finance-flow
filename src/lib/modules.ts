@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// src/lib/modules.ts — OTIMIZADO: cache em memória para getActiveModuleIds
-import { supabase } from './supabase';
-
-async function uid(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.id;
-}
+// src/lib/modules.ts — migrado de Supabase/Postgres pra Firebase/Firestore
+// Cache em memória para getActiveModuleIds mantido igual ao original.
+import { collection, doc, getDocs, setDoc, query, where } from 'firebase/firestore';
+import { auth, db } from './firebase';
 
 export interface AppModule {
   id: string;
@@ -62,6 +57,18 @@ let _moduleCache: string[] | null = null;
 let _moduleCacheExpiry = 0;
 const MODULE_CACHE_TTL = 5 * 60_000; // 5 minutos
 
+function uid(): string {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Usuário não autenticado');
+  return user.uid;
+}
+function userCol(name: string) {
+  return collection(db, 'users', uid(), name);
+}
+function userDoc(name: string, id: string) {
+  return doc(db, 'users', uid(), name, id);
+}
+
 /** Invalida o cache (chamar após activate/deactivate). */
 export function invalidateModuleCache(): void {
   _moduleCache = null;
@@ -72,36 +79,24 @@ export async function getActiveModuleIds(): Promise<string[]> {
   if (_moduleCache && Date.now() < _moduleCacheExpiry) {
     return _moduleCache;
   }
-  const { data, error } = await supabase
-    .from('user_module_settings')
-    .select('module_id')
-    .eq('active', true);
-  if (error) { console.error('getActiveModuleIds:', error); return []; }
-  _moduleCache = (data ?? []).map((r: any) => r.module_id as string);
-  _moduleCacheExpiry = Date.now() + MODULE_CACHE_TTL;
-  return _moduleCache;
+  try {
+    const snap = await getDocs(query(userCol('moduleSettings'), where('active', '==', true)));
+    // O id do módulo é o próprio id do documento (users/{uid}/moduleSettings/{moduleId})
+    _moduleCache = snap.docs.map((d) => d.id);
+    _moduleCacheExpiry = Date.now() + MODULE_CACHE_TTL;
+    return _moduleCache;
+  } catch (err) {
+    console.error('getActiveModuleIds:', err);
+    return [];
+  }
 }
 
 export async function activateModule(moduleId: string): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase
-    .from('user_module_settings')
-    .upsert(
-      { user_id: userId, module_id: moduleId, active: true },
-      { onConflict: 'user_id,module_id' },
-    );
-  if (error) throw error;
+  await setDoc(userDoc('moduleSettings', moduleId), { active: true }, { merge: true });
   invalidateModuleCache();
 }
 
 export async function deactivateModule(moduleId: string): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase
-    .from('user_module_settings')
-    .upsert(
-      { user_id: userId, module_id: moduleId, active: false },
-      { onConflict: 'user_id,module_id' },
-    );
-  if (error) throw error;
+  await setDoc(userDoc('moduleSettings', moduleId), { active: false }, { merge: true });
   invalidateModuleCache();
 }

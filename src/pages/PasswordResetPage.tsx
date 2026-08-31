@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { confirmPasswordResetWithCode } from '@/lib/auth';
 
 interface Props {
   onDone: () => void;
@@ -15,7 +15,15 @@ export default function PasswordResetPage({ onDone }: Props) {
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // O Firebase manda o código de confirmação na própria URL do e-mail:
+  // .../reset-password?mode=resetPassword&oobCode=xxxxx
+  const oobCode = new URLSearchParams(window.location.search).get('oobCode');
+
   const handleSubmit = async () => {
+    if (!oobCode) {
+      toast.error('Link inválido ou expirado — solicite um novo');
+      return;
+    }
     if (password.length < 6) {
       toast.error('A senha deve ter pelo menos 6 caracteres');
       return;
@@ -27,15 +35,15 @@ export default function PasswordResetPage({ onDone }: Props) {
     }
 
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { ok, error } = await confirmPasswordResetWithCode(oobCode, password);
     setSaving(false);
 
-    if (error) {
-      toast.error(error.message);
+    if (!ok) {
+      toast.error(error ?? 'Erro ao atualizar senha');
       return;
     }
 
-    toast.success('Senha atualizada com sucesso');
+    toast.success('Senha atualizada com sucesso — faça login novamente');
     onDone();
   };
 

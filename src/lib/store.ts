@@ -1,38 +1,50 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * store.ts — OTIMIZADO
+ * store.ts — migrado de Supabase/Postgres para Firebase/Firestore
  *
- * 1. uid() usa cache em memória — zero round-trips extras ao Supabase por mutação
- * 2. Todas as leituras passam pelo queryCache com TTL
- * 3. Cada mutação invalida apenas as chaves afetadas
- * 4. getVariableForMonth e getInvoicesForMonth têm cache por chave de mês
- * 5. getInvoicesForMonthRange: 1 query batch para múltiplos meses (histórico)
+ * Estrutura no Firestore: users/{uid}/<coleção>/{id}
+ * A segurança por usuário (equivalente ao RLS do Postgres) vem das
+ * Security Rules em firestore.rules — cada usuário só acessa o próprio
+ * caminho users/{uid}/..., então não existe mais a necessidade de um
+ * campo user_id nos documentos nem de mappers snake_case ↔ camelCase
+ * (o Firestore guarda os objetos JS praticamente como estão).
+ *
+ * Continua usando o mesmo queryCache em memória (TTL) de antes, e as
+ * mesmas assinaturas de função — o resto do app (páginas, diálogos) não
+ * precisou mudar por causa disso.
  */
 
-import { supabase } from './supabase';
+import {
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  query, where, orderBy, serverTimestamp,
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { queryCache } from './queryCache';
+import { clearCustomCategoryCache } from './customCategories';
 import { addMonths, getInvoiceMonth } from './helpers';
 import {
   CreditCard, Expense, FixedExpense, FixedIncome,
   MonthlyInstallment, VariableTransaction,
 } from './types';
 
-// ─── uid com cache ────────────────────────────────────────────────────────────
-let _cachedUserId: string | null = null;
-
-// Invalida o cache de userId quando a sessão muda (login/logout)
-supabase.auth.onAuthStateChange((_, session) => {
-  _cachedUserId = session?.user?.id ?? null;
-  if (!session) queryCache.invalidateAll();
-});
-
-async function uid(): Promise<string> {
-  if (_cachedUserId) return _cachedUserId;
-  const { data: { user } } = await supabase.auth.getUser();
+// ─── uid ──────────────────────────────────────────────────────────────────────
+// auth.currentUser já está populado de forma síncrona nesse ponto: o app só
+// renderiza as telas que chamam store.ts depois que App.tsx confirma a sessão
+// via onAuthStateChanged (ver App.tsx).
+function uid(): string {
+  const user = auth.currentUser;
   if (!user) throw new Error('Usuário não autenticado');
-  _cachedUserId = user.id;
-  return _cachedUserId;
+  return user.uid;
 }
+
+// Limpa o cache em memória ao trocar de usuário (login/logout) — evita que
+// dados de um usuário fiquem visíveis para o próximo que logar no mesmo device.
+auth.onAuthStateChanged((user) => {
+  if (!user) {
+    queryCache.invalidateAll();
+    clearCustomCategoryCache();
+  }
+});
 
 // ─── TTLs ─────────────────────────────────────────────────────────────────────
 const TTL = {
@@ -40,114 +52,68 @@ const TTL = {
   DYNAMIC: 60_000,     // 1 min — dados que mudam mais (variáveis, faturas)
 };
 
-// ─── Mappers ──────────────────────────────────────────────────────────────────
-function dbToCard(r: any): CreditCard {
-  return {
-    id: r.id, name: r.name, brand: r.brand,
-    lastDigits: r.last_digits, limit: r.limit,
-    closingDay: r.closing_day,
-    dueDay: r.due_day ?? r.closing_day + 7,
-    customGradient: r.custom_gradient ?? undefined,
-    active: r.active ?? true,
-  };
+// ─── Helpers genéricos de coleção ─────────────────────────────────────────────
+function userCol(name: string) {
+  return collection(db, 'users', uid(), name);
 }
-function cardToDb(c: CreditCard, userId: string) {
-  return {
-    id: c.id, user_id: userId, name: c.name, brand: c.brand,
-    last_digits: c.lastDigits, limit: c.limit,
-    closing_day: c.closingDay, due_day: c.dueDay,
-    custom_gradient: c.customGradient ?? null,
-    active: c.active ?? true,
-  };
+function userDoc(name: string, id: string) {
+  return doc(db, 'users', uid(), name, id);
 }
 
-function dbToExpense(r: any): Expense {
-  return {
-    id: r.id, cardId: r.card_id, name: r.name,
-    totalAmount: r.total_amount, installments: r.installments,
-    category: r.category, date: r.date,
-  };
-}
-function expenseToDb(e: Expense, userId: string) {
-  return {
-    id: e.id, user_id: userId, card_id: e.cardId, name: e.name,
-    total_amount: e.totalAmount, installments: e.installments,
-    category: e.category, date: e.date,
-  };
+/** Remove chaves com valor `undefined` — o Firestore rejeita `undefined` (null é ok). */
+function stripUndefined<T extends Record<string, any>>(obj: T): T {
+  const clean = { ...obj };
+  Object.keys(clean).forEach((k) => { if (clean[k] === undefined) delete clean[k]; });
+  return clean;
 }
 
-function dbToFixedExpense(r: any): FixedExpense {
-  return {
-    id: r.id, name: r.name, amount: r.amount, category: r.category,
-    paidMonths: r.paid_months ?? [], paymentMethod: r.payment_method ?? 'pix',
-  };
-}
-function fixedExpenseToDb(f: FixedExpense, userId: string) {
-  return {
-    id: f.id, user_id: userId, name: f.name, amount: f.amount,
-    category: f.category, paid_months: f.paidMonths,
-    payment_method: f.paymentMethod ?? 'pix',
-  };
-}
-
-function dbToIncome(r: any): FixedIncome {
-  return {
-    id: r.id, name: r.name, amount: r.amount, category: r.category,
-    receiveDay: r.receive_day ?? undefined, receivedMonths: r.received_months ?? [],
-  };
-}
-function incomeToDb(i: FixedIncome, userId: string) {
-  return {
-    id: i.id, user_id: userId, name: i.name, amount: i.amount,
-    category: i.category, receive_day: i.receiveDay ?? null,
-    received_months: i.receivedMonths,
-  };
+async function getAll<T>(
+  name: string,
+  orderField = 'createdAt',
+  direction: 'asc' | 'desc' = 'asc',
+): Promise<T[]> {
+  try {
+    const snap = await getDocs(query(userCol(name), orderBy(orderField, direction)));
+    return snap.docs.map((d) => d.data() as T);
+  } catch (err) {
+    console.error(`getAll(${name}):`, err);
+    return [];
+  }
 }
 
-function dbToVariable(r: any): VariableTransaction {
-  return {
-    id: r.id, name: r.name, amount: r.amount, type: r.type,
-    paymentMethod: r.payment_method, category: r.category, date: r.date,
-  };
+async function addItem(colName: string, id: string, data: Record<string, any>): Promise<void> {
+  await setDoc(userDoc(colName, id), { ...stripUndefined(data), createdAt: serverTimestamp() });
 }
-function variableToDb(t: VariableTransaction, userId: string) {
-  return {
-    id: t.id, user_id: userId, name: t.name, amount: t.amount,
-    type: t.type, payment_method: t.paymentMethod,
-    category: t.category, date: t.date,
-  };
+async function replaceItem(colName: string, id: string, data: Record<string, any>): Promise<void> {
+  // merge: true preserva o createdAt original ao "substituir" um doc existente
+  await setDoc(userDoc(colName, id), stripUndefined(data), { merge: true });
+}
+async function updateItem(colName: string, id: string, fields: Record<string, any>): Promise<void> {
+  await updateDoc(userDoc(colName, id), stripUndefined(fields));
+}
+async function deleteItem(colName: string, id: string): Promise<void> {
+  await deleteDoc(userDoc(colName, id));
 }
 
 // ─── Cards ────────────────────────────────────────────────────────────────────
 export async function getCards(): Promise<CreditCard[]> {
-  return queryCache.get('cards', async () => {
-    const { data, error } = await supabase.from('cards').select('*').order('created_at');
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToCard);
-  }, TTL.STATIC);
+  return queryCache.get('cards', () => getAll<CreditCard>('cards'), TTL.STATIC);
 }
 export async function addCard(card: CreditCard): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('cards').insert(cardToDb(card, userId));
-  if (error) throw error;
+  await addItem('cards', card.id, card);
   queryCache.invalidate('cards');
 }
 export async function updateCard(card: CreditCard): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('cards').update(cardToDb(card, userId)).eq('id', card.id);
-  if (error) throw error;
+  await replaceItem('cards', card.id, card);
   queryCache.invalidate('cards');
 }
 export async function deleteCard(id: string): Promise<void> {
-  const { error } = await supabase.from('cards').delete().eq('id', id);
-  if (error) throw error;
+  await deleteItem('cards', id);
   queryCache.invalidate('cards');
   queryCache.invalidate('expenses');
 }
 export async function setCardActive(id: string, active: boolean): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('cards').update({ active }).eq('id', id).eq('user_id', userId);
-  if (error) throw error;
+  await updateItem('cards', id, { active });
   queryCache.invalidate('cards');
 }
 
@@ -192,138 +158,96 @@ export function getCardPendingInstallments(
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 export async function getExpenses(): Promise<Expense[]> {
-  return queryCache.get('expenses', async () => {
-    const { data, error } = await supabase.from('expenses').select('*').order('created_at');
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToExpense);
-  }, TTL.STATIC);
+  return queryCache.get('expenses', () => getAll<Expense>('expenses'), TTL.STATIC);
 }
 export async function addExpense(expense: Expense): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('expenses').insert(expenseToDb(expense, userId));
-  if (error) throw error;
+  await addItem('expenses', expense.id, expense);
   queryCache.invalidate('expenses');
 }
 export async function updateExpense(expense: Expense): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('expenses').update(expenseToDb(expense, userId)).eq('id', expense.id);
-  if (error) throw error;
+  await replaceItem('expenses', expense.id, expense);
   queryCache.invalidate('expenses');
 }
 export async function deleteExpense(id: string): Promise<void> {
-  const { error } = await supabase.from('expenses').delete().eq('id', id);
-  if (error) throw error;
+  await deleteItem('expenses', id);
   queryCache.invalidate('expenses');
 }
 
 // ─── Fixed Expenses ───────────────────────────────────────────────────────────
 export async function getFixedExpenses(): Promise<FixedExpense[]> {
-  return queryCache.get('fixed_expenses', async () => {
-    const { data, error } = await supabase.from('fixed_expenses').select('*').order('created_at');
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToFixedExpense);
-  }, TTL.STATIC);
+  return queryCache.get('fixed_expenses', () => getAll<FixedExpense>('fixedExpenses'), TTL.STATIC);
 }
 export async function addFixedExpense(expense: FixedExpense): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('fixed_expenses').insert(fixedExpenseToDb(expense, userId));
-  if (error) throw error;
+  await addItem('fixedExpenses', expense.id, expense);
   queryCache.invalidate('fixed_expenses');
 }
 export async function updateFixedExpense(id: string, fields: Partial<FixedExpense>): Promise<void> {
-  const dbFields: any = {};
-  if (fields.name          !== undefined) dbFields.name           = fields.name;
-  if (fields.amount        !== undefined) dbFields.amount         = fields.amount;
-  if (fields.category      !== undefined) dbFields.category       = fields.category;
-  if (fields.paidMonths    !== undefined) dbFields.paid_months    = fields.paidMonths;
-  if (fields.paymentMethod !== undefined) dbFields.payment_method = fields.paymentMethod;
-  const { error } = await supabase.from('fixed_expenses').update(dbFields).eq('id', id);
-  if (error) throw error;
+  await updateItem('fixedExpenses', id, fields);
   queryCache.invalidate('fixed_expenses');
 }
 export async function deleteFixedExpense(id: string): Promise<void> {
-  const { error } = await supabase.from('fixed_expenses').delete().eq('id', id);
-  if (error) throw error;
+  await deleteItem('fixedExpenses', id);
   queryCache.invalidate('fixed_expenses');
 }
 
 // ─── Fixed Incomes ────────────────────────────────────────────────────────────
 export async function getIncomes(): Promise<FixedIncome[]> {
-  return queryCache.get('fixed_incomes', async () => {
-    const { data, error } = await supabase.from('fixed_incomes').select('*').order('created_at');
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToIncome);
-  }, TTL.STATIC);
+  return queryCache.get('fixed_incomes', () => getAll<FixedIncome>('fixedIncomes'), TTL.STATIC);
 }
 export async function addIncome(income: FixedIncome): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('fixed_incomes').insert(incomeToDb(income, userId));
-  if (error) throw error;
+  await addItem('fixedIncomes', income.id, income);
   queryCache.invalidate('fixed_incomes');
 }
 export async function updateIncome(id: string, fields: Partial<FixedIncome>): Promise<void> {
-  const dbFields: any = {};
-  if (fields.name           !== undefined) dbFields.name            = fields.name;
-  if (fields.amount         !== undefined) dbFields.amount          = fields.amount;
-  if (fields.category       !== undefined) dbFields.category        = fields.category;
-  if (fields.receiveDay     !== undefined) dbFields.receive_day     = fields.receiveDay;
-  if (fields.receivedMonths !== undefined) dbFields.received_months = fields.receivedMonths;
-  const { error } = await supabase.from('fixed_incomes').update(dbFields).eq('id', id);
-  if (error) throw error;
+  await updateItem('fixedIncomes', id, fields);
   queryCache.invalidate('fixed_incomes');
 }
 export async function deleteIncome(id: string): Promise<void> {
-  const { error } = await supabase.from('fixed_incomes').delete().eq('id', id);
-  if (error) throw error;
+  await deleteItem('fixedIncomes', id);
   queryCache.invalidate('fixed_incomes');
 }
 
 // ─── Variable Transactions ────────────────────────────────────────────────────
 export async function getVariableTransactions(): Promise<VariableTransaction[]> {
-  return queryCache.get('variable_all', async () => {
-    const { data, error } = await supabase
-      .from('variable_transactions').select('*').order('date', { ascending: false });
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToVariable);
-  }, TTL.DYNAMIC);
+  return queryCache.get(
+    'variable_all',
+    () => getAll<VariableTransaction>('variableTransactions', 'date', 'desc'),
+    TTL.DYNAMIC,
+  );
 }
 
 export async function getVariableForMonth(month: string): Promise<VariableTransaction[]> {
   return queryCache.get(`variable:${month}`, async () => {
-    const { data, error } = await supabase
-      .from('variable_transactions').select('*')
-      .like('date', `${month}%`).order('date', { ascending: false });
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToVariable);
+    try {
+      const snap = await getDocs(query(
+        userCol('variableTransactions'),
+        where('date', '>=', `${month}-01`),
+        where('date', '<=', `${month}-31`),
+        orderBy('date', 'desc'),
+      ));
+      return snap.docs.map((d) => d.data() as VariableTransaction);
+    } catch (err) {
+      console.error('getVariableForMonth:', err);
+      return [];
+    }
   }, TTL.DYNAMIC);
 }
 
 export async function addVariableTransaction(tx: VariableTransaction): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('variable_transactions').insert(variableToDb(tx, userId));
-  if (error) throw error;
+  await addItem('variableTransactions', tx.id, tx);
   const month = tx.date.slice(0, 7);
   queryCache.invalidate(`variable:${month}`);
   queryCache.invalidate('variable_all');
 }
 
 export async function updateVariableTransaction(id: string, fields: Partial<VariableTransaction>): Promise<void> {
-  const dbFields: any = {};
-  if (fields.name          !== undefined) dbFields.name           = fields.name;
-  if (fields.amount        !== undefined) dbFields.amount         = fields.amount;
-  if (fields.type          !== undefined) dbFields.type           = fields.type;
-  if (fields.paymentMethod !== undefined) dbFields.payment_method = fields.paymentMethod;
-  if (fields.category      !== undefined) dbFields.category       = fields.category;
-  if (fields.date          !== undefined) dbFields.date           = fields.date;
-  const { error } = await supabase.from('variable_transactions').update(dbFields).eq('id', id);
-  if (error) throw error;
+  await updateItem('variableTransactions', id, fields);
   queryCache.invalidate('variable:*');
   queryCache.invalidate('variable_all');
 }
 
 export async function deleteVariableTransaction(id: string): Promise<void> {
-  const { error } = await supabase.from('variable_transactions').delete().eq('id', id);
-  if (error) throw error;
+  await deleteItem('variableTransactions', id);
   queryCache.invalidate('variable:*');
   queryCache.invalidate('variable_all');
 }
@@ -336,28 +260,27 @@ export interface CardInvoice {
   notes?:       string;
 }
 
-function dbToInvoice(r: any): CardInvoice {
-  return {
-    cardId:       r.card_id,
-    month:        r.month,
-    actualAmount: r.actual_amount,
-    notes:        r.notes ?? undefined,
-  };
+// Doc id composto (cardId_month) — dá upsert "de graça" via setDoc merge,
+// sem precisar de onConflict como no Postgres.
+function invoiceDocId(cardId: string, month: string): string {
+  return `${cardId}_${month}`;
 }
 
 export async function getInvoicesForMonth(month: string): Promise<CardInvoice[]> {
   return queryCache.get(`invoices:${month}`, async () => {
-    const { data, error } = await supabase
-      .from('card_invoices').select('*').eq('month', month);
-    if (error) { console.error(error); return []; }
-    return (data ?? []).map(dbToInvoice);
+    try {
+      const snap = await getDocs(query(userCol('cardInvoices'), where('month', '==', month)));
+      return snap.docs.map((d) => d.data() as CardInvoice);
+    } catch (err) {
+      console.error('getInvoicesForMonth:', err);
+      return [];
+    }
   }, TTL.DYNAMIC);
 }
 
 /**
- * Busca faturas de um intervalo de meses em UMA única query ao Supabase.
- * Aproveita entradas já em cache e só busca os meses ausentes.
- * Usado pelo histórico de FaturaPage para evitar N queries paralelas.
+ * Busca faturas de um intervalo de meses. Aproveita entradas já em cache e
+ * só busca os meses ausentes, num único `where('month', 'in', ...)`.
  */
 export async function getInvoicesForMonthRange(
   months: string[],
@@ -367,7 +290,6 @@ export async function getInvoicesForMonthRange(
   const result: Record<string, CardInvoice[]> = {};
   const missing: string[] = [];
 
-  // Serve do cache o que já existe
   for (const m of months) {
     if (queryCache.has(`invoices:${m}`)) {
       result[m] = await queryCache.get<CardInvoice[]>(`invoices:${m}`, () => Promise.resolve([]), TTL.DYNAMIC);
@@ -376,22 +298,20 @@ export async function getInvoicesForMonthRange(
     }
   }
 
-  // Busca em batch apenas os meses que faltam
   if (missing.length > 0) {
-    const { data, error } = await supabase
-      .from('card_invoices')
-      .select('*')
-      .in('month', missing);
-
     const grouped: Record<string, CardInvoice[]> = {};
     for (const m of missing) grouped[m] = [];
 
-    if (!error && data) {
-      for (const row of data) {
-        const m = row.month as string;
-        if (!grouped[m]) grouped[m] = [];
-        grouped[m].push(dbToInvoice(row));
+    try {
+      // 'in' aceita até 30 valores — suficiente para o histórico usado no app
+      const snap = await getDocs(query(userCol('cardInvoices'), where('month', 'in', missing)));
+      for (const d of snap.docs) {
+        const inv = d.data() as CardInvoice;
+        if (!grouped[inv.month]) grouped[inv.month] = [];
+        grouped[inv.month].push(inv);
       }
+    } catch (err) {
+      console.error('getInvoicesForMonthRange:', err);
     }
 
     for (const m of missing) {
@@ -404,18 +324,17 @@ export async function getInvoicesForMonthRange(
 }
 
 export async function upsertInvoice(invoice: CardInvoice): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('card_invoices').upsert(
-    {
-      card_id:       invoice.cardId,
-      user_id:       userId,
-      month:         invoice.month,
-      actual_amount: invoice.actualAmount,
-      notes:         invoice.notes ?? null,
-    },
-    { onConflict: 'user_id,card_id,month' },
+  const id = invoiceDocId(invoice.cardId, invoice.month);
+  await setDoc(
+    userDoc('cardInvoices', id),
+    stripUndefined({
+      cardId: invoice.cardId,
+      month: invoice.month,
+      actualAmount: invoice.actualAmount,
+      notes: invoice.notes,
+    }),
+    { merge: true },
   );
-  if (error) throw error;
   queryCache.invalidate(`invoices:${invoice.month}`);
 }
 

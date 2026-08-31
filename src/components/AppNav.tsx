@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { logoutUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { logoutUser, getUser } from '@/lib/auth';
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -49,8 +48,8 @@ export default function AppNav() {
 
   useEffect(() => {
     setMounted(true);
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserName(user?.user_metadata?.name ?? '');
+    getUser().then((user) => {
+      setUserName(user?.name ?? '');
       setUserEmail(user?.email ?? '');
     });
   }, []);
@@ -63,7 +62,7 @@ export default function AppNav() {
       ? `${COLLAPSED_W + GAP * 2}px`
       : `${EXPANDED_W + GAP * 2}px`;
     document.documentElement.style.setProperty('--sidebar-w', w);
-    try { localStorage.setItem('nav-collapsed', collapsed ? '1' : '0'); } catch {}
+    try { localStorage.setItem('nav-collapsed', collapsed ? '1' : '0'); } catch { /* localStorage indisponível */ }
   }, [collapsed]);
 
   const toggleCollapse = useCallback(() => setCollapsed(v => !v), []);

@@ -1,11 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// ─── Módulo de Metas ──────────────────────────────────────────────────────────
-import { supabase } from './supabase';
+// ─── Módulo de Metas — migrado de Supabase/Postgres pra Firebase/Firestore ────
+import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
+import { auth, db } from './firebase';
 
-async function uid(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+function uid(): string {
+  const user = auth.currentUser;
   if (!user) throw new Error('Usuário não autenticado');
-  return user.id;
+  return user.uid;
+}
+function userCol(name: string) {
+  return collection(db, 'users', uid(), name);
+}
+function userDoc(name: string, id: string) {
+  return doc(db, 'users', uid(), name, id);
 }
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -77,74 +83,29 @@ export function computeGoalStats(goal: Goal, monthlyBalance: number): GoalStats 
   };
 }
 
-// ─── Mappers ──────────────────────────────────────────────────────────────────
-function dbToGoal(r: any): Goal {
-  return {
-    id:            r.id,
-    name:          r.name,
-    emoji:         r.emoji ?? '🎯',
-    targetAmount:  r.target_amount,
-    currentSaved:  r.current_saved ?? 0,
-    monthsDeadline: r.months_deadline,
-    startDate:     r.start_date,
-    color:         r.color ?? '152 69% 45%',
-    priority:      r.priority ?? 2,
-    completedAt:   r.completed_at ?? undefined,
-    createdAt:     r.created_at,
-  };
-}
-
-function goalToDb(g: Goal, userId: string) {
-  return {
-    id:              g.id,
-    user_id:         userId,
-    name:            g.name,
-    emoji:           g.emoji,
-    target_amount:   g.targetAmount,
-    current_saved:   g.currentSaved,
-    months_deadline: g.monthsDeadline,
-    start_date:      g.startDate,
-    color:           g.color,
-    priority:        g.priority,
-    completed_at:    g.completedAt ?? null,
-  };
-}
-
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 export async function getGoals(): Promise<Goal[]> {
-  const { data, error } = await supabase
-    .from('goals')
-    .select('*')
-    .order('priority')
-    .order('created_at');
-  if (error) { console.error('getGoals:', error); return []; }
-  return (data ?? []).map(dbToGoal);
+  try {
+    const snap = await getDocs(query(userCol('goals'), orderBy('priority'), orderBy('createdAt')));
+    return snap.docs.map(d => d.data() as Goal);
+  } catch (err) {
+    console.error('getGoals:', err);
+    return [];
+  }
 }
 
 export async function addGoal(goal: Goal): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('goals').insert(goalToDb(goal, userId));
-  if (error) throw error;
+  await setDoc(userDoc('goals', goal.id), { ...goal, createdAt: goal.createdAt || new Date().toISOString() });
 }
 
 export async function updateGoal(goal: Goal): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase
-    .from('goals')
-    .update(goalToDb(goal, userId))
-    .eq('id', goal.id);
-  if (error) throw error;
+  await setDoc(userDoc('goals', goal.id), goal, { merge: true });
 }
 
 export async function deleteGoal(id: string): Promise<void> {
-  const { error } = await supabase.from('goals').delete().eq('id', id);
-  if (error) throw error;
+  await deleteDoc(userDoc('goals', id));
 }
 
 export async function updateGoalSaved(id: string, currentSaved: number): Promise<void> {
-  const { error } = await supabase
-    .from('goals')
-    .update({ current_saved: currentSaved })
-    .eq('id', id);
-  if (error) throw error;
+  await updateDoc(userDoc('goals', id), { currentSaved });
 }

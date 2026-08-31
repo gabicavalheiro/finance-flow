@@ -1,17 +1,13 @@
 /**
- * customCategories.ts — CORRIGIDO (segurança)
+ * customCategories.ts — migrado de Supabase/Postgres pra Firebase/Firestore
  *
- * Problema original: usava localStorage como fallback, o que significa que
- * as categorias personalizadas do Usuário A ficavam salvas no navegador e
- * eram lidas quando o Usuário B fazia login no mesmo dispositivo.
- *
- * Solução: localStorage removido completamente. Se o Supabase falhar,
- * retorna array vazio — nada vaza entre usuários.
- *
- * Também: logout limpa o cache em memória (via onAuthStateChange no store.ts).
+ * Continua sem localStorage como fallback — se o Firestore falhar, retorna
+ * array vazio, nada vaza entre usuários. Cache em memória limpo no logout
+ * via clearCustomCategoryCache() (chamado a partir do listener de auth).
  */
 
-import { supabase } from './supabase';
+import { collection, doc, getDocs, setDoc, deleteDoc, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG, ExpenseCategory } from '@/lib/types';
 
 export interface CustomCategory {
@@ -23,32 +19,27 @@ export interface CustomCategory {
 }
 
 // Cache em memória — populado async, usado sync em resolveCategoryInfo
-// É limpo automaticamente no logout via queryCache.invalidateAll() no store.ts
 let _cache: CustomCategory[] | null = null;
 
-function fromRow(r: Record<string, unknown>): CustomCategory {
-  return {
-    id:           r.id            as string,
-    label:        r.label         as string,
-    icon:         r.icon          as string,
-    color:        r.color         as string,
-    categoryType: r.category_type as CustomCategory['categoryType'],
-  };
+function uid(): string {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Usuário não autenticado');
+  return user.uid;
+}
+function userCol(name: string) {
+  return collection(db, 'users', uid(), name);
+}
+function userDoc(name: string, id: string) {
+  return doc(db, 'users', uid(), name, id);
 }
 
 export async function getCustomCategories(): Promise<CustomCategory[]> {
   if (_cache !== null) return _cache;
 
   try {
-    const { data, error } = await supabase
-      .from('custom_categories')
-      .select('*')
-      .order('created_at');
-
-    if (!error && data) {
-      _cache = data.map(fromRow);
-      return _cache;
-    }
+    const snap = await getDocs(query(userCol('customCategories'), orderBy('createdAt')));
+    _cache = snap.docs.map(d => d.data() as CustomCategory);
+    return _cache;
   } catch {
     // falha silenciosa — sem localStorage como fallback
   }
@@ -58,30 +49,13 @@ export async function getCustomCategories(): Promise<CustomCategory[]> {
 }
 
 export async function saveCustomCategory(cat: CustomCategory): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Não autenticado');
-
-  const { error } = await supabase.from('custom_categories').insert({
-    id:            cat.id,
-    user_id:       user.id,
-    label:         cat.label,
-    icon:          cat.icon,
-    color:         cat.color,
-    category_type: cat.categoryType,
-  });
-
-  if (error) throw error;
-
+  if (!auth.currentUser) throw new Error('Não autenticado');
+  await setDoc(userDoc('customCategories', cat.id), { ...cat, createdAt: serverTimestamp() });
   _cache = null; // invalida cache para forçar re-fetch
 }
 
 export async function deleteCustomCategory(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('custom_categories')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  await deleteDoc(userDoc('customCategories', id));
   _cache = null;
 }
 

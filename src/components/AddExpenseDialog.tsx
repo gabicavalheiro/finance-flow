@@ -116,6 +116,13 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
 
   const showInstField = totalInst > 1;
 
+  // Se só existe um cartão no contexto (ex: dentro do card na tela Cartões),
+  // pré-seleciona automaticamente — senão o usuário precisa abrir o menu e
+  // clicar na única opção, e sem isso o gasto não salva (cardId vazio).
+  useEffect(() => {
+    if (open && cards.length === 1 && !cardId) setCardId(cards[0].id);
+  }, [open, cards, cardId]);
+
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>

@@ -8,8 +8,9 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import type { User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import AppNav from "@/components/AppNav";
 import QuickAddFAB from "@/components/QuickAddFAB";
 import { useDeepLink } from '@/hooks/useDeepLink';
@@ -102,26 +103,20 @@ function AppRoutes() {
 }
 
 const App = () => {
-  const [session,            setSession]            = useState<Session | null>(null);
-  const [loading,            setLoading]            = useState(true);
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [user,    setUser]    = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Link de redefinição de senha do Firebase: .../reset-password?mode=resetPassword&oobCode=...
+  // Detectado direto pela URL — funciona esteja o usuário logado ou não,
+  // diferente do fluxo antigo do Supabase que usava um evento de sessão.
+  const isPasswordReset = new URLSearchParams(window.location.search).get('mode') === 'resetPassword';
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
       setLoading(false);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsPasswordRecovery(true);
-      } else {
-        setSession(session);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   if (loading) return null;
@@ -129,13 +124,13 @@ const App = () => {
   return (
     <Providers>
       <BrowserRouter>
-        {isPasswordRecovery ? (
+        {isPasswordReset ? (
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="*" element={<PasswordResetPage onDone={() => {}} />} />
+              <Route path="*" element={<PasswordResetPage onDone={() => { window.location.href = '/'; }} />} />
             </Routes>
           </Suspense>
-        ) : !session ? (
+        ) : !user ? (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="*" element={<AuthPage />} />

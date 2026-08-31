@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// src/lib/subscriptions.ts
-import { supabase } from './supabase';
+// src/lib/subscriptions.ts — migrado de Supabase/Postgres pra Firebase/Firestore
+import {
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, orderBy, query, serverTimestamp,
+} from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { MonthlyInstallment, ExpenseCategory } from './types';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -67,80 +69,47 @@ export function subscriptionsAsInstallments(
     }));
 }
 
-// ─── Supabase helpers ─────────────────────────────────────────────────────────
+// ─── Firestore ────────────────────────────────────────────────────────────────
 
-async function uid(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+function uid(): string {
+  const user = auth.currentUser;
   if (!user) throw new Error('Usuário não autenticado');
-  return user.id;
+  return user.uid;
 }
-
-function dbToSub(r: any): Subscription {
-  return {
-    id:           r.id,
-    name:         r.name,
-    amount:       r.amount,
-    billingCycle: (r.billing_cycle ?? 'monthly') as BillingCycle,
-    billingDay:   r.billing_day ?? 1,
-    category:     r.category ?? 'other',
-    active:       r.active ?? true,
-    paidMonths:   r.paid_months ?? [],
-    cardId:       r.card_id   ?? undefined,
-    icon:         r.icon      ?? undefined,
-    color:        r.color     ?? undefined,
-    url:          r.url       ?? undefined,
-    notes:        r.notes     ?? undefined,
-  };
+function userCol(name: string) {
+  return collection(db, 'users', uid(), name);
 }
-
-function subToDb(s: Subscription, userId: string) {
-  return {
-    id:            s.id,
-    user_id:       userId,
-    name:          s.name,
-    amount:        s.amount,
-    billing_cycle: s.billingCycle,
-    billing_day:   s.billingDay,
-    category:      s.category,
-    active:        s.active,
-    paid_months:   s.paidMonths,
-    card_id:       s.cardId ?? null,
-    icon:          s.icon   ?? null,
-    color:         s.color  ?? null,
-    url:           s.url    ?? null,
-    notes:         s.notes  ?? null,
-  };
+function userDoc(name: string, id: string) {
+  return doc(db, 'users', uid(), name, id);
+}
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const clean = { ...obj };
+  (Object.keys(clean) as Array<keyof T>).forEach((k) => { if (clean[k] === undefined) delete clean[k]; });
+  return clean;
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function getSubscriptions(): Promise<Subscription[]> {
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .order('created_at');
-  if (error) { console.error('getSubscriptions:', error); return []; }
-  return (data ?? []).map(dbToSub);
+  try {
+    const snap = await getDocs(query(userCol('subscriptions'), orderBy('createdAt')));
+    return snap.docs.map(d => d.data() as Subscription);
+  } catch (err) {
+    console.error('getSubscriptions:', err);
+    return [];
+  }
 }
 
 export async function addSubscription(sub: Subscription): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase.from('subscriptions').insert(subToDb(sub, userId));
-  if (error) throw error;
+  await setDoc(userDoc('subscriptions', sub.id), { ...stripUndefined(sub), createdAt: serverTimestamp() });
 }
 
 export async function updateSubscription(sub: Subscription): Promise<void> {
-  const userId = await uid();
-  const { error } = await supabase
-    .from('subscriptions')
-    .update(subToDb(sub, userId))
-    .eq('id', sub.id);
-  if (error) throw error;
+  await setDoc(userDoc('subscriptions', sub.id), stripUndefined(sub), { merge: true });
 }
 
 export async function deleteSubscription(id: string): Promise<void> {
-  const { error } = await supabase.from('subscriptions').delete().eq('id', id);
-  if (error) throw error;
+  await deleteDoc(userDoc('subscriptions', id));
 }
 
 export async function toggleSubscriptionPaid(
@@ -151,20 +120,12 @@ export async function toggleSubscriptionPaid(
   const newPaid = already
     ? sub.paidMonths.filter(m => m !== month)
     : [...sub.paidMonths, month];
-  const { error } = await supabase
-    .from('subscriptions')
-    .update({ paid_months: newPaid })
-    .eq('id', sub.id);
-  if (error) throw error;
+  await updateDoc(userDoc('subscriptions', sub.id), { paidMonths: newPaid });
 }
 
 export async function toggleSubscriptionActive(
   id: string,
   active: boolean,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('subscriptions')
-    .update({ active })
-    .eq('id', id);
-  if (error) throw error;
+  await updateDoc(userDoc('subscriptions', id), { active });
 }

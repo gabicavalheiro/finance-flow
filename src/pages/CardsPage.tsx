@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Pencil, CalendarX2, CalendarCheck, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import AddCardDialog from '@/components/AddCardDialog';
@@ -8,11 +8,12 @@ import MonthSelector from '@/components/MonthSelector';
 import ShowMoreButton from '@/components/ShowMoreButton';
 import { useCollapse } from '@/hooks/useCollapse';
 import {
-  getCards, deleteCard, getExpenses, computeInstallmentsForMonth, getInvoicesForMonth, CardInvoice,
+  deleteCard, computeInstallmentsForMonth, getInvoicesForMonth, CardInvoice,
   setCardActive, getCardPendingInstallments, CardPendingSummary,
 } from '@/lib/store';
-import { getSubscriptions, subscriptionsAsInstallments, Subscription } from '@/lib/subscriptions';
-import { BRAND_GRADIENTS, CreditCard, Expense } from '@/lib/types';
+import { subscriptionsAsInstallments } from '@/lib/subscriptions';
+import { BRAND_GRADIENTS, CreditCard } from '@/lib/types';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
 import { formatCurrency, getCurrentMonth, getMonthLabel } from '@/lib/helpers';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -178,24 +179,16 @@ function CardItem({
 }
 
 export default function CardsPage() {
+  const { cards, expenses, subscriptions, loading, refresh } = useFinanceData();
   const [month, setMonth]                   = useState(getCurrentMonth());
-  const [cards, setCards]                   = useState<CreditCard[]>([]);
-  const [expenses, setExpenses]             = useState<Expense[]>([]);
-  const [subscriptions, setSubscriptions]   = useState<Subscription[]>([]);
   const [invoices, setInvoices]             = useState<CardInvoice[]>([]);
   const [editingCard, setEditingCard]       = useState<CreditCard | null>(null);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [blockConfirm, setBlockConfirm]     = useState<{ card: CreditCard; pending: CardPendingSummary } | null>(null);
-  const [loading, setLoading]               = useState(true);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    const [c, e, s] = await Promise.all([getCards(), getExpenses(), getSubscriptions()]);
-    setCards(c); setExpenses(e); setSubscriptions(s);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
+  // Mantém o nome usado no resto do arquivo — agora delega pro refresh do
+  // contexto global, que é a mesma fonte de dados usada pela tela Início.
+  const loadAll = refresh;
 
   // Faturas com valor real confirmado (tela Faturas) — sobrescreve o calculado
   useEffect(() => {
