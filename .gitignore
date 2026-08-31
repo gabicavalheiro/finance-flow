@@ -15,6 +15,19 @@ dist-ssr
 .env.*
 !.env.example
 
+# Credenciais da migração Supabase → Firebase (nunca comitar)
+serviceAccountKey.json
+*serviceAccount*.json
+finance-flow-dbc29-f92cb453e333.json
+# Nome padrão que o Google Cloud Console usa pra chave de conta de serviço
+# baixada (projeto-id + hash) — cobre qualquer chave baixada no futuro também.
+*-firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+finance-flow-dbc29-*.json
+*.backup
+*.backup.gz
+db_cluster*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

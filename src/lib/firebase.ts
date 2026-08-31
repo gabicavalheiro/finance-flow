@@ -26,3 +26,8 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db   = getFirestore(app);
+
+// Sem isso, o Firebase manda os e-mails de auth (redefinir senha, etc.)
+// em inglês por padrão. O app inteiro é em pt-BR, então força o idioma
+// dos e-mails/templates do Firebase Auth pra português.
+auth.languageCode = 'pt-BR';

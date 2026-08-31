@@ -3,7 +3,7 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ThemeProvider } from 'next-themes';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -92,6 +92,9 @@ function AppRoutes() {
               <Route path="/loans"         element={<LoansPage />} />
               <Route path="/investments"   element={<InvestmentsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              {/* /reset-password sem ?mode=resetPassword&oobCode=... (link já usado,
+                  página recarregada, etc.) — manda pra home em vez de dar 404. */}
+              <Route path="/reset-password" element={<Navigate to="/" replace />} />
               <Route path="*"              element={<NotFound />} />
             </Routes>
           </Suspense>
