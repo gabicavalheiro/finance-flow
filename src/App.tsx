@@ -13,6 +13,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AppNav from "@/components/AppNav";
 import QuickAddFAB from "@/components/QuickAddFAB";
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
 
@@ -30,6 +31,8 @@ const LoansPage         = lazy(() => import('./pages/LoansPage'));
 const InvestmentsPage   = lazy(() => import('./pages/InvestmentsPage'));
 const GoalsPage         = lazy(() => import('./pages/GoalsPage'));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
+const ExpenseClassifierPage = lazy(() => import('./pages/ExpenseClassifierPage'));
+const MlLabPage          = lazy(() => import('./pages/MlLabPage'));
 
 // ── Fallback mínimo enquanto chunk carrega ────────────────────────────────────
 function PageLoader() {
@@ -80,6 +83,7 @@ function AppRoutes() {
       <div className="flex min-h-screen bg-background">
         <AppNav />
         <main className="flex-1 min-w-0 md:pl-64">
+          <ErrorBoundary resetKey={location.pathname}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/"              element={<Index />} />
@@ -92,9 +96,12 @@ function AppRoutes() {
               <Route path="/loans"         element={<LoansPage />} />
               <Route path="/investments"   element={<InvestmentsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="/classifier"    element={<ExpenseClassifierPage />} />
+              <Route path="/ml-lab"        element={<MlLabPage />} />
               <Route path="*"              element={<NotFound />} />
             </Routes>
           </Suspense>
+          </ErrorBoundary>
         </main>
         {showFAB && <ConnectedFAB />}
       </div>
@@ -133,6 +140,7 @@ const App = () => {
         ) : !user ? (
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              <Route path="/ml-lab" element={<MlLabPage />} />
               <Route path="*" element={<AuthPage />} />
             </Routes>
           </Suspense>
