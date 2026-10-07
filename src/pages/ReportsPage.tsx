@@ -1,306 +1,34 @@
-// src/pages/ReportsPage.tsx — OTIMIZADO
+// src/pages/ReportsPage.tsx
 //
-// Mudança principal: usa useFinanceData() ao invés de fazer suas próprias
-// queries para cards, expenses, fixedExpenses e incomes.
-// Isso elimina 4 queries Supabase duplicadas toda vez que o usuário navega
-// para esta página (os dados já estão em cache no contexto).
+// Orquestra a tela de Relatórios: busca os dados, escolhe a aba e delega.
+// Cálculos puros: features/reports/calculations.ts · abas: features/reports/tabs/* ·
+// popup de categoria: features/reports/CategoryDrilldown.tsx · previsão com ML: features/forecast/*
 
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  BarChart3, TrendingDown, TrendingUp, Scale, ChevronDown, ChevronUp,
-  Sparkles, AlertTriangle, CheckCircle2, Clock, CreditCard as CreditCardIcon,
-  Activity, Flame, PartyPopper, Pencil, ListChecks, X as XIcon, PieChart,
-} from 'lucide-react';
-import MonthSelector from '@/components/MonthSelector';
-import { getCurrentMonth, formatCurrency, addMonths } from '@/lib/helpers';
-import {
-  computeInstallmentsForMonth,
-  getVariableForMonth, updateExpense, updateFixedExpense,
-} from '@/lib/store';
-import { VariableTransaction, Expense, FixedExpense, ExpenseCategory } from '@/lib/types';
-import { SUBSCRIPTION_CATEGORIES, monthlyAmount } from '@/lib/subscriptions';
-import { resolveCategoryInfo } from '@/lib/customCategories';
+import { AnimatePresence } from 'framer-motion';
+import { BarChart3, Sparkles, Activity, PieChart } from 'lucide-react';
+import { getCurrentMonth, addMonths } from '@/lib/helpers';
+import { computeInstallmentsForMonth, getVariableForMonth } from '@/lib/store';
+import { VariableTransaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import CategorySelect from '@/components/CategorySelect';
-import EditExpenseDialog from '@/components/EditExpenseDialog';
-import EditFixedExpenseDialog from '@/components/EditFixedExpenseDialog';
-import CategoryIcon from '@/components/CategoryIcon';
-import { toast } from 'sonner';
 import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip,
-  CartesianGrid, ReferenceLine, Cell,
-  AreaChart, Area, LineChart, Line,
-} from 'recharts';
+  buildBarDataHist, buildCategoryDetails, buildCategoryList, buildDailyFlow,
+  buildForecasts, buildInsights, buildPrevCategoryTotals,
+} from '@/features/reports/calculations';
+import CategoryDrilldown from '@/features/reports/CategoryDrilldown';
+import ForecastTab from '@/features/reports/tabs/ForecastTab';
+import HistoryTab from '@/features/reports/tabs/HistoryTab';
+import CategoriesTab from '@/features/reports/tabs/CategoriesTab';
+import FlowTab from '@/features/reports/tabs/FlowTab';
 
-// ─── Cores ────────────────────────────────────────────────────────────────────
-const C = {
-  redHot:   '#e05252',
-  redMid:   '#8f3d3d',
-  redDim:   '#4a2323',
-  greenHot: '#3fb87a',
-  greenMid: '#276647',
-  greenDim: '#1a3d2b',
-  purple:   '#8b5cf6',
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function monthLabel(m: string, short = true) {
-  const [y, mo] = m.split('-').map(Number);
-  return new Date(y, mo - 1).toLocaleDateString('pt-BR', {
-    month: short ? 'short' : 'long',
-    year:  short ? undefined : 'numeric',
-  });
-}
-function monthLabelFull(m: string) {
-  const [y, mo] = m.split('-').map(Number);
-  return new Date(y, mo - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-}
-function daysInMonth(ym: string): number {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-interface MonthForecast {
-  month: string; label: string;
-  cardExpenses: number; fixedExpenses: number;
-  totalExpense: number; totalIncome: number; balance: number;
-  isPast: boolean; isCurrent: boolean; isFuture: boolean;
-  cardBreakdown: { cardId: string; cardName: string; amount: number }[];
-  installmentDetail: {
-    name: string; amount: number;
-    installmentNumber: number; totalInstallments: number; cardName: string;
-  }[];
-}
-
-interface CategoryLineItem {
-  id: string;
-  name: string;
-  amount: number;
-  source: 'Cartão' | 'Fixo' | 'Assinatura';
-  detail?: string;
-  expense?: Expense;
-  fixedExpense?: FixedExpense;
-}
-
-interface Insight {
-  icon: 'flame' | 'party' | 'sparkle';
-  text: string;
-}
-
-// ─── Badge de saúde ───────────────────────────────────────────────────────────
-function HealthBadge({ balance, income }: { balance: number; income: number }) {
-  if (balance >= income * 0.3) return (
-    <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/30">
-      <CheckCircle2 size={10} /> Mês tranquilo
-    </span>
-  );
-  if (balance >= 0) return (
-    <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/30">
-      <Clock size={10} /> Mês apertado
-    </span>
-  );
-  return (
-    <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30">
-      <AlertTriangle size={10} /> Saldo negativo
-    </span>
-  );
-}
-
-// ─── Tooltip dos gráficos de barras ──────────────────────────────────────────
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-card border border-border rounded-2xl px-3 py-2.5 shadow-lg text-xs min-w-[140px]">
-      <p className="font-semibold mb-1.5 capitalize">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.dataKey} className="flex items-center justify-between gap-3 py-0.5">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color ?? p.fill }} />
-            {p.name}
-          </span>
-          <span className="font-medium">{formatCurrency(p.value)}</span>
-        </p>
-      ))}
-    </div>
-  );
-}
-
-// ─── Tooltip do gráfico de fluxo ─────────────────────────────────────────────
-function FlowTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  const entrada = payload.find((p: any) => p.dataKey === 'entradas');
-  const saida   = payload.find((p: any) => p.dataKey === 'saidas');
-  const saldo   = payload.find((p: any) => p.dataKey === 'saldo');
-  return (
-    <div className="bg-card border border-border rounded-2xl px-3 py-2.5 shadow-lg text-xs min-w-[160px]">
-      <p className="font-semibold mb-1.5">Dia {label}</p>
-      {entrada && (
-        <p className="flex items-center justify-between gap-3 py-0.5">
-          <span className="flex items-center gap-1.5 text-emerald-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-400" /> Entradas
-          </span>
-          <span className="font-medium text-emerald-400">+{formatCurrency(entrada.value)}</span>
-        </p>
-      )}
-      {saida && (
-        <p className="flex items-center justify-between gap-3 py-0.5">
-          <span className="flex items-center gap-1.5 text-red-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-red-400" /> Saídas
-          </span>
-          <span className="font-medium text-red-400">-{formatCurrency(saida.value)}</span>
-        </p>
-      )}
-      {saldo && (
-        <p className="flex items-center justify-between gap-3 py-0.5 border-t border-border mt-1 pt-1">
-          <span className="flex items-center gap-1.5 text-violet-400">
-            <span className="w-2 h-2 rounded-full shrink-0 bg-violet-400" /> Saldo acum.
-          </span>
-          <span className={cn('font-medium', saldo.value >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-            {saldo.value >= 0 ? '+' : ''}{formatCurrency(saldo.value)}
-          </span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── Card de previsão mensal ──────────────────────────────────────────────────
-function ForecastCard({ fc }: { fc: MonthForecast }) {
-  const [expanded, setExpanded] = useState(false);
-  const balanceColor = fc.balance >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 84% 60%)';
-  const stripColor   = fc.balance >= fc.totalIncome * 0.3
-    ? 'hsl(152 69% 45%)' : fc.balance >= 0
-    ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)';
-
-  return (
-    <div className={cn(
-      'bg-card rounded-2xl border border-border overflow-hidden',
-      fc.isCurrent && 'ring-1 ring-primary/30',
-    )}>
-      <div className="h-1 w-full" style={{ background: stripColor }} />
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <p className="font-semibold text-sm capitalize">{fc.label}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <HealthBadge balance={fc.balance} income={fc.totalIncome} />
-              {fc.isCurrent && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
-                  Mês atual
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs text-muted-foreground">Saldo</p>
-            <p className="text-base font-bold tabular-nums" style={{ color: balanceColor }}>
-              {fc.balance >= 0 ? '+' : ''}{formatCurrency(fc.balance)}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between bg-success/8 rounded-lg px-3 py-2">
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <TrendingUp size={10} className="text-success" /> Receitas
-            </span>
-            <span className="font-semibold text-success tabular-nums">{formatCurrency(fc.totalIncome)}</span>
-          </div>
-          <div className="flex items-center justify-between bg-destructive/8 rounded-lg px-3 py-2">
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <TrendingDown size={10} className="text-destructive" /> Gastos
-            </span>
-            <span className="font-semibold text-destructive tabular-nums">{formatCurrency(fc.totalExpense)}</span>
-          </div>
-        </div>
-
-        {fc.cardBreakdown.some(c => c.amount > 0) && (
-          <div className="mt-3 space-y-1.5">
-            {fc.cardBreakdown.filter(c => c.amount > 0).map(card => {
-              const pct = fc.totalExpense > 0 ? (card.amount / fc.totalExpense) * 100 : 0;
-              return (
-                <div key={card.cardId}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(263 70% 58%)' }} />
-                      <span className="font-medium">{card.cardName}</span>
-                    </div>
-                    <span className="font-semibold tabular-nums">{formatCurrency(card.amount)}</span>
-                  </div>
-                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: 'hsl(263 70% 58%)' }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {fc.installmentDetail.length > 0 && (
-          <>
-            <button
-              onClick={() => setExpanded(p => !p)}
-              className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              {expanded
-                ? 'Ocultar parcelas'
-                : `${fc.installmentDetail.length} parcela${fc.installmentDetail.length > 1 ? 's' : ''} neste mês`}
-            </button>
-            <AnimatePresence>
-              {expanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-3 space-y-2.5">
-                    {fc.installmentDetail.map((inst, i) => (
-                      <div key={i} className="flex items-start justify-between gap-3 text-xs">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{inst.name}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {inst.totalInstallments > 1
-                              ? `${inst.installmentNumber}/${inst.totalInstallments} · ${inst.cardName}`
-                              : `À vista · ${inst.cardName}`}
-                          </p>
-                        </div>
-                        <span className="font-semibold tabular-nums shrink-0">
-                          {formatCurrency(inst.amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Página ───────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const [tab,    setTab]    = useState<'previsao' | 'historico' | 'categorias' | 'fluxo'>('previsao');
   const [month,  setMonth]  = useState(getCurrentMonth());
   const [varTxs, setVarTxs] = useState<VariableTransaction[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // ── Dados do contexto global (sem query duplicada) ────────────────────────
+  // Dados do contexto global (sem query duplicada)
   const {
     cards, expenses,
     fixedExpenses: fixed,
@@ -310,283 +38,48 @@ export default function ReportsPage() {
     refresh,
   } = useFinanceData();
 
-  // Busca varTxs quando muda o mês (é dado por mês, não está no contexto)
+  // Transações variáveis são por mês (não estão no contexto)
   useEffect(() => {
     getVariableForMonth(month).then(setVarTxs);
   }, [month]);
 
-  // ── Cálculos ──────────────────────────────────────────────────────────────
+  // ── Dados derivados ───────────────────────────────────────────────────────
   const installments     = useMemo(() => computeInstallmentsForMonth(expenses, cards, month), [expenses, cards, month]);
   const totalFixedIncome = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
-  const cardMap          = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
-
-  // Detalhe por categoria — agrupa por LABEL resolvido (não pela key crua),
-  // porque categorias diferentes (ex: custom deletada e a categoria padrão
-  // "other") podem cair ambas em "Outros" e não devem aparecer como linhas
-  // duplicadas. Guarda também os lançamentos individuais, usados no popup.
-  const expenseMap = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
-
-  const categoryDetails = useMemo(() => {
-    const map = new Map<string, { label: string; color: string; sampleKey: string; items: CategoryLineItem[] }>();
-    const addItem = (key: string, item: CategoryLineItem) => {
-      const info = resolveCategoryInfo(key);
-      let entry = map.get(info.label);
-      if (!entry) { entry = { label: info.label, color: info.color, sampleKey: key, items: [] }; map.set(info.label, entry); }
-      entry.items.push(item);
-    };
-
-    installments.forEach(inst => addItem(inst.category, {
-      id:     `card-${inst.expenseId}-${inst.installmentNumber}`,
-      name:   inst.expenseName,
-      amount: inst.amount,
-      source: 'Cartão',
-      detail: inst.totalInstallments > 1
-        ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardMap.get(inst.cardId)?.name ?? 'Cartão'}`
-        : cardMap.get(inst.cardId)?.name ?? 'Cartão',
-      expense: expenseMap.get(inst.expenseId),
-    }));
-
-    fixed.forEach(fx => addItem(fx.category, {
-      id: `fixed-${fx.id}`, name: fx.name, amount: fx.amount, source: 'Fixo',
-      fixedExpense: fx,
-    }));
-
-    // Assinaturas (módulo Assinaturas — tabela separada de expenses/fixed).
-    // Sempre bucketadas em "Assinatura" (categoria padrão do app), já que a
-    // categoria interna da assinatura (streaming, música...) não é uma
-    // ExpenseCategory reconhecida pelo resto do app.
-    subscriptions.filter(s => s.active).forEach(sub => {
-      const subType  = SUBSCRIPTION_CATEGORIES.find(c => c.value === sub.category)?.label;
-      const cardName = sub.cardId ? cardMap.get(sub.cardId)?.name : undefined;
-      const detail = [
-        subType,
-        cardName ? `Cartão ${cardName}` : 'Sem cartão vinculado',
-        sub.billingCycle === 'annual' ? 'anual, valor rateado' : undefined,
-      ].filter(Boolean).join(' · ');
-      addItem('subscription', {
-        id: `sub-${sub.id}`,
-        name: sub.name,
-        amount: monthlyAmount(sub),
-        source: 'Assinatura',
-        detail,
-      });
-    });
-
-    return map;
-  }, [installments, fixed, cardMap, expenseMap, subscriptions]);
-
-  const categoryList = useMemo(() =>
-    Array.from(categoryDetails.entries())
-      .map(([label, d]) => ({ label, color: d.color, sampleKey: d.sampleKey, value: d.items.reduce((s, i) => s + i.amount, 0) }))
-      .sort((a, b) => b.value - a.value),
-  [categoryDetails]);
-
-  const totalHist = categoryList.reduce((s, c) => s + c.value, 0);
-
-  // Totais do mês anterior por categoria (só cartão + fixo, mesma base do
-  // categoryList acima) — usado para gerar os insights de comparação.
-  const prevMonth = useMemo(() => addMonths(month, -1), [month]);
-  const prevCategoryTotals = useMemo(() => {
-    const prevInst = computeInstallmentsForMonth(expenses, cards, prevMonth);
-    const totals = new Map<string, number>();
-    const add = (key: string, amount: number) => {
-      const label = resolveCategoryInfo(key).label;
-      totals.set(label, (totals.get(label) ?? 0) + amount);
-    };
-    prevInst.forEach(i => add(i.category, i.amount));
-    fixed.forEach(f => add(f.category, f.amount));
-    return totals;
-  }, [expenses, cards, prevMonth, fixed]);
-
-  // Mensagens motivacionais/casuais sobre os gastos do mês.
-  const insights = useMemo((): Insight[] => {
-    if (categoryList.length === 0 || totalHist === 0) return [];
-    const msgs: Insight[] = [];
-
-    const top = categoryList[0];
-    const topPct = Math.round((top.value / totalHist) * 100);
-    msgs.push(topPct >= 30
-      ? { icon: 'flame', text: `Boa, esse mês você se passou com ${top.label.toLowerCase()}: ${formatCurrency(top.value)} (${topPct}% do total).` }
-      : { icon: 'sparkle', text: `Seu maior gasto foi com ${top.label.toLowerCase()}: ${formatCurrency(top.value)}.` });
-
-    let biggestIncrease: { label: string; pct: number } | null = null;
-    let biggestDecrease: { label: string; pct: number } | null = null;
-    categoryList.forEach(cat => {
-      const prev = prevCategoryTotals.get(cat.label) ?? 0;
-      if (prev < 20) return; // base pequena/inexistente demais pra comparar
-      const pct = ((cat.value - prev) / prev) * 100;
-      if (pct >= 25 && (!biggestIncrease || pct > biggestIncrease.pct)) biggestIncrease = { label: cat.label, pct };
-      if (pct <= -25 && (!biggestDecrease || pct < biggestDecrease.pct)) biggestDecrease = { label: cat.label, pct };
-    });
-
-    if (biggestIncrease) msgs.push({
-      icon: 'flame',
-      text: `${biggestIncrease.label} subiu ${Math.round(biggestIncrease.pct)}% em relação ao mês passado.`,
-    });
-    if (biggestDecrease) msgs.push({
-      icon: 'party',
-      text: `Mandou bem! ${biggestDecrease.label} caiu ${Math.round(Math.abs(biggestDecrease.pct))}% em relação ao mês passado.`,
-    });
-
-    return msgs.slice(0, 3);
-  }, [categoryList, totalHist, prevCategoryTotals]);
-
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const selectedItems = selectedCategory
-    ? [...(categoryDetails.get(selectedCategory)?.items ?? [])].sort((a, b) => b.amount - a.amount)
-    : [];
-
-  // Seleção múltipla dentro do popup — permite reclassificar vários
-  // lançamentos de uma vez (ex: mover tudo que caiu errado em "Outros").
-  const [selectMode, setSelectMode]   = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkCategory, setBulkCategory] = useState<string>('');
-  const [bulkSaving, setBulkSaving]     = useState(false);
-
-  const closeCategoryPopup = () => {
-    setSelectedCategory(null);
-    setSelectMode(false);
-    setSelectedIds(new Set());
-    setBulkCategory('');
-  };
-
-  const toggleSelected = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const handleBulkApply = async () => {
-    if (!bulkCategory || selectedIds.size === 0) return;
-    const items = selectedItems.filter(i => selectedIds.has(i.id));
-    setBulkSaving(true);
-    try {
-      await Promise.all(items.map(item => {
-        if (item.expense) return updateExpense({ ...item.expense, category: bulkCategory as ExpenseCategory });
-        if (item.fixedExpense) return updateFixedExpense(item.fixedExpense.id, { category: bulkCategory as ExpenseCategory });
-        return Promise.resolve();
-      }));
-      toast.success(`${items.length} lançamento${items.length > 1 ? 's' : ''} atualizado${items.length > 1 ? 's' : ''}!`);
-      await refresh();
-      setSelectMode(false);
-      setSelectedIds(new Set());
-      setBulkCategory('');
-    } catch {
-      toast.error('Erro ao atualizar os lançamentos selecionados');
-    }
-    setBulkSaving(false);
-  };
-
-  // Edição de um lançamento a partir do popup — fecha o popup e abre o
-  // dialog de edição correspondente (gasto de cartão ou gasto fixo).
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [editingFixed, setEditingFixed]     = useState<FixedExpense | null>(null);
-
-  const handleEditItem = (item: CategoryLineItem) => {
-    closeCategoryPopup();
-    if (item.expense) setEditingExpense(item.expense);
-    else if (item.fixedExpense) setEditingFixed(item.fixedExpense);
-  };
-
-  const barDataHist = useMemo(() =>
-    Array.from({ length: 6 }, (_, i) => {
-      const m      = addMonths(month, -(5 - i));
-      const inst   = computeInstallmentsForMonth(expenses, cards, m);
-      const gastos = inst.reduce((s, x) => s + x.amount, 0) + fixed.reduce((s, f) => s + f.amount, 0);
-      return { name: monthLabel(m), gastos, receitas: totalFixedIncome };
-    }),
-  [month, expenses, cards, fixed, totalFixedIncome]);
-
-  // ── Fluxo diário ─────────────────────────────────────────────────────────
-  const dailyFlowData = useMemo(() => {
-    const days = daysInMonth(month);
-    const map: Record<number, { entrada: number; saida: number }> = {};
-    for (let d = 1; d <= days; d++) map[d] = { entrada: 0, saida: 0 };
-
-    for (const inc of incomes) {
-      const day = inc.receiveDay ?? 1;
-      if (day >= 1 && day <= days) map[day].entrada += inc.amount;
-    }
-    for (const card of cards) {
-      const amt = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-      if (amt === 0) continue;
-      const day = Math.min(card.dueDay, days);
-      map[day].saida += amt;
-    }
-    for (const f of fixed) map[1].saida += f.amount;
-    for (const tx of varTxs) {
-      const day = parseInt(tx.date.split('-')[2], 10);
-      if (day >= 1 && day <= days) {
-        if (tx.type === 'income')  map[day].entrada += tx.amount;
-        else                       map[day].saida   += tx.amount;
-      }
-    }
-
-    let cumEntrada = 0;
-    let cumSaida   = 0;
-    return Array.from({ length: days }, (_, i) => {
-      const d = i + 1;
-      cumEntrada += map[d].entrada;
-      cumSaida   += map[d].saida;
-      return {
-        dia:      d,
-        entradas: cumEntrada,
-        saidas:   cumSaida,
-        saldo:    cumEntrada - cumSaida,
-        dEntrada: map[d].entrada,
-        dSaida:   map[d].saida,
-      };
-    });
-  }, [month, incomes, cards, installments, fixed, varTxs]);
-
-  // ── Previsão ──────────────────────────────────────────────────────────────
   const totalFixedExpense = useMemo(() => fixed.reduce((s, f) => s + f.amount, 0), [fixed]);
-  const current           = getCurrentMonth();
+  const cardMap          = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
+  const expenseMap       = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
+  const current          = getCurrentMonth();
 
-  const forecasts = useMemo((): MonthForecast[] =>
-    Array.from({ length: 7 }, (_, i) => {
-      const m    = addMonths(current, i - 1);
-      const inst = computeInstallmentsForMonth(expenses, cards, m);
-      const cardBreakdown = cards.map(card => ({
-        cardId:   card.id,
-        cardName: card.name,
-        amount:   inst.filter(x => x.cardId === card.id).reduce((s, x) => s + x.amount, 0),
-      }));
-      const cardExpenses = inst.reduce((s, x) => s + x.amount, 0);
-      const totalExpense = cardExpenses + totalFixedExpense;
-      const totalIncome  = totalFixedIncome;
-      const balance      = totalIncome - totalExpense;
-      return {
-        month: m, label: monthLabelFull(m),
-        cardExpenses, fixedExpenses: totalFixedExpense,
-        totalExpense, totalIncome, balance,
-        isPast:    m < current,
-        isCurrent: m === current,
-        isFuture:  m > current,
-        cardBreakdown,
-        installmentDetail: inst.map(x => ({
-          name:              x.expenseName,
-          amount:            x.amount,
-          installmentNumber: x.installmentNumber,
-          totalInstallments: x.totalInstallments,
-          cardName:          cardMap.get(x.cardId)?.name ?? 'Cartão',
-        })),
-      };
-    }),
-  [expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current]);
+  const categoryDetails = useMemo(
+    () => buildCategoryDetails({ installments, fixed, subscriptions, cardMap, expenseMap }),
+    [installments, fixed, cardMap, expenseMap, subscriptions],
+  );
+  const categoryList = useMemo(() => buildCategoryList(categoryDetails), [categoryDetails]);
+  const totalHist    = categoryList.reduce((s, c) => s + c.value, 0);
 
-  const futureForecasts = forecasts.filter(f => f.isFuture);
-  const lightestMonth   = futureForecasts.reduce<MonthForecast | null>(
-    (best, fc) => !best || fc.balance > best.balance ? fc : best, null);
-  const heaviestMonth   = futureForecasts.reduce<MonthForecast | null>(
-    (worst, fc) => !worst || fc.totalExpense > worst.totalExpense ? fc : worst, null);
+  const prevMonth = useMemo(() => addMonths(month, -1), [month]);
+  const prevCategoryTotals = useMemo(
+    () => buildPrevCategoryTotals({ expenses, cards, fixed, prevMonth }),
+    [expenses, cards, prevMonth, fixed],
+  );
+  const insights = useMemo(
+    () => buildInsights({ categoryList, totalHist, prevCategoryTotals }),
+    [categoryList, totalHist, prevCategoryTotals],
+  );
 
-  const barDataForecast = forecasts.map(fc => ({
-    name: monthLabel(fc.month), gastos: fc.totalExpense, receitas: fc.totalIncome,
-    isPast: fc.isPast, isCurrent: fc.isCurrent, isFuture: fc.isFuture,
-  }));
+  const barDataHist = useMemo(
+    () => buildBarDataHist({ month, expenses, cards, fixed, totalFixedIncome }),
+    [month, expenses, cards, fixed, totalFixedIncome],
+  );
+  const dailyFlowData = useMemo(
+    () => buildDailyFlow({ month, incomes, cards, installments, fixed, varTxs }),
+    [month, incomes, cards, installments, fixed, varTxs],
+  );
+  const forecasts = useMemo(
+    () => buildForecasts({ expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current }),
+    [expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current],
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -633,456 +126,45 @@ export default function ReportsPage() {
       ) : (
         <AnimatePresence mode="wait">
 
-          {/* ── PREVISÃO ── */}
           {tab === 'previsao' && (
-            <motion.div
+            <ForecastTab
               key="previsao"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="px-4 md:px-8 space-y-4"
-            >
-              {futureForecasts.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  {lightestMonth && (
-                    <div className="bg-success/8 border border-success/25 rounded-2xl p-4">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <CheckCircle2 size={13} className="text-success" />
-                        <p className="text-[10px] font-semibold text-success uppercase tracking-wide">Mês mais leve</p>
-                      </div>
-                      <p className="text-sm font-bold capitalize">{monthLabel(lightestMonth.month, false)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Sobra <strong className="text-success">{formatCurrency(lightestMonth.balance)}</strong>
-                      </p>
-                    </div>
-                  )}
-                  {heaviestMonth && (
-                    <div className="bg-destructive/8 border border-destructive/25 rounded-2xl p-4">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <AlertTriangle size={13} className="text-destructive" />
-                        <p className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Mês mais pesado</p>
-                      </div>
-                      <p className="text-sm font-bold capitalize">{monthLabel(heaviestMonth.month, false)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        <strong className="text-destructive">{formatCurrency(heaviestMonth.totalExpense)}</strong> em gastos
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Visão geral — passado e futuro
-                </p>
-                <p className="text-[10px] text-muted-foreground mb-3">
-                  Cores mais escuras = passado · mais vivas = futuro/atual
-                </p>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barDataForecast} barGap={3} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={60} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.15)' }} />
-                      <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                      <Bar dataKey="gastos" name="Gastos" radius={[4, 4, 0, 0]} maxBarSize={28}>
-                        {barDataForecast.map((e, idx) => (
-                          <Cell key={idx} fill={e.isCurrent ? C.redHot : e.isFuture ? C.redMid : C.redDim} />
-                        ))}
-                      </Bar>
-                      <Bar dataKey="receitas" name="Receitas" radius={[4, 4, 0, 0]} maxBarSize={28}>
-                        {barDataForecast.map((e, idx) => (
-                          <Cell key={idx} fill={e.isCurrent ? C.greenHot : e.isFuture ? C.greenMid : C.greenDim} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex items-center justify-center gap-5 mt-2">
-                  {[
-                    { color: C.redHot,   label: 'Gastos (atual)'   },
-                    { color: C.greenHot, label: 'Receitas (atual)' },
-                    { color: C.redDim,   label: 'Passado'          },
-                  ].map(({ color, label }) => (
-                    <div key={label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: color }} />
-                      {label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
-                <Sparkles size={13} className="text-primary mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  A previsão usa suas <strong className="text-foreground">parcelas cadastradas</strong> e{' '}
-                  <strong className="text-foreground">ganhos/gastos fixos</strong>. Gastos variáveis futuros não são incluídos.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {forecasts.map((fc, i) => (
-                  <motion.div key={fc.month} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                    <ForecastCard fc={fc} />
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+              forecasts={forecasts} expenses={expenses} cards={cards} current={current}
+              totalFixedIncome={totalFixedIncome} totalFixedExpense={totalFixedExpense}
+            />
           )}
 
-          {/* ── HISTÓRICO ── */}
           {tab === 'historico' && (
-            <motion.div
+            <HistoryTab
               key="historico"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="px-4 md:px-8 space-y-4"
-            >
-              <MonthSelector month={month} onChange={setMonth} />
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-card rounded-2xl p-4 border border-border">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <TrendingUp size={10} className="text-success" /> Receitas
-                  </p>
-                  <p className="text-lg font-bold text-success tabular-nums">{formatCurrency(totalFixedIncome)}</p>
-                </div>
-                <div className="bg-card rounded-2xl p-4 border border-border">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <TrendingDown size={10} className="text-destructive" /> Gastos
-                  </p>
-                  <p className="text-lg font-bold text-destructive tabular-nums">{formatCurrency(totalHist)}</p>
-                </div>
-                <div className="bg-card rounded-2xl p-4 border border-border">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <Scale size={10} /> Saldo
-                  </p>
-                  <p className="text-lg font-bold tabular-nums" style={{ color: (totalFixedIncome - totalHist) >= 0 ? 'hsl(152 69% 45%)' : 'hsl(0 84% 60%)' }}>
-                    {formatCurrency(totalFixedIncome - totalHist)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Últimos 6 meses</p>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barDataHist} barGap={3} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={60} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.15)' }} />
-                      <Bar dataKey="receitas" name="Receitas" fill={C.greenHot} radius={[4, 4, 0, 0]} maxBarSize={28} />
-                      <Bar dataKey="gastos"   name="Gastos"   fill={C.redHot}   radius={[4, 4, 0, 0]} maxBarSize={28} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-            </motion.div>
+              month={month} setMonth={setMonth} barDataHist={barDataHist}
+              totalFixedIncome={totalFixedIncome} totalHist={totalHist}
+            />
           )}
 
-          {/* ── CATEGORIAS ── */}
           {tab === 'categorias' && (
-            <motion.div
+            <CategoriesTab
               key="categorias"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="px-4 md:px-8 space-y-4"
-            >
-              <MonthSelector month={month} onChange={setMonth} />
-
-              <div className="bg-card rounded-2xl p-4 border border-border">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                  <TrendingDown size={10} className="text-destructive" /> Total gasto — {monthLabel(month, false)}
-                </p>
-                <p className="text-lg font-bold text-destructive tabular-nums">{formatCurrency(totalHist)}</p>
-              </div>
-
-              {insights.length > 0 && (
-                <div className="bg-card rounded-2xl border border-border p-4 space-y-2.5">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                    Resumo do mês
-                  </p>
-                  {insights.map((ins, i) => {
-                    const style = ins.icon === 'flame'
-                      ? { Icon: Flame,       cls: 'text-warning bg-warning/12 border-warning/25' }
-                      : ins.icon === 'party'
-                      ? { Icon: PartyPopper, cls: 'text-success bg-success/12 border-success/25' }
-                      : { Icon: Sparkles,    cls: 'text-primary bg-primary/12 border-primary/25' };
-                    return (
-                      <div key={i} className={cn('flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed', style.cls)}>
-                        <style.Icon size={14} className="mt-0.5 shrink-0" />
-                        <span className="text-foreground/90">{ins.text}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Gastos por categoria — {monthLabel(month, false)}
-                </p>
-                <p className="text-[10px] text-muted-foreground mb-4">Toque numa categoria pra ver os lançamentos</p>
-                {categoryList.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">Sem gastos neste mês</p>
-                ) : (
-                  <div className="space-y-3">
-                    {categoryList.map(cat => (
-                      <button
-                        key={cat.label}
-                        onClick={() => { setSelectedCategory(cat.label); setSelectMode(false); setSelectedIds(new Set()); setBulkCategory(''); }}
-                        className="w-full text-left group"
-                      >
-                        <div className="flex justify-between items-center text-xs mb-1.5">
-                          <span className="flex items-center gap-2 min-w-0">
-                            <CategoryIcon category={cat.sampleKey} size={14} />
-                            <span className="font-medium group-hover:text-primary transition-colors truncate">{cat.label}</span>
-                          </span>
-                          <span className="font-semibold tabular-nums shrink-0 ml-2">
-                            {formatCurrency(cat.value)}
-                            <span className="text-muted-foreground font-normal ml-1">
-                              ({totalHist > 0 ? Math.round((cat.value / totalHist) * 100) : 0}%)
-                            </span>
-                          </span>
-                        </div>
-                        <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                          <motion.div
-                            className="h-full rounded-full"
-                            style={{ background: `hsl(${cat.color})` }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${totalHist > 0 ? (cat.value / totalHist) * 100 : 0}%` }}
-                            transition={{ duration: 0.5, ease: 'easeOut' }}
-                          />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
+              month={month} setMonth={setMonth} categoryList={categoryList}
+              insights={insights} totalHist={totalHist} onOpenCategory={setSelectedCategory}
+            />
           )}
 
-          {/* ── FLUXO ── */}
           {tab === 'fluxo' && (
-            <motion.div
-              key="fluxo"
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="px-4 md:px-8 space-y-4"
-            >
-              <MonthSelector month={month} onChange={setMonth} />
-
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Entradas', value: dailyFlowData[dailyFlowData.length - 1]?.entradas ?? 0, color: 'text-emerald-400' },
-                  { label: 'Saídas',   value: dailyFlowData[dailyFlowData.length - 1]?.saidas   ?? 0, color: 'text-destructive' },
-                  { label: 'Saldo',    value: dailyFlowData[dailyFlowData.length - 1]?.saldo    ?? 0, color: (dailyFlowData[dailyFlowData.length - 1]?.saldo ?? 0) >= 0 ? 'text-emerald-400' : 'text-destructive' },
-                ].map(item => (
-                  <div key={item.label} className="bg-card rounded-2xl p-4 border border-border">
-                    <p className="text-[10px] text-muted-foreground mb-1">{item.label}</p>
-                    <p className={cn('text-base font-bold tabular-nums', item.color)}>
-                      {item.label === 'Saldo' && item.value >= 0 ? '+' : ''}{formatCurrency(item.value)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Entradas vs Saídas acumuladas */}
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Entradas vs Saídas acumuladas
-                </p>
-                <p className="text-[10px] text-muted-foreground mb-4">
-                  Valores acumulados dia a dia em {monthLabel(month, false)}
-                </p>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyFlowData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="gradEntradas" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={C.greenHot} stopOpacity={0.3} />
-                          <stop offset="95%" stopColor={C.greenHot} stopOpacity={0.02} />
-                        </linearGradient>
-                        <linearGradient id="gradSaidas" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={C.redHot} stopOpacity={0.3} />
-                          <stop offset="95%" stopColor={C.redHot} stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis
-                        dataKey="dia"
-                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={false} tickLine={false}
-                        tickFormatter={v => v % 5 === 0 || v === 1 ? String(v) : ''}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={false} tickLine={false} width={62}
-                        tickFormatter={v => `R$${(v / 1000).toFixed(1)}k`}
-                      />
-                      <Tooltip content={<FlowTooltip />} />
-                      <Area type="monotone" dataKey="entradas" name="Entradas" stroke={C.greenHot} strokeWidth={2} fill="url(#gradEntradas)" dot={false} />
-                      <Area type="monotone" dataKey="saidas"   name="Saídas"   stroke={C.redHot}   strokeWidth={2} fill="url(#gradSaidas)"   dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Saldo acumulado */}
-              <div className="bg-card rounded-2xl border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Saldo acumulado do mês
-                </p>
-                <p className="text-[10px] text-muted-foreground mb-4">
-                  Entradas − saídas a cada dia de {monthLabel(month, false)}
-                </p>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dailyFlowData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis
-                        dataKey="dia"
-                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={false} tickLine={false}
-                        tickFormatter={v => v % 5 === 0 || v === 1 ? String(v) : ''}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                        axisLine={false} tickLine={false} width={62}
-                        tickFormatter={v => `R$${(v / 1000).toFixed(1)}k`}
-                      />
-                      <Tooltip content={<FlowTooltip />} />
-                      <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 2" />
-                      <Line
-                        type="monotone" dataKey="saldo" name="Saldo"
-                        stroke={C.purple} strokeWidth={2.5}
-                        dot={false} activeDot={{ r: 4, fill: C.purple }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex items-center justify-center mt-3">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span className="w-6 h-0.5 rounded-full inline-block" style={{ background: C.purple }} />
-                    Saldo acumulado
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
-                <Activity size={13} className="text-primary mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <strong className="text-foreground">Entradas:</strong> ganhos fixos (pelo dia de recebimento) + lançamentos variáveis.{' '}
-                  <strong className="text-foreground">Saídas:</strong> faturas de cartão (pelo dia de vencimento) + gastos fixos (dia 1) + lançamentos variáveis.
-                </p>
-              </div>
-            </motion.div>
+            <FlowTab key="fluxo" month={month} setMonth={setMonth} dailyFlowData={dailyFlowData} />
           )}
 
         </AnimatePresence>
       )}
 
-      {/* ── Popup de lançamentos da categoria ── */}
-      <Dialog open={!!selectedCategory} onOpenChange={(open) => !open && closeCategoryPopup()}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-3 pr-6">
-              <DialogTitle>{selectedCategory}</DialogTitle>
-              {selectedItems.length > 1 && (
-                <button
-                  onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()); }}
-                  className={cn(
-                    'flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg transition-colors shrink-0',
-                    selectMode ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
-                  )}
-                >
-                  {selectMode ? <XIcon size={12} /> : <ListChecks size={12} />}
-                  {selectMode ? 'Cancelar' : 'Selecionar'}
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {monthLabel(month, false)} · {formatCurrency(selectedItems.reduce((s, i) => s + i.amount, 0))}
-            </p>
-          </DialogHeader>
-
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto -mx-1 px-1">
-            {selectedItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Nenhum lançamento encontrado</p>
-            ) : (
-              selectedItems.map(item => {
-                const editable = !!(item.expense || item.fixedExpense);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => selectMode && editable && toggleSelected(item.id)}
-                    className={cn(
-                      'flex items-center gap-2 bg-muted/40 rounded-xl px-3 py-2.5',
-                      selectMode && editable && 'cursor-pointer hover:bg-muted/70',
-                    )}
-                  >
-                    {selectMode && (
-                      <Checkbox
-                        checked={selectedIds.has(item.id)}
-                        disabled={!editable}
-                        onCheckedChange={() => editable && toggleSelected(item.id)}
-                        onClick={e => e.stopPropagation()}
-                        className="shrink-0"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {item.source}{item.detail ? ` · ${item.detail}` : ''}
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold tabular-nums shrink-0">{formatCurrency(item.amount)}</span>
-                    {!selectMode && editable && (
-                      <button
-                        onClick={() => handleEditItem(item)}
-                        className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                        aria-label="Editar lançamento"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {selectMode && selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 pt-1 border-t border-border -mx-6 px-6 mt-1">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
-              </span>
-              <div className="flex-1 min-w-0">
-                <CategorySelect type="expense" value={bulkCategory} onChange={setBulkCategory} />
-              </div>
-              <Button size="sm" disabled={!bulkCategory || bulkSaving} onClick={handleBulkApply} className="shrink-0">
-                {bulkSaving ? 'Aplicando...' : 'Aplicar'}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {editingExpense && (
-        <EditExpenseDialog
-          expense={editingExpense}
-          cards={cards}
-          open={!!editingExpense}
-          onClose={() => setEditingExpense(null)}
-          onSaved={refresh}
-        />
-      )}
-      {editingFixed && (
-        <EditFixedExpenseDialog
-          expense={editingFixed}
-          open={!!editingFixed}
-          onClose={() => setEditingFixed(null)}
-          onSaved={refresh}
-        />
-      )}
+      <CategoryDrilldown
+        category={selectedCategory}
+        details={categoryDetails}
+        month={month}
+        cards={cards}
+        onClose={() => setSelectedCategory(null)}
+        onChanged={refresh}
+      />
     </div>
   );
 }
