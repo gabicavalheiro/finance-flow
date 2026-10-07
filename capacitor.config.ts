@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     // cleartext: true,
   },
   plugins: {
-    // Deep link para o Supabase Auth callback
+    // Deep link para o callback do Firebase Auth
     App: {
       urlScheme: 'financeflow',
     },

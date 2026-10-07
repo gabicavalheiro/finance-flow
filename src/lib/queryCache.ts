@@ -1,5 +1,5 @@
 /**
- * queryCache.ts — Cache em memória com TTL para queries Supabase
+ * queryCache.ts — Cache em memória com TTL para queries ao Firestore
  *
  * Uso:
  *   const data = await queryCache.get('cards', () => fetchCards(), 60_000);

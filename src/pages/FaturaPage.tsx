@@ -253,7 +253,7 @@ export default function FaturaPage() {
     if (cards.length === 0) return;
     setHistoryLoading(true);
 
-    // Uma única chamada ao Supabase para todos os 12 meses
+    // Uma única chamada ao Firestore para todos os 12 meses
     const invoicesByMonth = await getInvoicesForMonthRange(historyMonths);
 
     const rows: HistoryRow[] = historyMonths.map(m => {

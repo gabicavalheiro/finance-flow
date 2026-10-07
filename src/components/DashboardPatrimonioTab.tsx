@@ -155,10 +155,11 @@ export default function DashboardPatrimonioTab() {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
         <Scale size={32} strokeWidth={1.2} />
-        <p className="text-sm text-center">Nenhum módulo de patrimônio ativo.</p>
-        <Button variant="outline" size="sm" onClick={() => navigate('/modules')}>
-          Gerenciar módulos
-        </Button>
+        <p className="text-sm text-center">Cadastre empréstimos ou investimentos para ver seu patrimônio.</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/loans')}>Empréstimos</Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/investments')}>Investimentos</Button>
+        </div>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-// Laboratório do classificador: digite a descrição de um gasto e veja a categoria prevista,
+// Simulador do classificador: digite a descrição de um gasto e veja a categoria prevista,
 // a confiança e as probabilidades de todas as classes. Treina no navegador, sem login.
 
 import { useEffect, useMemo, useState } from 'react';

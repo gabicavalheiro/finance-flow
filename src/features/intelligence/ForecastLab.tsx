@@ -1,4 +1,4 @@
-// Laboratório de previsão: o usuário escolhe um padrão de gasto, o motor de ML prevê
+// Simulador de previsão: o usuário escolhe um padrão de gasto, o motor de ML prevê
 // os últimos meses SEM vê-los, e a tela compara previsão x realidade.
 
 import { useMemo, useState } from 'react';
@@ -121,7 +121,7 @@ export default function ForecastLab() {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={lab.rows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.ceil(lab.rows.length / 8) - 1)} minTickGap={16} />
                 <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={50}
                   tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`} />
                 <Tooltip formatter={(v: unknown) => (Array.isArray(v) ? `${formatCurrency(v[0])} – ${formatCurrency(v[1])}` : formatCurrency(Number(v)))}

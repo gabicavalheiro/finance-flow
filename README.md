@@ -14,7 +14,7 @@
 
 ## Visão Geral
 
-O **FinanceFlow** é um app web de controle financeiro pessoal (instalável via manifest e empacotável como app Android com Capacitor). Oferece um dashboard com a visão completa do mês, cartões de crédito, gastos fixos, receitas, transações variáveis e módulos opcionais (assinaturas, metas, empréstimos e investimentos).
+O **FinanceFlow** é um app web de controle financeiro pessoal (instalável via manifest e empacotável como app Android com Capacitor). Oferece um dashboard com a visão completa do mês, cartões de crédito, gastos fixos, receitas, transações variáveis e assinaturas, metas, empréstimos e investimentos.
 
 ---
 
@@ -37,8 +37,8 @@ O **FinanceFlow** é um app web de controle financeiro pessoal (instalável via 
 - **Previsão** dos próximos 6 meses com ML (ver abaixo)
 - Histórico, fluxo de caixa diário, categorias com detalhamento por lançamento e insights automáticos
 
-### Módulos adicionais (ativáveis)
-| Módulo | Descrição |
+### Mais recursos (todos no menu principal)
+| Recurso | Descrição |
 |---|---|
 | 🔁 **Assinaturas** | Cobranças recorrentes, vinculáveis a cartão; entram nos gastos do mês |
 | 🎯 **Metas** | Objetivos com prazo, aporte e análise de viabilidade |
@@ -64,7 +64,7 @@ Prevê o **gasto variável** dos próximos 6 meses, com faixa de 80% de confian�
 - **Incerteza:** intervalo de 80% calculado a partir do erro de backtest e alargado com o horizonte (heurística: `σ·√(1 + 0,25·h)`). A cobertura real da faixa nos testes é exibida.
 - **Camadas:** o navegador calcula sempre um modelo local (instantâneo/offline). Se `VITE_ML_API_URL` estiver configurada e a API responder (`POST /forecast`), o resultado completo dela substitui o local; se falhar, o local continua valendo.
 
-**Demonstração:** `/ml-lab` roda os dois modelos sem login. Na previsão, o app gera uma série sintética, **esconde os últimos meses do modelo** e compara previsão x realidade (erro do modelo vs. “repetir o último mês”, cobertura da faixa de 80%), com controles de padrão de gasto, histórico e ruído.
+**Demonstração:** `/inteligencia` roda os dois modelos sem login. Na previsão, o app gera uma série sintética, **esconde os últimos meses do modelo** e compara previsão x realidade (erro do modelo vs. “repetir o último mês”, cobertura da faixa de 80%), com controles de padrão de gasto, histórico e ruído.
 
 **Limitações assumidas:** séries de finanças pessoais são curtas (poucos meses), então sazonalidade anual não é aprendida; com menos de 5 meses completos a previsão é marcada como *não confiável*; o total é previsto direto da soma das categorias, mas os intervalos por categoria assumem independência.
 
@@ -75,7 +75,7 @@ src/lib/ml/forecast.ts          # motor local (funções puras)
 src/lib/ml/spendingSeries.ts    # histórico do app → séries mensais
 src/lib/ml/forecastApi.ts       # cliente da API com fallback
 src/features/forecast/          # hook + painel (gráfico, métricas, tabelas)
-src/features/mllab/             # demonstração pública (/ml-lab): dados sintéticos + avaliação
+src/features/intelligence/      # página pública (/inteligencia): simulador com dados sintéticos
 src/lib/ml/classifier.ts        # classificador de gastos (TF-IDF + regressão logística)
 ml-api/app/forecast.py          # motor completo (Ridge global, ensemble)
 ```
@@ -150,9 +150,8 @@ ml-api/app/forecast.py          # motor completo (Ridge global, ensemble)
 | `/faturas` | Faturas mensais |
 | `/reports` | Relatórios e previsão (ML) |
 | `/classifier` | Classificador de gastos (ML) |
-| `/ml-lab` | **Laboratório de ML público** (sem login): previsão com dados sintéticos e classificador ao vivo |
-| `/subscriptions` · `/goals` · `/loans` · `/investments` | Módulos adicionais |
-| `/modules` | Ativar/desativar módulos |
+| `/inteligencia` | **Inteligência financeira** (pública, sem login): simulador de previsão e classificador ao vivo |
+| `/subscriptions` · `/goals` · `/loans` · `/investments` | Assinaturas, metas, empréstimos e investimentos |
 
 ---
 
@@ -215,7 +214,7 @@ Em produção, defina `FIREBASE_PROJECT_ID` (a API valida o ID token do Firebase
 
 Todos os dados ficam em subcoleções de `users/{uid}/...`, e as regras (`firestore.rules`) permitem que cada usuário leia e escreva **somente** o próprio documento-raiz:
 
-`cards` · `expenses` · `fixedExpenses` · `fixedIncomes` · `variableTransactions` · `cardInvoices` · `subscriptions` · `loans` · `investments` · `goals` · `budgets` · `customCategories` · `moduleSettings`
+`cards` · `expenses` · `fixedExpenses` · `fixedIncomes` · `variableTransactions` · `cardInvoices` · `subscriptions` · `loans` · `investments` · `goals` · `budgets` · `customCategories`
 
 ---
 
@@ -230,7 +229,6 @@ Todos os dados ficam em subcoleções de `users/{uid}/...`, e as regras (`firest
 
 - **Code splitting** por página (`React.lazy` + `Suspense`)
 - **Cache em memória** com TTL e invalidação seletiva por chave (`queryCache.ts`)
-- **Cache de módulos ativos** com invalidação ao ativar/desativar
 - **Estados de tela** padronizados (carregando, vazio, erro com "tentar de novo") e `ErrorBoundary` por rota
 
 ---

@@ -26,13 +26,12 @@ const FaturaPage        = lazy(() => import('./pages/FaturaPage'));
 const AuthPage          = lazy(() => import('./pages/AuthPage'));
 const PasswordResetPage = lazy(() => import('./pages/PasswordResetPage'));
 const NotFound          = lazy(() => import('./pages/NotFound'));
-const ModulesPage       = lazy(() => import('./pages/ModulesPage'));
 const LoansPage         = lazy(() => import('./pages/LoansPage'));
 const InvestmentsPage   = lazy(() => import('./pages/InvestmentsPage'));
 const GoalsPage         = lazy(() => import('./pages/GoalsPage'));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
 const ExpenseClassifierPage = lazy(() => import('./pages/ExpenseClassifierPage'));
-const MlLabPage          = lazy(() => import('./pages/MlLabPage'));
+const IntelligencePage    = lazy(() => import('./pages/IntelligencePage'));
 
 // ── Fallback mínimo enquanto chunk carrega ────────────────────────────────────
 function PageLoader() {
@@ -66,7 +65,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 );
 
 // Páginas onde o FAB não aparece
-const FAB_HIDDEN_PATHS = ['/modules', '/subscriptions'];
+const FAB_HIDDEN_PATHS = ['/subscriptions', '/inteligencia'];
 
 function ConnectedFAB() {
   const { refresh } = useFinanceData();
@@ -91,13 +90,12 @@ function AppRoutes() {
               <Route path="/fixed"         element={<FixedPage />} />
               <Route path="/faturas"       element={<FaturaPage />} />
               <Route path="/reports"       element={<ReportsPage />} />
-              <Route path="/modules"       element={<ModulesPage />} />
               <Route path="/goals"         element={<GoalsPage />} />
               <Route path="/loans"         element={<LoansPage />} />
               <Route path="/investments"   element={<InvestmentsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/classifier"    element={<ExpenseClassifierPage />} />
-              <Route path="/ml-lab"        element={<MlLabPage />} />
+              <Route path="/inteligencia"  element={<IntelligencePage />} />
               <Route path="*"              element={<NotFound />} />
             </Routes>
           </Suspense>
@@ -140,7 +138,7 @@ const App = () => {
         ) : !user ? (
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/ml-lab" element={<MlLabPage />} />
+              <Route path="/inteligencia" element={<IntelligencePage />} />
               <Route path="*" element={<AuthPage />} />
             </Routes>
           </Suspense>

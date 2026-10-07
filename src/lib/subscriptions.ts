@@ -82,7 +82,7 @@ function userCol(name: string) {
 function userDoc(name: string, id: string) {
   return doc(db, 'users', uid(), name, id);
 }
-function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+function stripUndefined<T extends object>(obj: T): T {
   const clean = { ...obj };
   (Object.keys(clean) as Array<keyof T>).forEach((k) => { if (clean[k] === undefined) delete clean[k]; });
   return clean;

@@ -277,7 +277,7 @@ export default function AuthPage() {
           )}
         </p>
         <p className="text-center text-xs text-muted-foreground mt-2">
-          <a href="/ml-lab" className="text-primary hover:underline font-medium">Ver demonstração dos modelos de ML</a>
+          <a href="/inteligencia" className="text-primary hover:underline font-medium">Ver como funciona a inteligência do app</a>
         </p>
       </motion.div>
     </div>

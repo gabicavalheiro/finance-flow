@@ -1,19 +1,19 @@
-// Demonstração pública (sem login) dos modelos de ML do FinanceFlow.
+// Inteligência do FinanceFlow: como o app prevê e classifica os gastos (página pública, sem login).
 
 import { lazy, Suspense, useState } from 'react';
 import { ArrowLeft, Brain, Github } from 'lucide-react';
 import { LoadingState } from '@/components/states/StateViews';
 import { cn } from '@/lib/utils';
 
-const ForecastLab   = lazy(() => import('@/features/mllab/ForecastLab'));
-const ClassifierLab = lazy(() => import('@/features/mllab/ClassifierLab'));
+const ForecastLab   = lazy(() => import('@/features/intelligence/ForecastLab'));
+const ClassifierLab = lazy(() => import('@/features/intelligence/ClassifierLab'));
 
 const TABS = [
   { id: 'forecast', label: 'Previsão de gastos' },
   { id: 'classifier', label: 'Classificador de gastos' },
 ] as const;
 
-export default function MlLabPage() {
+export default function IntelligencePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('forecast');
 
   return (
@@ -25,14 +25,14 @@ export default function MlLabPage() {
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10"><Brain size={18} className="text-primary" aria-hidden /></div>
           <div>
-            <h1 className="text-xl font-bold">Laboratório de ML</h1>
-            <p className="text-xs text-muted-foreground">Os modelos do FinanceFlow rodando ao vivo, com dados sintéticos e avaliação honesta.</p>
+            <h1 className="text-xl font-bold">Inteligência financeira</h1>
+            <p className="text-xs text-muted-foreground">Como o FinanceFlow prevê e classifica seus gastos, rodando ao vivo.</p>
           </div>
         </div>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
           Em finanças pessoais as séries são curtas (poucos meses por categoria), então modelos simples e bem validados vencem os complexos.
           Aqui o motor testa vários candidatos, escolhe por backtest e <strong className="text-foreground">sempre compara com “repetir o último mês”</strong>.
-          Mexa nos parâmetros e veja quando o modelo ajuda, e quando não.
+          Simule diferentes padrões de gasto e veja quando o modelo ajuda e quando não.
         </p>
       </header>
 

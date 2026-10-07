@@ -1,7 +1,7 @@
 // src/components/AppNav.tsx
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch,
-  LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain,
+  LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain, Tags,
   MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -17,9 +17,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AVAILABLE_MODULES } from '@/lib/modules';
-import { useFinanceData } from '@/contexts/FinanceDataContext';
 
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain, Tags };
 
 const MAIN_TABS = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },
@@ -44,7 +43,6 @@ export default function AppNav() {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('nav-collapsed') === '1'; } catch { return false; }
   });
-  const { activeModuleIds } = useFinanceData();
 
   useEffect(() => {
     setMounted(true);
@@ -68,10 +66,9 @@ export default function AppNav() {
   const toggleCollapse = useCallback(() => setCollapsed(v => !v), []);
 
   const moduleTabs = AVAILABLE_MODULES
-    .filter(m => activeModuleIds.includes(m.id))
     .map(m => ({ path: m.path, label: m.label, icon: MODULE_ICONS[m.icon] ?? Sparkles }));
 
-  const moreTabs   = [...moduleTabs, { path: '/modules', label: 'Módulos', icon: Sparkles }];
+  const moreTabs   = moduleTabs;
   const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
   const isDark       = mounted ? theme === 'dark' : true;
   const moreIsActive = moreTabs.some(t => location.pathname === t.path);
@@ -217,20 +214,7 @@ export default function AppNav() {
           )}
           {MAIN_TABS.map((tab, i) => <NavItem key={tab.path} tab={tab} delay={i * 0.03} />)}
 
-          {moduleTabs.length > 0 && (
-            <>
-              <div className="h-px bg-border/40 my-2 mx-1" />
-              {!collapsed && (
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] px-3 pb-1.5 text-muted-foreground/40">
-                  Módulos
-                </p>
-              )}
-              {moduleTabs.map((tab, i) => <NavItem key={tab.path} tab={tab} delay={0.18 + i * 0.03} />)}
-            </>
-          )}
-
-          <div className="h-px bg-border/40 my-2 mx-1" />
-          <NavItem tab={{ path: '/modules', label: 'Módulos', icon: Sparkles }} delay={0.28} />
+          {moduleTabs.map((tab, i) => <NavItem key={tab.path} tab={tab} delay={0.15 + i * 0.03} />)}
         </nav>
 
         {/* ── Footer ── */}

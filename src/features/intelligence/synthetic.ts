@@ -1,4 +1,4 @@
-// Dados sintéticos para a demonstração pública de ML (/ml-lab).
+// Dados sintéticos para a página de inteligência (/inteligencia).
 // Gerados no navegador com semente fixa: o mesmo ajuste sempre produz a mesma série,
 // e como sabemos o "futuro" de verdade, dá para mostrar o modelo sendo avaliado de forma honesta.
 

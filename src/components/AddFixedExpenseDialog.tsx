@@ -47,7 +47,7 @@ export default function AddExpenseDialog({ cards: cardsProp, onAdded, iconOnly =
     if (cardsProp) setCards(cardsProp);
   }, [cardsProp]);
 
-  // Carrega cartões do Supabase ao abrir, caso não tenham sido passados como prop
+  // Carrega cartões do Firestore ao abrir, caso não tenham sido passados como prop
   useEffect(() => {
     if (open && !cardsProp) {
       getCards().then(setCards).catch(() => {});
