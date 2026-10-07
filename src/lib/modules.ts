@@ -50,6 +50,15 @@ export const AVAILABLE_MODULES: AppModule[] = [
     accentColor: '152 69% 45%',
     priceLabel: 'Módulo adicional',
   },
+  {
+    id: 'expense-classifier',
+    label: 'Classificador',
+    description: 'Importe o extrato em CSV e deixe a IA classificar cada gasto por categoria. Você corrige, ela aprende — tudo roda no seu navegador.',
+    icon: 'Brain',
+    path: '/classifier',
+    accentColor: '262 83% 65%',
+    priceLabel: 'Módulo adicional',
+  },
 ];
 
 // ─── Cache de módulos ativos ──────────────────────────────────────────────────

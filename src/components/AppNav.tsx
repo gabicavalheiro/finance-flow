@@ -1,7 +1,7 @@
 // src/components/AppNav.tsx
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch,
-  LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles,
+  LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain,
   MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { AVAILABLE_MODULES } from '@/lib/modules';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2 };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain };
 
 const MAIN_TABS = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },

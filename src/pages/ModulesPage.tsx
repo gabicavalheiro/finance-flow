@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Landmark, TrendingUp, CheckCircle2, PlusCircle,
-  XCircle, Sparkles, LucideIcon, Loader2,
+  XCircle, Sparkles, LucideIcon, Loader2, Brain,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/lib/modules';
 
 // ─── Mapa de ícones ───────────────────────────────────────────────────────────
-const ICON_MAP: Record<string, LucideIcon> = { Landmark, TrendingUp };
+const ICON_MAP: Record<string, LucideIcon> = { Landmark, TrendingUp, Brain };
 
 // ─── Card de módulo ───────────────────────────────────────────────────────────
 function ModuleCard({
