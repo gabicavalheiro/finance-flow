@@ -25,4 +25,6 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+// E-mails do Firebase Auth (redefinição de senha etc.) saem em português
+auth.languageCode = 'pt-BR';
 export const db   = getFirestore(app);

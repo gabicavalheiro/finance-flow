@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, CheckCircle2 } from 'lucide-react';
+import { Lock, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -49,12 +49,19 @@ export default function PasswordResetPage({ onDone }: Props) {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 size={18} className="text-primary" />
-          <h1 className="text-lg font-semibold">Redefinir senha</h1>
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
+            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+          >
+            <TrendingUp size={26} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">FinanceFlow</h1>
+          <p className="text-sm text-muted-foreground mt-1">Redefinir senha</p>
         </div>
 
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4">
         <div className="space-y-1.5">
           <Label>Nova senha</Label>
           <div className="relative">
@@ -86,6 +93,7 @@ export default function PasswordResetPage({ onDone }: Props) {
         <Button onClick={handleSubmit} className="w-full" disabled={saving}>
           {saving ? 'Salvando...' : 'Salvar nova senha'}
         </Button>
+        </div>
       </div>
     </div>
   );
