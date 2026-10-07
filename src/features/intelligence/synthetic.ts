@@ -11,10 +11,10 @@ export interface Profile {
 }
 
 export const PROFILES: Profile[] = [
-  { id: 'estavel', label: 'Estável', description: 'Gasto em torno de um valor fixo, com ruído.' },
-  { id: 'tendencia', label: 'Tendência de alta', description: 'Gasto cresce ~2% ao mês.' },
-  { id: 'sazonal', label: 'Sazonal', description: 'Ciclo anual com pico em dezembro.' },
-  { id: 'picos', label: 'Com picos', description: 'Meses normais e picos ocasionais (viagem, conserto…).' },
+  { id: 'estavel', label: 'Estável', description: 'Você gasta quase o mesmo valor todo mês, com pequenas diferenças.' },
+  { id: 'tendencia', label: 'Tendência de alta', description: 'O gasto sobe um pouco a cada mês (cerca de 2%).' },
+  { id: 'sazonal', label: 'Sazonal', description: 'O gasto sobe e desce ao longo do ano, com o maior valor em dezembro.' },
+  { id: 'picos', label: 'Com picos', description: 'Meses normais e, de vez em quando, um mês bem mais caro (viagem, conserto...).' },
 ];
 
 /** PRNG determinístico (mulberry32). */

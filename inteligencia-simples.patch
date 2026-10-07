@@ -1,0 +1,308 @@
+diff --git a/src/features/intelligence/ClassifierLab.tsx b/src/features/intelligence/ClassifierLab.tsx
+index 2139393..39e48ca 100644
+--- a/src/features/intelligence/ClassifierLab.tsx
++++ b/src/features/intelligence/ClassifierLab.tsx
+@@ -1,5 +1,5 @@
+ // Simulador do classificador: digite a descrição de um gasto e veja a categoria prevista,
+-// a confiança e as probabilidades de todas as classes. Treina no navegador, sem login.
++// o grau de certeza e as outras categorias possíveis. Roda no navegador, sem login.
+ 
+ import { useEffect, useMemo, useState } from 'react';
+ import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+@@ -26,7 +26,7 @@ export default function ClassifierLab() {
+ 
+   const result = useMemo(() => (model && text.trim() ? classify(model, text) : null), [model, text]);
+ 
+-  if (!model) return <LoadingState rows={3} label="Treinando o modelo no navegador…" />;
++  if (!model) return <LoadingState rows={3} label="Preparando o teste…" />;
+ 
+   return (
+     <div className="grid gap-4 lg:grid-cols-2">
+@@ -42,8 +42,8 @@ export default function ClassifierLab() {
+           ))}
+         </div>
+         <p className="text-[11px] leading-relaxed text-muted-foreground">
+-          TF-IDF (palavras + n-gramas de caracteres) com regressão logística, treinado agora no seu navegador
+-          com {SEED_EXAMPLES.length} exemplos. Digite uma marca que não está na lista: os n-gramas ajudam a generalizar.
++          O app aprendeu com {SEED_EXAMPLES.length} exemplos de gastos do dia a dia. Digite o nome de uma loja ou
++          serviço, mesmo que não esteja nos exemplos: ele tenta reconhecer pelas partes parecidas do nome.
+         </p>
+       </div>
+ 
+@@ -60,11 +60,11 @@ export default function ClassifierLab() {
+               <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
+                 result.needsReview ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400')}>
+                 {result.needsReview ? <AlertTriangle size={12} aria-hidden /> : <CheckCircle2 size={12} aria-hidden />}
+-                {pct(result.confidence)} · {result.needsReview ? 'pedir revisão' : 'confiante'}
++                {pct(result.confidence)} · {result.needsReview ? 'vale conferir' : 'confiante'}
+               </span>
+             </div>
+             {!result.prediction.known && (
+-              <p className="text-xs text-amber-400">Nenhum termo deste texto foi visto no treino: isto é um palpite sem base.</p>
++              <p className="text-xs text-amber-400">Não reconheci nada neste texto, então é um palpite sem base. Confira a categoria.</p>
+             )}
+             <ul className="space-y-1.5">
+               {result.prediction.probabilities.slice(0, 5).map((p) => (
+@@ -79,7 +79,7 @@ export default function ClassifierLab() {
+                 </li>
+               ))}
+             </ul>
+-            <p className="text-[11px] text-muted-foreground">Abaixo de {pct(REVIEW_THRESHOLD)} de confiança o app pede revisão em vez de decidir sozinho.</p>
++            <p className="text-[11px] text-muted-foreground">Quando a certeza fica abaixo de {pct(REVIEW_THRESHOLD)}, o app pede para você conferir em vez de decidir sozinho.</p>
+           </>
+         )}
+       </div>
+diff --git a/src/features/intelligence/ForecastLab.tsx b/src/features/intelligence/ForecastLab.tsx
+index c475d7b..1a95d58 100644
+--- a/src/features/intelligence/ForecastLab.tsx
++++ b/src/features/intelligence/ForecastLab.tsx
+@@ -1,4 +1,4 @@
+-// Simulador de previsão: o usuário escolhe um padrão de gasto, o motor de ML prevê
++// Simulador de previsão: o usuário escolhe um padrão de gasto, o app prevê
+ // os últimos meses SEM vê-los, e a tela compara previsão x realidade.
+ 
+ import { useMemo, useState } from 'react';
+@@ -8,7 +8,7 @@ import {
+ } from 'recharts';
+ import { Button } from '@/components/ui/button';
+ import { formatCurrency } from '@/lib/helpers';
+-import { addMonthsStr, forecastSeries, MODEL_LABELS } from '@/lib/ml/forecast';
++import { addMonthsStr, forecastSeries } from '@/lib/ml/forecast';
+ import { cn } from '@/lib/utils';
+ import { generateSeries, PROFILES, type ProfileId } from './synthetic';
+ 
+@@ -19,6 +19,16 @@ const monthShort = (ym: string) => {
+ };
+ const pct = (v: number) => `${Math.round(v * 100)}%`;
+ 
++// Nomes em linguagem simples para cada método de previsão.
++const METHOD_LABELS: Record<string, string> = {
++  ingenuo: 'Repetir o último mês',
++  media_movel: 'Média dos últimos 3 meses',
++  mediana_robusta: 'Valor típico dos últimos 6 meses',
++  suavizacao_exp: 'Média que dá mais peso aos meses recentes',
++  tendencia_amortecida: 'Seguir a tendência de alta ou queda',
++};
++const methodLabel = (m: string) => METHOD_LABELS[m] ?? m;
++
+ function Slider({ id, label, value, min, max, step = 1, onChange, format }: {
+   id: string; label: string; value: number; min: number; max: number; step?: number;
+   onChange: (v: number) => void; format?: (v: number) => string;
+@@ -81,14 +91,14 @@ export default function ForecastLab() {
+   const { fc, holdMae, naiveMae, inside } = lab;
+   const bt = fc.backtest;
+   const beats = holdMae < naiveMae;
+-  const summary = `Previsão dos últimos ${holdout} meses escondidos do modelo: erro médio de ${formatCurrency(holdMae)} `
+-    + `contra ${formatCurrency(naiveMae)} de repetir o último mês.`;
++  const summary = `Previsão dos últimos ${holdout} meses, que o app não viu: errou em média ${formatCurrency(holdMae)}, `
++    + `contra ${formatCurrency(naiveMae)} se apenas repetisse o último mês.`;
+ 
+   return (
+     <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+-      <aside className="space-y-4 rounded-2xl border border-border bg-card p-4 h-fit" aria-label="Parâmetros da simulação">
++      <aside className="space-y-4 rounded-2xl border border-border bg-card p-4 h-fit" aria-label="Ajustes do teste">
+         <fieldset>
+-          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Padrão de gasto</legend>
++          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Como é o seu gasto</legend>
+           <div className="grid grid-cols-2 gap-1.5">
+             {PROFILES.map((p) => (
+               <button key={p.id} type="button" onClick={() => setProfile(p.id)} aria-pressed={profile === p.id}
+@@ -101,13 +111,13 @@ export default function ForecastLab() {
+           <p className="mt-2 text-xs text-muted-foreground">{PROFILES.find((p) => p.id === profile)?.description}</p>
+         </fieldset>
+         <Slider id="lab-history" label="Meses de histórico" value={history} min={3} max={24} onChange={setHistory} />
+-        <Slider id="lab-holdout" label="Meses escondidos do modelo" value={holdout} min={1} max={6} onChange={setHoldout} />
+-        <Slider id="lab-noise" label="Ruído" value={noise} min={0.02} max={0.4} step={0.02} onChange={setNoise} format={pct} />
++        <Slider id="lab-holdout" label="Meses para conferir a previsão" value={holdout} min={1} max={6} onChange={setHoldout} />
++        <Slider id="lab-noise" label="Variação de um mês para o outro" value={noise} min={0.02} max={0.4} step={0.02} onChange={setNoise} format={pct} />
+         <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setSeed((s) => s + 1)}>
+-          <RefreshCw size={13} aria-hidden /> Gerar outra amostra
++          <RefreshCw size={13} aria-hidden /> Gerar outro exemplo
+         </Button>
+         <p className="text-[11px] leading-relaxed text-muted-foreground">
+-          Dados sintéticos, gerados no seu navegador. Como o "futuro" é conhecido, dá para conferir se a previsão acerta.
++          Os gastos aqui são de exemplo, não são os seus. Como já sabemos o que "aconteceu" nos últimos meses, dá para conferir se a previsão acertou.
+         </p>
+       </aside>
+ 
+@@ -115,7 +125,7 @@ export default function ForecastLab() {
+         <div className="rounded-2xl border border-border bg-card p-4">
+           <p className="text-sm font-semibold mb-1">Previsão x realidade</p>
+           <p className="text-xs text-muted-foreground mb-3">
+-            O modelo só viu o histórico até <strong className="text-foreground">{lab.rows[history - 1].label}</strong>. Os meses seguintes são previstos e comparados com o que realmente aconteceu.
++            O app só enxergou os gastos até <strong className="text-foreground">{lab.rows[history - 1].label}</strong>. Os meses seguintes foram previstos e depois comparados com o que realmente aconteceu.
+           </p>
+           <div className="h-64" role="img" aria-label={summary}>
+             <ResponsiveContainer width="100%" height="100%">
+@@ -127,10 +137,10 @@ export default function ForecastLab() {
+                 <Tooltip formatter={(v: unknown) => (Array.isArray(v) ? `${formatCurrency(v[0])} – ${formatCurrency(v[1])}` : formatCurrency(Number(v)))}
+                   contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }} />
+                 <ReferenceLine x={lab.splitLabel} stroke="hsl(var(--border))" strokeDasharray="4 4" />
+-                <Area dataKey="faixa" name="Faixa 80%" stroke="none" fill="hsl(var(--primary))" fillOpacity={0.16} isAnimationActive={false} />
+-                <Line dataKey="treino" name="Histórico (treino)" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
+-                <Line dataKey="real" name="Real (escondido)" stroke="hsl(var(--foreground))" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
+-                <Line dataKey="previsto" name="Previsto" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
++                <Area dataKey="faixa" name="Faixa provável" stroke="none" fill="hsl(var(--primary))" fillOpacity={0.16} isAnimationActive={false} />
++                <Line dataKey="treino" name="Gastos já conhecidos" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
++                <Line dataKey="real" name="O que realmente aconteceu" stroke="hsl(var(--foreground))" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
++                <Line dataKey="previsto" name="Previsão" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+               </ComposedChart>
+             </ResponsiveContainer>
+           </div>
+@@ -139,37 +149,38 @@ export default function ForecastLab() {
+         <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+           <div className="flex items-center gap-2">
+             <ShieldCheck size={14} className="text-primary" aria-hidden />
+-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avaliação</p>
++            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como a previsão se saiu</p>
+           </div>
+           <div className="grid grid-cols-3 gap-2">
+-            <Stat label="Erro do modelo" value={formatCurrency(holdMae)} sub="nos meses escondidos" tone={beats ? 'good' : 'warn'} />
+-            <Stat label="Erro de “repetir o mês”" value={formatCurrency(naiveMae)} sub="linha de base" />
+-            <Stat label="Real dentro da faixa" value={`${inside}/${holdout}`} sub="meta ≈ 80%" />
++            <Stat label="Erro da previsão" value={formatCurrency(holdMae)} sub="diferença média por mês" tone={beats ? 'good' : 'warn'} />
++            <Stat label="Erro se repetisse o mês" value={formatCurrency(naiveMae)} sub="conta mais simples" />
++            <Stat label="Dentro da faixa provável" value={`${inside}/${holdout}`} sub="esperado: cerca de 8 em 10" />
+           </div>
+           <p className="text-xs leading-relaxed text-muted-foreground">
+             {fc.reliable ? (
+               <>
+-                Modelo escolhido: <strong className="text-foreground">{MODEL_LABELS[fc.model as keyof typeof MODEL_LABELS] ?? fc.model}</strong>,
+-                selecionado por backtest em {bt?.steps} testes retroativos dentro do treino (erro {bt ? pct(bt.wape) : '—'} do gasto).{' '}
++                Método escolhido: <strong className="text-foreground">{methodLabel(fc.model)}</strong>.
++                O app testou {bt?.steps} vezes cada método usando só os meses já conhecidos e ficou com o que errou menos
++                (erro de cerca de {bt ? pct(bt.wape) : '—'} do gasto).{' '}
+                 {beats
+-                  ? 'Nos meses escondidos ele errou menos do que repetir o último mês.'
+-                  : 'Nos meses escondidos ele não superou “repetir o último mês” — com poucos meses ou muito ruído isso acontece, e o app avisa em vez de esconder.'}
++                  ? 'Nos meses que ficaram escondidos, ele errou menos do que simplesmente repetir o último mês.'
++                  : 'Nos meses que ficaram escondidos, ele não foi melhor do que repetir o último mês. Isso acontece quando há poucos meses de histórico ou os gastos variam muito, e o app mostra isso em vez de esconder.'}
+               </>
+             ) : (
+-              <>Com menos de 5 meses o modelo <strong className="text-foreground">não consegue se validar</strong>: usa a mediana e marca a previsão como não confiável.</>
++              <>Com menos de 5 meses de histórico o app <strong className="text-foreground">não consegue se validar</strong>: usa o valor típico dos meses e avisa que a previsão não é confiável.</>
+             )}
+           </p>
+           {fc.candidates.length > 0 && (
+             <table className="w-full text-xs">
+-              <caption className="sr-only">Erro médio de cada modelo candidato no backtest</caption>
++              <caption className="sr-only">Erro médio de cada método testado</caption>
+               <thead><tr className="text-left text-muted-foreground">
+-                <th scope="col" className="pb-1 font-medium">Modelo testado</th>
+-                <th scope="col" className="pb-1 text-right font-medium">MAE no backtest</th>
++                <th scope="col" className="pb-1 font-medium">Método testado</th>
++                <th scope="col" className="pb-1 text-right font-medium">Erro médio nos testes</th>
+               </tr></thead>
+               <tbody>
+                 {[...fc.candidates].sort((a, b) => a.mae - b.mae).map((c) => (
+                   <tr key={c.model} className={cn('border-t border-border/50', c.model === fc.model && 'font-semibold text-primary')}>
+-                    <td className="py-1">{MODEL_LABELS[c.model as keyof typeof MODEL_LABELS] ?? c.model}{c.model === fc.model && ' ✓'}</td>
++                    <td className="py-1">{methodLabel(c.model)}{c.model === fc.model && ' ✓'}</td>
+                     <td className="py-1 text-right tabular-nums">{formatCurrency(c.mae)}</td>
+                   </tr>
+                 ))}
+diff --git a/src/features/intelligence/__tests__/intelligence.test.tsx b/src/features/intelligence/__tests__/intelligence.test.tsx
+index 7ae789a..9c04ddc 100644
+--- a/src/features/intelligence/__tests__/intelligence.test.tsx
++++ b/src/features/intelligence/__tests__/intelligence.test.tsx
+@@ -41,7 +41,7 @@ describe('ForecastLab', () => {
+   it('mostra a avaliação e a tabela de modelos candidatos', () => {
+     render(<ForecastLab />);
+     expect(screen.getByText('Previsão x realidade')).toBeTruthy();
+-    expect(screen.getByText(/Modelo escolhido/)).toBeTruthy();
++    expect(screen.getByText(/Método escolhido/)).toBeTruthy();
+     expect(screen.getAllByRole('row').length).toBeGreaterThan(3);
+   });
+ 
+@@ -72,6 +72,6 @@ describe('ClassifierLab', () => {
+     render(<ClassifierLab />);
+     const input = await screen.findByLabelText('Descrição do gasto', {}, { timeout: 8000 });
+     fireEvent.change(input, { target: { value: 'zzqxv' } });
+-    expect((await screen.findAllByText(/palpite sem base|pedir revisão/)).length).toBeGreaterThan(0);
++    expect((await screen.findAllByText(/palpite sem base|vale conferir/)).length).toBeGreaterThan(0);
+   }, 15000);
+ });
+diff --git a/src/features/intelligence/synthetic.ts b/src/features/intelligence/synthetic.ts
+index 6674196..f0aad0d 100644
+--- a/src/features/intelligence/synthetic.ts
++++ b/src/features/intelligence/synthetic.ts
+@@ -11,10 +11,10 @@ export interface Profile {
+ }
+ 
+ export const PROFILES: Profile[] = [
+-  { id: 'estavel', label: 'Estável', description: 'Gasto em torno de um valor fixo, com ruído.' },
+-  { id: 'tendencia', label: 'Tendência de alta', description: 'Gasto cresce ~2% ao mês.' },
+-  { id: 'sazonal', label: 'Sazonal', description: 'Ciclo anual com pico em dezembro.' },
+-  { id: 'picos', label: 'Com picos', description: 'Meses normais e picos ocasionais (viagem, conserto…).' },
++  { id: 'estavel', label: 'Estável', description: 'Você gasta quase o mesmo valor todo mês, com pequenas diferenças.' },
++  { id: 'tendencia', label: 'Tendência de alta', description: 'O gasto sobe um pouco a cada mês (cerca de 2%).' },
++  { id: 'sazonal', label: 'Sazonal', description: 'O gasto sobe e desce ao longo do ano, com o maior valor em dezembro.' },
++  { id: 'picos', label: 'Com picos', description: 'Meses normais e, de vez em quando, um mês bem mais caro (viagem, conserto...).' },
+ ];
+ 
+ /** PRNG determinístico (mulberry32). */
+diff --git a/src/pages/IntelligencePage.tsx b/src/pages/IntelligencePage.tsx
+index 2f86c3e..12bc07d 100644
+--- a/src/pages/IntelligencePage.tsx
++++ b/src/pages/IntelligencePage.tsx
+@@ -1,7 +1,7 @@
+ // Inteligência do FinanceFlow: como o app prevê e classifica os gastos (página pública, sem login).
+ 
+ import { lazy, Suspense, useState } from 'react';
+-import { ArrowLeft, Brain, Github } from 'lucide-react';
++import { ArrowLeft, Brain } from 'lucide-react';
+ import { LoadingState } from '@/components/states/StateViews';
+ import { cn } from '@/lib/utils';
+ 
+@@ -10,7 +10,7 @@ const ClassifierLab = lazy(() => import('@/features/intelligence/ClassifierLab')
+ 
+ const TABS = [
+   { id: 'forecast', label: 'Previsão de gastos' },
+-  { id: 'classifier', label: 'Classificador de gastos' },
++  { id: 'classifier', label: 'Categoria automática' },
+ ] as const;
+ 
+ export default function IntelligencePage() {
+@@ -26,17 +26,18 @@ export default function IntelligencePage() {
+           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10"><Brain size={18} className="text-primary" aria-hidden /></div>
+           <div>
+             <h1 className="text-xl font-bold">Inteligência financeira</h1>
+-            <p className="text-xs text-muted-foreground">Como o FinanceFlow prevê e classifica seus gastos, rodando ao vivo.</p>
++            <p className="text-xs text-muted-foreground">Veja como o FinanceFlow prevê e organiza seus gastos.</p>
+           </div>
+         </div>
+         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+-          Em finanças pessoais as séries são curtas (poucos meses por categoria), então modelos simples e bem validados vencem os complexos.
+-          Aqui o motor testa vários candidatos, escolhe por backtest e <strong className="text-foreground">sempre compara com “repetir o último mês”</strong>.
+-          Simule diferentes padrões de gasto e veja quando o modelo ajuda e quando não.
++          O FinanceFlow olha seus gastos dos meses anteriores para estimar quanto você vai gastar nos próximos
++          e para sugerir a categoria de cada compra. Aqui você pode testar como isso funciona, com dados de exemplo.
++          Para saber se a previsão realmente ajuda, ela é sempre comparada com a conta mais simples:
++          <strong className="text-foreground"> supor que o próximo mês será igual ao último</strong>.
+         </p>
+       </header>
+ 
+-      <div role="tablist" aria-label="Modelos" className="inline-flex gap-1 rounded-xl border border-border bg-secondary p-1">
++      <div role="tablist" aria-label="Seções" className="inline-flex gap-1 rounded-xl border border-border bg-secondary p-1">
+         {TABS.map((t) => (
+           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+             className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+@@ -46,17 +47,11 @@ export default function IntelligencePage() {
+         ))}
+       </div>
+ 
+-      <section aria-label="Demonstração">
++      <section aria-label="Teste interativo">
+         <Suspense fallback={<LoadingState rows={3} />}>
+           {tab === 'forecast' ? <ForecastLab /> : <ClassifierLab />}
+         </Suspense>
+       </section>
+-
+-      <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-4 text-xs text-muted-foreground">
+-        <a href="https://github.com/gabicavalheiro/finance-flow" target="_blank" rel="noreferrer"
+-          className="inline-flex items-center gap-1 hover:text-foreground"><Github size={12} aria-hidden /> Código no GitHub</a>
+-        <span>Limitações: séries curtas não aprendem sazonalidade anual de forma confiável; intervalos são heurísticos.</span>
+-      </footer>
+     </div>
+   );
+ }

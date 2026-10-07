@@ -1,5 +1,5 @@
 // Simulador do classificador: digite a descrição de um gasto e veja a categoria prevista,
-// a confiança e as probabilidades de todas as classes. Treina no navegador, sem login.
+// o grau de certeza e as outras categorias possíveis. Roda no navegador, sem login.
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
@@ -26,7 +26,7 @@ export default function ClassifierLab() {
 
   const result = useMemo(() => (model && text.trim() ? classify(model, text) : null), [model, text]);
 
-  if (!model) return <LoadingState rows={3} label="Treinando o modelo no navegador…" />;
+  if (!model) return <LoadingState rows={3} label="Preparando o teste…" />;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -42,8 +42,8 @@ export default function ClassifierLab() {
           ))}
         </div>
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          TF-IDF (palavras + n-gramas de caracteres) com regressão logística, treinado agora no seu navegador
-          com {SEED_EXAMPLES.length} exemplos. Digite uma marca que não está na lista: os n-gramas ajudam a generalizar.
+          O app aprendeu com {SEED_EXAMPLES.length} exemplos de gastos do dia a dia. Digite o nome de uma loja ou
+          serviço, mesmo que não esteja nos exemplos: ele tenta reconhecer pelas partes parecidas do nome.
         </p>
       </div>
 
@@ -60,11 +60,11 @@ export default function ClassifierLab() {
               <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
                 result.needsReview ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400')}>
                 {result.needsReview ? <AlertTriangle size={12} aria-hidden /> : <CheckCircle2 size={12} aria-hidden />}
-                {pct(result.confidence)} · {result.needsReview ? 'pedir revisão' : 'confiante'}
+                {pct(result.confidence)} · {result.needsReview ? 'vale conferir' : 'confiante'}
               </span>
             </div>
             {!result.prediction.known && (
-              <p className="text-xs text-amber-400">Nenhum termo deste texto foi visto no treino: isto é um palpite sem base.</p>
+              <p className="text-xs text-amber-400">Não reconheci nada neste texto, então é um palpite sem base. Confira a categoria.</p>
             )}
             <ul className="space-y-1.5">
               {result.prediction.probabilities.slice(0, 5).map((p) => (
@@ -79,7 +79,7 @@ export default function ClassifierLab() {
                 </li>
               ))}
             </ul>
-            <p className="text-[11px] text-muted-foreground">Abaixo de {pct(REVIEW_THRESHOLD)} de confiança o app pede revisão em vez de decidir sozinho.</p>
+            <p className="text-[11px] text-muted-foreground">Quando a certeza fica abaixo de {pct(REVIEW_THRESHOLD)}, o app pede para você conferir em vez de decidir sozinho.</p>
           </>
         )}
       </div>

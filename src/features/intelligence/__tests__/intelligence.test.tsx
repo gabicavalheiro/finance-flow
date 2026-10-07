@@ -41,7 +41,7 @@ describe('ForecastLab', () => {
   it('mostra a avaliação e a tabela de modelos candidatos', () => {
     render(<ForecastLab />);
     expect(screen.getByText('Previsão x realidade')).toBeTruthy();
-    expect(screen.getByText(/Modelo escolhido/)).toBeTruthy();
+    expect(screen.getByText(/Método escolhido/)).toBeTruthy();
     expect(screen.getAllByRole('row').length).toBeGreaterThan(3);
   });
 
@@ -72,6 +72,6 @@ describe('ClassifierLab', () => {
     render(<ClassifierLab />);
     const input = await screen.findByLabelText('Descrição do gasto', {}, { timeout: 8000 });
     fireEvent.change(input, { target: { value: 'zzqxv' } });
-    expect((await screen.findAllByText(/palpite sem base|pedir revisão/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/palpite sem base|vale conferir/)).length).toBeGreaterThan(0);
   }, 15000);
 });

@@ -1,4 +1,4 @@
-// Simulador de previsão: o usuário escolhe um padrão de gasto, o motor de ML prevê
+// Simulador de previsão: o usuário escolhe um padrão de gasto, o app prevê
 // os últimos meses SEM vê-los, e a tela compara previsão x realidade.
 
 import { useMemo, useState } from 'react';
@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/helpers';
-import { addMonthsStr, forecastSeries, MODEL_LABELS } from '@/lib/ml/forecast';
+import { addMonthsStr, forecastSeries } from '@/lib/ml/forecast';
 import { cn } from '@/lib/utils';
 import { generateSeries, PROFILES, type ProfileId } from './synthetic';
 
@@ -18,6 +18,16 @@ const monthShort = (ym: string) => {
   return `${new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}/${String(y).slice(2)}`;
 };
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+// Nomes em linguagem simples para cada método de previsão.
+const METHOD_LABELS: Record<string, string> = {
+  ingenuo: 'Repetir o último mês',
+  media_movel: 'Média dos últimos 3 meses',
+  mediana_robusta: 'Valor típico dos últimos 6 meses',
+  suavizacao_exp: 'Média que dá mais peso aos meses recentes',
+  tendencia_amortecida: 'Seguir a tendência de alta ou queda',
+};
+const methodLabel = (m: string) => METHOD_LABELS[m] ?? m;
 
 function Slider({ id, label, value, min, max, step = 1, onChange, format }: {
   id: string; label: string; value: number; min: number; max: number; step?: number;
@@ -81,14 +91,14 @@ export default function ForecastLab() {
   const { fc, holdMae, naiveMae, inside } = lab;
   const bt = fc.backtest;
   const beats = holdMae < naiveMae;
-  const summary = `Previsão dos últimos ${holdout} meses escondidos do modelo: erro médio de ${formatCurrency(holdMae)} `
-    + `contra ${formatCurrency(naiveMae)} de repetir o último mês.`;
+  const summary = `Previsão dos últimos ${holdout} meses, que o app não viu: errou em média ${formatCurrency(holdMae)}, `
+    + `contra ${formatCurrency(naiveMae)} se apenas repetisse o último mês.`;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
-      <aside className="space-y-4 rounded-2xl border border-border bg-card p-4 h-fit" aria-label="Parâmetros da simulação">
+      <aside className="space-y-4 rounded-2xl border border-border bg-card p-4 h-fit" aria-label="Ajustes do teste">
         <fieldset>
-          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Padrão de gasto</legend>
+          <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Como é o seu gasto</legend>
           <div className="grid grid-cols-2 gap-1.5">
             {PROFILES.map((p) => (
               <button key={p.id} type="button" onClick={() => setProfile(p.id)} aria-pressed={profile === p.id}
@@ -101,13 +111,13 @@ export default function ForecastLab() {
           <p className="mt-2 text-xs text-muted-foreground">{PROFILES.find((p) => p.id === profile)?.description}</p>
         </fieldset>
         <Slider id="lab-history" label="Meses de histórico" value={history} min={3} max={24} onChange={setHistory} />
-        <Slider id="lab-holdout" label="Meses escondidos do modelo" value={holdout} min={1} max={6} onChange={setHoldout} />
-        <Slider id="lab-noise" label="Ruído" value={noise} min={0.02} max={0.4} step={0.02} onChange={setNoise} format={pct} />
+        <Slider id="lab-holdout" label="Meses para conferir a previsão" value={holdout} min={1} max={6} onChange={setHoldout} />
+        <Slider id="lab-noise" label="Variação de um mês para o outro" value={noise} min={0.02} max={0.4} step={0.02} onChange={setNoise} format={pct} />
         <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setSeed((s) => s + 1)}>
-          <RefreshCw size={13} aria-hidden /> Gerar outra amostra
+          <RefreshCw size={13} aria-hidden /> Gerar outro exemplo
         </Button>
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Dados sintéticos, gerados no seu navegador. Como o "futuro" é conhecido, dá para conferir se a previsão acerta.
+          Os gastos aqui são de exemplo, não são os seus. Como já sabemos o que "aconteceu" nos últimos meses, dá para conferir se a previsão acertou.
         </p>
       </aside>
 
@@ -115,7 +125,7 @@ export default function ForecastLab() {
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-sm font-semibold mb-1">Previsão x realidade</p>
           <p className="text-xs text-muted-foreground mb-3">
-            O modelo só viu o histórico até <strong className="text-foreground">{lab.rows[history - 1].label}</strong>. Os meses seguintes são previstos e comparados com o que realmente aconteceu.
+            O app só enxergou os gastos até <strong className="text-foreground">{lab.rows[history - 1].label}</strong>. Os meses seguintes foram previstos e depois comparados com o que realmente aconteceu.
           </p>
           <div className="h-64" role="img" aria-label={summary}>
             <ResponsiveContainer width="100%" height="100%">
@@ -127,10 +137,10 @@ export default function ForecastLab() {
                 <Tooltip formatter={(v: unknown) => (Array.isArray(v) ? `${formatCurrency(v[0])} – ${formatCurrency(v[1])}` : formatCurrency(Number(v)))}
                   contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }} />
                 <ReferenceLine x={lab.splitLabel} stroke="hsl(var(--border))" strokeDasharray="4 4" />
-                <Area dataKey="faixa" name="Faixa 80%" stroke="none" fill="hsl(var(--primary))" fillOpacity={0.16} isAnimationActive={false} />
-                <Line dataKey="treino" name="Histórico (treino)" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
-                <Line dataKey="real" name="Real (escondido)" stroke="hsl(var(--foreground))" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
-                <Line dataKey="previsto" name="Previsto" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                <Area dataKey="faixa" name="Faixa provável" stroke="none" fill="hsl(var(--primary))" fillOpacity={0.16} isAnimationActive={false} />
+                <Line dataKey="treino" name="Gastos já conhecidos" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
+                <Line dataKey="real" name="O que realmente aconteceu" stroke="hsl(var(--foreground))" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
+                <Line dataKey="previsto" name="Previsão" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -139,37 +149,38 @@ export default function ForecastLab() {
         <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={14} className="text-primary" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Avaliação</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como a previsão se saiu</p>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <Stat label="Erro do modelo" value={formatCurrency(holdMae)} sub="nos meses escondidos" tone={beats ? 'good' : 'warn'} />
-            <Stat label="Erro de “repetir o mês”" value={formatCurrency(naiveMae)} sub="linha de base" />
-            <Stat label="Real dentro da faixa" value={`${inside}/${holdout}`} sub="meta ≈ 80%" />
+            <Stat label="Erro da previsão" value={formatCurrency(holdMae)} sub="diferença média por mês" tone={beats ? 'good' : 'warn'} />
+            <Stat label="Erro se repetisse o mês" value={formatCurrency(naiveMae)} sub="conta mais simples" />
+            <Stat label="Dentro da faixa provável" value={`${inside}/${holdout}`} sub="esperado: cerca de 8 em 10" />
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             {fc.reliable ? (
               <>
-                Modelo escolhido: <strong className="text-foreground">{MODEL_LABELS[fc.model as keyof typeof MODEL_LABELS] ?? fc.model}</strong>,
-                selecionado por backtest em {bt?.steps} testes retroativos dentro do treino (erro {bt ? pct(bt.wape) : '—'} do gasto).{' '}
+                Método escolhido: <strong className="text-foreground">{methodLabel(fc.model)}</strong>.
+                O app testou {bt?.steps} vezes cada método usando só os meses já conhecidos e ficou com o que errou menos
+                (erro de cerca de {bt ? pct(bt.wape) : '—'} do gasto).{' '}
                 {beats
-                  ? 'Nos meses escondidos ele errou menos do que repetir o último mês.'
-                  : 'Nos meses escondidos ele não superou “repetir o último mês” — com poucos meses ou muito ruído isso acontece, e o app avisa em vez de esconder.'}
+                  ? 'Nos meses que ficaram escondidos, ele errou menos do que simplesmente repetir o último mês.'
+                  : 'Nos meses que ficaram escondidos, ele não foi melhor do que repetir o último mês. Isso acontece quando há poucos meses de histórico ou os gastos variam muito, e o app mostra isso em vez de esconder.'}
               </>
             ) : (
-              <>Com menos de 5 meses o modelo <strong className="text-foreground">não consegue se validar</strong>: usa a mediana e marca a previsão como não confiável.</>
+              <>Com menos de 5 meses de histórico o app <strong className="text-foreground">não consegue se validar</strong>: usa o valor típico dos meses e avisa que a previsão não é confiável.</>
             )}
           </p>
           {fc.candidates.length > 0 && (
             <table className="w-full text-xs">
-              <caption className="sr-only">Erro médio de cada modelo candidato no backtest</caption>
+              <caption className="sr-only">Erro médio de cada método testado</caption>
               <thead><tr className="text-left text-muted-foreground">
-                <th scope="col" className="pb-1 font-medium">Modelo testado</th>
-                <th scope="col" className="pb-1 text-right font-medium">MAE no backtest</th>
+                <th scope="col" className="pb-1 font-medium">Método testado</th>
+                <th scope="col" className="pb-1 text-right font-medium">Erro médio nos testes</th>
               </tr></thead>
               <tbody>
                 {[...fc.candidates].sort((a, b) => a.mae - b.mae).map((c) => (
                   <tr key={c.model} className={cn('border-t border-border/50', c.model === fc.model && 'font-semibold text-primary')}>
-                    <td className="py-1">{MODEL_LABELS[c.model as keyof typeof MODEL_LABELS] ?? c.model}{c.model === fc.model && ' ✓'}</td>
+                    <td className="py-1">{methodLabel(c.model)}{c.model === fc.model && ' ✓'}</td>
                     <td className="py-1 text-right tabular-nums">{formatCurrency(c.mae)}</td>
                   </tr>
                 ))}
