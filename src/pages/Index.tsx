@@ -1,12 +1,7 @@
 // src/pages/Index.tsx
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  TrendingDown, TrendingUp, Pencil, Trash2, Wallet,
-  Zap, Banknote, ArrowLeftRight, Scale,
-  CreditCard as CreditCardIcon, FileText, ChartNoAxesCombined,
-  ChevronLeft, ChevronRight, Eye, EyeOff, ArrowUpRight, ArrowDownRight, Lock,
-} from 'lucide-react';
+import { Pencil, Wallet, Scale, CreditCard as CreditCardIcon, ChartNoAxesCombined, Eye, EyeOff, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
 import EditVariableDialog from '@/components/EditVariableDialog';
@@ -21,358 +16,25 @@ import BillsChecklist from '@/components/BillsChecklist';
 import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
-import {
-  getVariableForMonth, getInvoicesForMonth, CardInvoice,
-  deleteExpense, deleteVariableTransaction,
-  computeInstallmentsForMonth, computeCategoryTotals,
-} from '@/lib/store';
-import { subscriptionsAsInstallments, monthlyAmount } from '@/lib/subscriptions';
-import {
-  Expense, CreditCard, FixedExpense,
-  FixedIncome, VariableTransaction, PAYMENT_METHOD_CONFIG, BRAND_GRADIENTS,
-} from '@/lib/types';
-import { Button } from '@/components/ui/button';
+import { getVariableForMonth, getInvoicesForMonth, CardInvoice, deleteExpense, deleteVariableTransaction } from '@/lib/store';
+import { Expense, VariableTransaction, PAYMENT_METHOD_CONFIG } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { getUser } from '@/lib/auth';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { resolveCategoryInfo } from '@/lib/customCategories';
 import { getActiveModuleIds } from '@/lib/modules';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import BalanceBreakdownSheet from '@/components/BalanceBreakdownSheet';
-
-// ─── Constantes ───────────────────────────────────────────────────────────────
-const PIE_COLORS = [
-  'hsl(263 70% 58%)', 'hsl(220 70% 55%)', 'hsl(30 90% 55%)', 'hsl(152 69% 45%)',
-  'hsl(0 72% 51%)',   'hsl(280 70% 58%)', 'hsl(320 70% 55%)', 'hsl(45 90% 50%)',
-];
-
-const METHOD_ICONS: Record<string, React.ReactNode> = {
-  pix:      <Zap size={11} />,
-  cash:     <Banknote size={11} />,
-  transfer: <ArrowLeftRight size={11} />,
-  debit:    <CreditCardIcon size={11} />,
-  boleto:   <FileText size={11} />,
-};
-
-const SectionDivider = ({ label }: { label: string }) => (
-  <div className="flex items-center gap-2 py-1.5">
-    <div className="flex-1 h-px bg-border" />
-    <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/50">{label}</span>
-    <div className="flex-1 h-px bg-border" />
-  </div>
-);
-
-// ─── SUMMARY CARD (Saldo / Pendente / A Receber) ──────────────────────────────
-function SummaryCard({
-  label, value, sub, icon, gradient, accentColor, delay = 0, onClick, hidden,
-}: {
-  label: string;
-  value: number;
-  sub?: string;
-  icon: React.ReactNode;
-  gradient: string;
-  accentColor?: string;
-  delay?: number;
-  onClick?: () => void;
-  hidden?: boolean;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.45, ease: 'easeOut' }}
-      onClick={onClick}
-      className={cn('relative rounded-3xl overflow-hidden text-white group', onClick && 'cursor-pointer')}
-      style={{ background: gradient }}
-      whileHover={onClick ? { scale: 1.015 } : undefined}
-      whileTap={onClick ? { scale: 0.985 } : undefined}
-    >
-
-      {/* Linha de brilho diagonal */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 55%)' }} />
-      {/* Borda glass sutil */}
-      <div className="absolute inset-0 rounded-3xl pointer-events-none"
-        style={{ border: '1px solid rgba(255,255,255,0.15)' }} />
-
-      <div className="relative z-10 p-4 md:p-5">
-        {/* Ícone em pill glass */}
-        <div className="inline-flex items-center justify-center w-9 h-9 rounded-2xl mb-4"
-          style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
-          {icon}
-        </div>
-
-        {/* Label */}
-        <p className="text-white/55 text-[11px] font-medium uppercase tracking-wide mb-1">{label}</p>
-
-        {/* Valor */}
-        <p className={cn(
-          'font-bold tracking-tight tabular-nums leading-none',
-          hidden ? 'text-white/30 tracking-[0.4em] text-sm mt-2' : 'text-white text-2xl',
-        )}>
-          {hidden ? '• • • • •' : formatCurrency(value)}
-        </p>
-
-        {/* Sub */}
-        {sub && !hidden && (
-          <p className="text-white/40 text-[10px] mt-2 leading-tight">{sub}</p>
-        )}
-
-        {/* Linha decorativa no fundo */}
-        {accentColor && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-            style={{ background: accentColor }} />
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── CARROSSEL DE CARTÕES ─────────────────────────────────────────────────────
-const CARD_BRAND_GRADIENTS: Record<string, string> = {
-  visa:       'linear-gradient(135deg, #1e40af 0%, #0369a1 60%, #06b6d4 100%)',
-  mastercard: 'linear-gradient(135deg, #9f1239 0%, #c2410c 60%, #ea580c 100%)',
-  elo:        'linear-gradient(135deg, #92400e 0%, #b45309 60%, #d97706 100%)',
-  amex:       'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-  other:      'linear-gradient(135deg, #4c1d95 0%, #6d28d9 60%, #7c3aed 100%)',
-};
-
-// Símbolo da bandeira
-function BrandSymbol({ brand }: { brand: string }) {
-  if (brand === 'visa') return (
-    <span className="font-bold italic text-white text-lg tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>VISA</span>
-  );
-  if (brand === 'mastercard') return (
-    <div className="flex items-center">
-      <div className="w-6 h-6 rounded-full bg-red-500/90" />
-      <div className="w-6 h-6 rounded-full bg-yellow-400/90 -ml-3" />
-    </div>
-  );
-  if (brand === 'amex') return (
-    <span className="font-bold text-white text-xs tracking-widest">AMEX</span>
-  );
-  if (brand === 'elo') return (
-    <span className="font-bold text-white text-lg" style={{ fontFamily: 'Georgia, serif' }}>elo</span>
-  );
-  return <CreditCardIcon size={20} className="text-white/80" />;
-}
-
-function CardCarousel({
-  cards,
-  installmentsByCard,
-}: {
-  cards: CreditCard[];
-  installmentsByCard: Map<string, number>;
-}) {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isScrolling  = useRef(false);
-  const total = cards.length;
-
-  if (total === 0) return null;
-
-  // Scroll programático ao mudar activeIdx pelas setas
-  const scrollToIdx = (idx: number) => {
-    const el = containerRef.current;
-    if (!el) return;
-    isScrolling.current = true;
-    const cardWidth = el.offsetWidth * 0.88 + 12; // largura do card + gap
-    el.scrollTo({ left: idx * cardWidth, behavior: 'smooth' });
-    setTimeout(() => { isScrolling.current = false; }, 400);
-  };
-
-  const prev = () => {
-    const newIdx = (activeIdx - 1 + total) % total;
-    setActiveIdx(newIdx);
-    scrollToIdx(newIdx);
-  };
-
-  const next = () => {
-    const newIdx = (activeIdx + 1) % total;
-    setActiveIdx(newIdx);
-    scrollToIdx(newIdx);
-  };
-
-  const goTo = (idx: number) => {
-    setActiveIdx(idx);
-    scrollToIdx(idx);
-  };
-
-  // Atualizar índice ativo ao rolar manualmente
-  const handleScroll = () => {
-    if (isScrolling.current) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const cardWidth = el.offsetWidth * 0.88 + 12;
-    const newIdx = Math.round(el.scrollLeft / cardWidth);
-    if (newIdx !== activeIdx && newIdx >= 0 && newIdx < total) {
-      setActiveIdx(newIdx);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.28, duration: 0.4 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl bg-primary/15 flex items-center justify-center">
-            <CreditCardIcon size={13} className="text-primary" />
-          </div>
-          <p className="text-sm font-semibold">Meus Cartões</p>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">{total}</span>
-        </div>
-        {total > 1 && (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={prev}
-              className="w-8 h-8 rounded-xl bg-secondary/80 hover:bg-secondary flex items-center justify-center transition-colors border border-border/50"
-            >
-              <ChevronLeft size={15} className="text-muted-foreground" />
-            </button>
-            <button
-              onClick={next}
-              className="w-8 h-8 rounded-xl bg-secondary/80 hover:bg-secondary flex items-center justify-center transition-colors border border-border/50"
-            >
-              <ChevronRight size={15} className="text-muted-foreground" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Track com peek dos cartões adjacentes */}
-      <div className="relative rounded-2xl overflow-hidden">
-
-
-        <div
-          ref={containerRef}
-          onScroll={handleScroll}
-          className="flex gap-3 overflow-x-auto scrollbar-hide px-3"
-          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-        >
-          {cards.map((card, i) => {
-            const spent     = installmentsByCard.get(card.id) ?? 0;
-            const available = Math.max(0, card.limit - spent);
-            const usedPct   = card.limit > 0 ? Math.min(100, (spent / card.limit) * 100) : 0;
-            const gradient  = card.customGradient ?? CARD_BRAND_GRADIENTS[card.brand] ?? CARD_BRAND_GRADIENTS.other;
-            const isActive  = i === activeIdx;
-
-            return (
-              <div
-                key={card.id}
-                onClick={() => goTo(i)}
-                className="relative rounded-3xl overflow-hidden text-white cursor-pointer select-none"
-                style={{
-                  background: gradient,
-                  minWidth: '88%',
-                  height: 186,
-                  scrollSnapAlign: 'center',
-                  flexShrink: 0,
-                  opacity: isActive ? 1 : 0.65,
-                  transform: isActive ? 'scale(1)' : 'scale(0.94)',
-                  transition: 'opacity 0.3s ease, transform 0.3s ease',
-                  filter: card.active === false ? 'grayscale(0.85)' : undefined,
-                }}
-              >
-
-                {/* Brilho diagonal */}
-                <div className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 50%)' }} />
-                {/* Borda glass */}
-                <div className="absolute inset-0 rounded-3xl pointer-events-none"
-                  style={{ border: '1px solid rgba(255,255,255,0.16)' }} />
-
-                {/* Badge vencimento */}
-                <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
-                  <p className="text-white/75 text-[10px] font-medium whitespace-nowrap">Vence dia {card.dueDay}</p>
-                </div>
-
-                {/* Badge bloqueado */}
-                {card.active === false && (
-                  <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-xl flex items-center gap-1"
-                    style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)' }}>
-                    <Lock size={9} className="text-white/85" />
-                    <p className="text-white/85 text-[10px] font-medium whitespace-nowrap">Bloqueado</p>
-                  </div>
-                )}
-
-                <div className="relative z-10 p-5 h-full flex flex-col justify-between">
-                  {/* Topo */}
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <BrandSymbol brand={card.brand} />
-                      <p className="text-white/70 text-xs mt-1.5 font-medium">{card.name}</p>
-                    </div>
-                    {/* NFC */}
-                    <div className="flex flex-col gap-0.5 mt-1 opacity-40">
-                      {[14, 11, 8].map(w => (
-                        <div key={w} className="h-0.5 rounded-full bg-white" style={{ width: w }} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Número */}
-                  <p className="text-white/50 font-mono text-sm tracking-[0.22em]">
-                    •••• •••• •••• {card.lastDigits}
-                  </p>
-
-                  {/* Base */}
-                  <div>
-                    <div className="flex items-end justify-between mb-2">
-                      <div>
-                        <p className="text-white/40 text-[10px] mb-0.5 uppercase tracking-wide">Fatura</p>
-                        <p className="text-white font-bold text-xl tabular-nums leading-none">{formatCurrency(spent)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-white/40 text-[10px] mb-0.5 uppercase tracking-wide">Disponível</p>
-                        <p className="text-white/85 font-semibold text-sm tabular-nums leading-none">{formatCurrency(available)}</p>
-                      </div>
-                    </div>
-                    <div className="h-1 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }}>
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${usedPct}%`, background: 'rgba(255,255,255,0.75)' }} />
-                    </div>
-                    <p className="text-white/30 text-[10px] mt-1">{Math.round(usedPct)}% do limite</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Dots */}
-      {total > 1 && (
-        <div className="flex justify-center gap-1.5 mt-4">
-          {cards.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goTo(i)}
-              className="transition-all duration-300 rounded-full"
-              style={{
-                width: i === activeIdx ? 20 : 6,
-                height: 6,
-                background: i === activeIdx ? 'hsl(263 70% 58%)' : 'hsl(var(--border))',
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
+import { LoadingState, EmptyState } from '@/components/states/StateViews';
+import { TransactionRow } from '@/features/dashboard/components/TransactionRow';
+import { CategoryBreakdown } from '@/features/dashboard/components/CategoryBreakdown';
+import { computeMonthSummary } from '@/features/dashboard/calculations';
+import { METHOD_ICONS } from '@/features/dashboard/constants';
+import { SectionDivider } from '@/features/dashboard/components/SectionDivider';
+import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
+import { CardCarousel } from '@/features/dashboard/components/CardCarousel';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -434,95 +96,18 @@ export default function Dashboard() {
   useEffect(() => { loadVarTxs(); }, [loadVarTxs, version]);
   const loadAll = useCallback(async () => { await Promise.all([refresh(), loadVarTxs()]); }, [refresh, loadVarTxs]);
 
-  // ── Cálculos ─────────────────────────────────────────────────────────────
-  // Assinaturas com cardId → aparecem como lançamentos de cartão
-  const subInstallments = useMemo(
-    () => subscriptionsAsInstallments(subscriptions, month),
-    [subscriptions, month],
-  );
-
-  const allInstallments = useMemo(
-    () => [...computeInstallmentsForMonth(expenses, cards, month), ...subInstallments],
-    [expenses, cards, month, subInstallments],
-  );
-  const cardMap        = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
+  // ── Cálculos (função pura em features/dashboard/calculations.ts) ──────────
+  const {
+    allInstallments, cardMap, invoiceMap, installmentsByCard,
+    totalCardSpent, totalCardCalculated, totalLimit,
+    totalVarInc, totalVarExp, totalIncome, totalSubsNoCard, totalExpense, balance,
+    paidExpense, receivedIncome, pendingExpense, toReceive,
+    txCount, daysInMonth, daysElapsed, avgDaily, expenseRatio, pieData,
+  } = useMemo(() => computeMonthSummary({
+    month, cards, expenses, fixedExpenses, incomes, subscriptions, varTxs, invoices,
+    currentMonth: getCurrentMonth(),
+  }), [month, cards, expenses, fixedExpenses, incomes, subscriptions, varTxs, invoices]);
   const getExpenseById = (id: string) => expenses.find(e => e.id === id);
-  const invoiceMap     = useMemo(() => new Map(invoices.map(inv => [inv.cardId, inv])), [invoices]);
-
-  const totalCardSpent = useMemo(() =>
-    cards.reduce((sum, card) => {
-      const confirmed = invoiceMap.get(card.id);
-      if (confirmed && confirmed.actualAmount > 0) return sum + confirmed.actualAmount;
-      return sum + allInstallments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
-    }, 0),
-  [cards, invoiceMap, allInstallments]);
-
-  const totalCardCalculated = useMemo(() => allInstallments.reduce((s, i) => s + i.amount, 0), [allInstallments]);
-  const totalLimit          = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
-  // Usa o valor real confirmado em Faturas quando existir, senão o calculado
-  const installmentsByCard  = useMemo(() => new Map(
-    cards.map(c => {
-      const confirmed = invoiceMap.get(c.id);
-      const calculated = allInstallments.filter(i => i.cardId === c.id).reduce((s, i) => s + i.amount, 0);
-      return [c.id, confirmed && confirmed.actualAmount > 0 ? confirmed.actualAmount : calculated];
-    })
-  ), [cards, allInstallments, invoiceMap]);
-
-  const totalVarInc  = useMemo(() => varTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),  [varTxs]);
-  const totalVarExp  = useMemo(() => varTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [varTxs]);
-  const totalIncome  = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0) + totalVarInc,                    [incomes, totalVarInc]);
-  // Assinaturas sem cartão (cobradas direto, não via fatura)
-  const totalSubsNoCard = useMemo(
-    () => subscriptions.filter(s => s.active && !s.cardId).reduce((s, sub) => s + monthlyAmount(sub), 0),
-    [subscriptions],
-  );
-
-  const totalExpense = useMemo(
-    () => totalCardSpent + fixedExpenses.reduce((s, f) => s + f.amount, 0) + totalVarExp + totalSubsNoCard,
-    [totalCardSpent, fixedExpenses, totalVarExp, totalSubsNoCard],
-  );
-  const balance      = totalIncome - totalExpense;
-
-  // Pendente = gastos que ainda não foram pagos (total - já pagos via checklist)
-  // A receber = receitas que ainda não entraram
-  const paidExpense = useMemo(() => {
-    const paidFixed  = fixedExpenses.filter(f => f.paidMonths?.includes(month)).reduce((s, f) => s + f.amount, 0);
-    const paidCards  = invoices.filter(inv => inv.actualAmount > 0).reduce((s, inv) => s + inv.actualAmount, 0);
-    return paidFixed + paidCards;
-  }, [fixedExpenses, invoices, month]);
-
-  const receivedIncome = useMemo(() =>
-    incomes.filter(i => i.receivedMonths?.includes(month)).reduce((s, i) => s + i.amount, 0),
-  [incomes, month]);
-
-  const pendingExpense  = Math.max(0, totalExpense - paidExpense);
-  const toReceive       = Math.max(0, totalIncome - receivedIncome);
-
-  const txCount = useMemo(() => allInstallments.length + varTxs.length, [allInstallments, varTxs]);
-
-  const daysInMonth = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0).getDate();
-  const daysElapsed = month === getCurrentMonth() ? Math.max(1, new Date().getDate()) : daysInMonth;
-  const avgDaily    = totalExpense > 0 ? totalExpense / daysElapsed : 0;
-
-  const expenseRatio = totalIncome > 0 ? Math.min(100, (totalExpense / totalIncome) * 100) : 0;
-
-  const pieData = useMemo(() => {
-    const totals = { ...computeCategoryTotals(allInstallments, fixedExpenses) };
-    varTxs.filter(t => t.type === 'expense').forEach(t => {
-      totals[t.category] = (totals[t.category] || 0) + t.amount;
-    });
-    // Agrupa por label resolvido — categorias diferentes (ex: custom deletada
-    // e a categoria padrão "other") podem cair ambas em "Outros" e não devem
-    // aparecer como linhas duplicadas.
-    const byLabel: Record<string, number> = {};
-    Object.entries(totals).filter(([, v]) => v > 0).forEach(([key, value]) => {
-      const label = resolveCategoryInfo(key).label;
-      byLabel[label] = (byLabel[label] || 0) + value;
-    });
-    return Object.entries(byLabel)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value).slice(0, 8);
-  }, [allInstallments, fixedExpenses, varTxs]);
 
   const [y, m] = month.split('-');
   const monthLabel = new Date(parseInt(y), parseInt(m) - 1)
@@ -583,7 +168,8 @@ export default function Dashboard() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setHidden(v => !v)}
+          <button type="button" onClick={() => setHidden(v => !v)}
+            aria-label={hidden ? 'Mostrar valores' : 'Ocultar valores'} aria-pressed={hidden}
             className="p-2 rounded-xl transition-colors"
             style={{ background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--muted))')}
@@ -593,7 +179,7 @@ export default function Dashboard() {
           <div className="xl:hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <button className="p-2 rounded-xl transition-colors"
+                <button type="button" aria-label="Abrir resumo e alertas" className="p-2 rounded-xl transition-colors"
                   style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)', color: 'rgb(196,181,253)' }}>
                   <ChartNoAxesCombined size={16} />
                 </button>
@@ -698,42 +284,9 @@ export default function Dashboard() {
                 {pieData.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
-                    className="relative rounded-3xl overflow-hidden p-5"
-                    style={{
-                      background: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                    }}
+                    className="rounded-3xl overflow-hidden p-5 bg-card border border-border"
                   >
-
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-7 h-7 rounded-xl flex items-center justify-center"
-                          style={{ background: 'hsl(var(--primary) / 0.1)' }}>
-                          <span className="text-xs">📊</span>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">Gastos por categoria</p>
-                      </div>
-                      <div className="flex gap-4 items-center">
-                        <div className="w-32 h-32 shrink-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={56} dataKey="value" stroke="none" isAnimationActive={false}>
-                                {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} opacity={0.9} />)}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex-1 min-w-0 space-y-2">
-                          {pieData.slice(0, 6).map((d, i) => (
-                            <div key={d.name} className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                              <span className="text-xs text-muted-foreground truncate flex-1">{d.name}</span>
-                              <span className="text-xs font-semibold tabular-nums text-foreground">{formatCurrency(d.value)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    <CategoryBreakdown data={pieData} hidden={hidden} />
                   </motion.div>
                 )}
 
@@ -813,57 +366,31 @@ export default function Dashboard() {
 
                   {/* Lista */}
                   <div className="relative z-10 px-3 py-3">
-                    {loadingData && (
-                      <div className="py-10 text-center">
-                        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground">Carregando...</p>
-                      </div>
-                    )}
+                    {loadingData && <LoadingState rows={4} label="Carregando lançamentos…" />}
                     {!loadingData && isEmpty && (
-                      <div className="py-10 text-center">
-                        <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
-                          <Wallet size={20} className="text-muted-foreground" />
-                        </div>
-                        <p className="text-sm font-medium text-muted-foreground">Nenhum lançamento</p>
-                        <p className="text-xs text-muted-foreground/60 mt-1">
-                          {activeCount > 0 ? 'Limpe os filtros' : 'Adicione um gasto ou receita'}
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<Wallet size={20} />}
+                        title="Nenhum lançamento"
+                        description={activeCount > 0 ? 'Limpe os filtros para ver todos' : 'Adicione um gasto ou receita'}
+                      />
                     )}
                     {!loadingData && !isEmpty && (
                       <>
                         <AnimatePresence mode="popLayout">
                           {visibleInstallments.slice(0, collapseInst.visible).map((inst) => {
                             const orig = getExpenseById(inst.expenseId);
+                            const cardName = cardMap.get(inst.cardId)?.name ?? '';
                             return (
-                              <motion.div key={inst.expenseId + inst.installmentNumber}
-                                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                                className="flex items-center gap-3 py-2.5 px-2 rounded-xl group transition-colors"
-                                onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--secondary) / 0.5)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                              >
-                                <CategoryIcon category={inst.category} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate text-foreground">{inst.expenseName}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {inst.totalInstallments > 1
-                                      ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardMap.get(inst.cardId)?.name ?? ''}`
-                                      : `À vista · ${cardMap.get(inst.cardId)?.name ?? ''}`}
-                                  </p>
-                                </div>
-                                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(inst.amount)}</span>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => orig && setEditingExpense(orig)}
-                                    className="p-1 rounded-lg text-white/30 hover:text-white/70 transition-colors">
-                                    <Pencil size={12} />
-                                  </button>
-                                  <button onClick={() => setDeletingExpenseId(inst.expenseId)}
-                                    className="p-1 rounded-lg text-white/30 hover:text-red-400 transition-colors">
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              </motion.div>
+                              <TransactionRow key={inst.expenseId + inst.installmentNumber}
+                                icon={<CategoryIcon category={inst.category} />}
+                                title={inst.expenseName}
+                                subtitle={inst.totalInstallments > 1
+                                  ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardName}`
+                                  : `À vista · ${cardName}`}
+                                amount={inst.amount} tone="expense"
+                                onEdit={orig ? () => setEditingExpense(orig) : undefined}
+                                onDelete={() => setDeletingExpenseId(inst.expenseId)}
+                              />
                             );
                           })}
                         </AnimatePresence>
@@ -874,30 +401,18 @@ export default function Dashboard() {
                             {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
                             <AnimatePresence mode="popLayout">
                               {visibleVarTxs.slice(0, collapseVar.visible).map((tx) => (
-                                <motion.div key={tx.id}
-                                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}
-                                  className="flex items-center gap-3 py-2.5 px-2 rounded-xl group transition-colors"
-                                  onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--secondary) / 0.5)')}
-                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                  <CategoryIcon category={tx.category} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate text-foreground">{tx.name}</p>
-                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                      {METHOD_ICONS[tx.paymentMethod] ?? null}
-                                      {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
-                                      {tx.date && ` · ${tx.date.split('-').reverse().slice(0, 2).join('/')}`}
-                                    </p>
-                                  </div>
-                                  <span className={cn('text-sm font-bold tabular-nums', tx.type === 'income' ? 'text-emerald-400' : 'text-red-400')}>
-                                    {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
-                                  </span>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setEditingVar(tx)} className="p-1 rounded-lg text-white/30 hover:text-white/70 transition-colors"><Pencil size={12} /></button>
-                                    <button onClick={() => setDeletingVarId(tx.id)} className="p-1 rounded-lg text-white/30 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
-                                  </div>
-                                </motion.div>
+                                <TransactionRow key={tx.id}
+                                  icon={<CategoryIcon category={tx.category} />}
+                                  title={tx.name}
+                                  subtitle={<>
+                                    {METHOD_ICONS[tx.paymentMethod] ?? null}
+                                    {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                                    {tx.date && ` · ${tx.date.split('-').reverse().slice(0, 2).join('/')}`}
+                                  </>}
+                                  amount={tx.amount} tone={tx.type === 'income' ? 'income' : 'expense'}
+                                  onEdit={() => setEditingVar(tx)}
+                                  onDelete={() => setDeletingVarId(tx.id)}
+                                />
                               ))}
                             </AnimatePresence>
                             <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
@@ -908,16 +423,11 @@ export default function Dashboard() {
                           <>
                             {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
                             {visibleFixed.slice(0, collapseFixed.visible).map(f => (
-                              <div key={f.id} className="flex items-center gap-3 py-2.5 px-2 rounded-xl"
-                                onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--secondary) / 0.5)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                                <CategoryIcon category={f.category} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate text-foreground">{f.name}</p>
-                                  <p className="text-xs text-muted-foreground">Fixo mensal</p>
-                                </div>
-                                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(f.amount)}</span>
-                              </div>
+                              <TransactionRow key={f.id}
+                                icon={<CategoryIcon category={f.category} />}
+                                title={f.name} subtitle="Fixo mensal"
+                                amount={f.amount} tone="expense"
+                              />
                             ))}
                             <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
                           </>
