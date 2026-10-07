@@ -1,56 +1,84 @@
 # FinanceFlow 💜
 
-> **Controle financeiro pessoal inteligente** — organize receitas, gastos e metas em um só lugar.
+> **Controle financeiro pessoal** — receitas, gastos, cartões e metas em um só lugar, com **previsão de gastos por Machine Learning** validada por backtest.
 
-![FinanceFlow](https://img.shields.io/badge/FinanceFlow-v1.0-6a21d9?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0xIDE0LjVoLTJ2LTJoMnYyem0wLTRoLTJWN2gydjUuNXoiLz48L3N2Zz4=)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)
-![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=flat-square&logo=supabase)
+![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?style=flat-square&logo=firebase)
 ![Vite](https://img.shields.io/badge/Vite-Build-646CFF?style=flat-square&logo=vite)
-![PWA](https://img.shields.io/badge/PWA-Instalável-5A0FC8?style=flat-square&logo=pwa)
+![Python](https://img.shields.io/badge/ML%20API-FastAPI%20%2B%20scikit--learn-009688?style=flat-square&logo=fastapi)
+![License](https://img.shields.io/badge/licença-MIT-green?style=flat-square)
+![Tests](https://img.shields.io/badge/testes-Vitest%20%2B%20pytest-6E9F18?style=flat-square&logo=vitest)
 
 ---
 
 ## Visão Geral
 
-O **FinanceFlow** é uma aplicação web progressiva (PWA) de controle financeiro pessoal, com suporte a instalação no mobile e desktop. Oferece um dashboard centralizado com visão completa do mês, gestão de cartões de crédito, gastos fixos, receitas, transações variáveis e módulos opcionais como assinaturas, metas, empréstimos e investimentos.
+O **FinanceFlow** é um app web de controle financeiro pessoal (instalável via manifest e empacotável como app Android com Capacitor). Oferece um dashboard com a visão completa do mês, cartões de crédito, gastos fixos, receitas, transações variáveis e módulos opcionais (assinaturas, metas, empréstimos e investimentos).
 
 ---
 
 ## Funcionalidades Principais
 
 ### Dashboard
-- Visão geral do mês com saldo, total de receitas e gastos
-- Sidebar inteligente com alertas automáticos (faturas próximas, déficit previsto, balanço positivo)
-- Progresso de orçamentos por categoria
-- Linha do tempo de próximos eventos financeiros (recebimentos e vencimentos)
-- Aba de **Patrimônio** com resumo de investimentos e dívidas
+- Saldo, receitas, gastos, pendente e a receber do mês
+- Carrossel de cartões com uso do limite e fatura (valor confirmado ou calculado)
+- Sidebar com alertas automáticos (fatura próxima, déficit previsto, mês positivo)
+- Progresso de orçamentos por categoria e linha do tempo de vencimentos/recebimentos
+- Aba de **Patrimônio** (investimentos e dívidas) e widget de metas
 
-### Ganhos
-- Cadastro de **receitas fixas** com dia de recebimento
-- Controle de quais meses já foram recebidos (marcação por mês)
-- **Receitas variáveis** — lançamentos avulsos por data
-- Saldo líquido calculado em tempo real
-
-### Gastos
-- **Gastos fixos** mensais com categorias e controle de pagamento por mês
-- **Cartões de crédito** — lançamentos parcelados com cálculo automático por mês
-- **Faturas de cartão** — confirmação de valor real da fatura
-- **Transações variáveis** — gastos e receitas pontuais por data
-- **Assinaturas recorrentes** — vinculáveis a cartão ou como gasto fixo (módulo adicional)
+### Ganhos e Gastos
+- **Receitas fixas** (dia de recebimento, marcação por mês) e **variáveis**
+- **Gastos fixos** com controle de pagamento por mês
+- **Cartões** com compras parceladas calculadas por mês de fatura; **faturas** com valor real confirmado
+- **Transações variáveis**, filtros, edição em lote de categoria e importação de planilhas/extratos (CSV)
 
 ### Relatórios
-- Gráfico de fluxo de caixa acumulado ao longo do mês
-- Previsão financeira para os próximos 6 meses
-- Detalhamento de parcelas futuras por cartão
+- **Previsão** dos próximos 6 meses com ML (ver abaixo)
+- Histórico, fluxo de caixa diário, categorias com detalhamento por lançamento e insights automáticos
 
-### Módulos Adicionais (ativáveis)
+### Módulos adicionais (ativáveis)
 | Módulo | Descrição |
 |---|---|
-| 🔁 **Assinaturas** | Netflix, Spotify, iCloud e outras — aparecem automaticamente nos gastos mensais |
-| 🎯 **Metas** | Objetivos financeiros com meta mensal de economia integrada ao dashboard |
-| 🏛️ **Empréstimos** | Controle de parcelas, juros e saldo devedor |
-| 📈 **Investimentos** | Acompanhamento de rentabilidade e patrimônio |
+| 🔁 **Assinaturas** | Cobranças recorrentes, vinculáveis a cartão; entram nos gastos do mês |
+| 🎯 **Metas** | Objetivos com prazo, aporte e análise de viabilidade |
+| 🏛️ **Empréstimos** | Parcelas, juros e saldo devedor |
+| 📈 **Investimentos** | Rentabilidade e patrimônio |
+
+---
+
+## Machine Learning
+
+O FinanceFlow tem duas funcionalidades de ML, ambas com **validação explícita** (o app mostra o quanto cada modelo erra, em vez de só exibir um número).
+
+### 1. Classificador de gastos (`/classifier`)
+TF-IDF (palavras + n-gramas de caracteres) + Regressão Logística. Aprende com as correções da usuária (peso maior que a base inicial). Roda no navegador (`src/lib/ml/classifier.ts`, implementação própria com Adam) e, opcionalmente, na API Python (`ml-api/app/model.py`, scikit-learn).
+
+### 2. Previsão de gastos (aba **Relatórios → Previsão**)
+Prevê o **gasto variável** dos próximos 6 meses, com faixa de 80% de confiança.
+
+- **O que é previsto:** só decisões novas — gastos variáveis e compras à vista no cartão (pelo mês da fatura). Parcelas, gastos fixos e assinaturas já são conhecidos e somados por cima; assim não há dupla contagem.
+- **Série limpa:** o mês corrente fica fora do treino (incompleto) e categorias esparsas (< 3 meses com gasto) viram "Outros".
+- **Modelos candidatos:** ingênuo, média móvel, mediana robusta, suavização exponencial e tendência amortecida (Holt). Na API Python entram também **Ridge global** (treinado com todas as categorias, cada série na própria escala) e um **ensemble** de composição fixa.
+- **Seleção por backtest:** origem móvel, 1 passo à frente; vence o menor MAE (empate → modelo mais simples). Sempre comparado ao ingênuo ("repetir o mês passado"): se o modelo não superar, a tela avisa.
+- **Incerteza:** intervalo de 80% calculado a partir do erro de backtest e alargado com o horizonte (heurística: `σ·√(1 + 0,25·h)`). A cobertura real da faixa nos testes é exibida.
+- **Camadas:** o navegador calcula sempre um modelo local (instantâneo/offline). Se `VITE_ML_API_URL` estiver configurada e a API responder (`POST /forecast`), o resultado completo dela substitui o local; se falhar, o local continua valendo.
+
+**Demonstração:** `/ml-lab` roda os dois modelos sem login. Na previsão, o app gera uma série sintética, **esconde os últimos meses do modelo** e compara previsão x realidade (erro do modelo vs. “repetir o último mês”, cobertura da faixa de 80%), com controles de padrão de gasto, histórico e ruído.
+
+**Limitações assumidas:** séries de finanças pessoais são curtas (poucos meses), então sazonalidade anual não é aprendida; com menos de 5 meses completos a previsão é marcada como *não confiável*; o total é previsto direto da soma das categorias, mas os intervalos por categoria assumem independência.
+
+**Testes:** `npm test` (motor de previsão, construção das séries, painel e estados de tela) e `cd ml-api && pytest` (inclui um teste que garante que o Ridge nunca usa dados do futuro no backtest).
+
+```
+src/lib/ml/forecast.ts          # motor local (funções puras)
+src/lib/ml/spendingSeries.ts    # histórico do app → séries mensais
+src/lib/ml/forecastApi.ts       # cliente da API com fallback
+src/features/forecast/          # hook + painel (gráfico, métricas, tabelas)
+src/features/mllab/             # demonstração pública (/ml-lab): dados sintéticos + avaliação
+src/lib/ml/classifier.ts        # classificador de gastos (TF-IDF + regressão logística)
+ml-api/app/forecast.py          # motor completo (Ridge global, ensemble)
+```
 
 ---
 
@@ -60,212 +88,166 @@ O **FinanceFlow** é uma aplicação web progressiva (PWA) de controle financeir
 |---|---|
 | Framework | [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
 | Build | [Vite](https://vitejs.dev/) |
-| Roteamento | [React Router DOM v6](https://reactrouter.com/) |
-| Backend / Auth / DB | [Supabase](https://supabase.com/) (PostgreSQL + Auth + RLS) |
-| Estilização | [Tailwind CSS](https://tailwindcss.com/) + CSS Variables |
-| Componentes UI | [shadcn/ui](https://ui.shadcn.com/) |
+| Roteamento | [React Router v6](https://reactrouter.com/) |
+| Auth e banco | [Firebase Authentication](https://firebase.google.com/docs/auth) + [Cloud Firestore](https://firebase.google.com/docs/firestore) |
+| Estilização / UI | [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | Animações | [Framer Motion](https://www.framer.com/motion/) |
 | Gráficos | [Recharts](https://recharts.org/) |
-| Temas | [next-themes](https://github.com/pacocoursey/next-themes) (dark/light) |
-| Data fetching | [TanStack Query](https://tanstack.com/query) |
-| Notificações | [Sonner](https://sonner.emilkowal.ski/) |
-| PWA | Web App Manifest + iOS/Android meta tags |
+| ML (navegador) | TypeScript puro (sem bibliotecas de ML) |
+| ML (API) | [FastAPI](https://fastapi.tiangolo.com/) + scikit-learn + NumPy |
+| Mobile | [Capacitor](https://capacitorjs.com/) (Android) |
+| Testes | [Vitest](https://vitest.dev/) + Testing Library, [pytest](https://pytest.org/) |
 
 ---
 
 ## Estrutura do Projeto
 
 ```
-financeflow/
-├── public/
-│   ├── manifest.webmanifest       # Config PWA
-│   ├── financeflow-icon-purple-bg.svg
-│   └── financeflow-icon-dark-bg.svg
 ├── src/
-│   ├── App.tsx                    # Roteamento principal + auth + lazy loading
-│   ├── main.tsx
-│   ├── contexts/
-│   │   └── FinanceDataContext.tsx # Context global de dados financeiros
+│   ├── App.tsx                  # Rotas (lazy) + auth + ErrorBoundary
+│   ├── pages/                   # Orquestradores finos: carregam dados e compõem features
+│   │   ├── Index.tsx            # Dashboard
+│   │   ├── ReportsPage.tsx      # Relatórios
+│   │   ├── GoalsPage.tsx · SubscriptionsPage.tsx · CardsPage.tsx · FixedPage.tsx · ...
+│   ├── features/                # Código por funcionalidade
+│   │   ├── dashboard/           # calculations.ts (resumo do mês, função pura) + components/
+│   │   ├── reports/             # calculations.ts + tabs/ + components/ + CategoryDrilldown
+│   │   ├── forecast/            # hook + painel de previsão (gráfico, métricas, tabelas)
+│   │   ├── goals/               # GoalCard, GoalDialog, AddSavingsDialog, constantes
+│   │   └── subscriptions/       # FormDialog, SubCard, constantes e tipos
 │   ├── components/
-│   │   ├── AppNav.tsx             # Navegação (sidebar desktop + bottom nav mobile)
-│   │   ├── DashboardSidebar.tsx   # Painel lateral do dashboard (alertas, orçamentos, eventos)
-│   │   ├── DashboardPatrimonioTab.tsx
-│   │   ├── BalanceBreakdownSheet.tsx
-│   │   ├── SmartAlertsPopup.tsx
-│   │   ├── QuickAddFAB.tsx        # Botão flutuante de adição rápida
-│   │   └── ui/                   # Componentes shadcn/ui
-│   ├── pages/
-│   │   ├── Index.tsx              # Dashboard principal
-│   │   ├── FixedPage.tsx          # Gastos e ganhos fixos
-│   │   ├── CardsPage.tsx          # Cartões de crédito
-│   │   ├── FaturaPage.tsx         # Faturas de cartão
-│   │   ├── ReportsPage.tsx        # Relatórios e previsões
-│   │   ├── GoalsPage.tsx          # Metas financeiras
-│   │   ├── LoansPage.tsx          # Empréstimos
-│   │   ├── InvestmentsPage.tsx    # Investimentos
-│   │   ├── SubscriptionsPage.tsx  # Assinaturas
-│   │   ├── ModulesPage.tsx        # Gerenciamento de módulos
-│   │   ├── AuthPage.tsx           # Login / Cadastro
-│   │   └── PasswordResetPage.tsx
+│   │   ├── states/              # Loading / Empty / Error reutilizáveis
+│   │   ├── ErrorBoundary.tsx    # Erro de uma página não derruba o app
+│   │   ├── classifier/          # Gráficos e importação do classificador
+│   │   └── ui/                  # shadcn/ui
 │   ├── lib/
-│   │   ├── supabase.ts            # Client Supabase
-│   │   ├── store.ts               # CRUD cartões, despesas, receitas, transações variáveis
-│   │   ├── store_modules.ts       # CRUD empréstimos e investimentos
-│   │   ├── subscriptions.ts       # CRUD e helpers de assinaturas
-│   │   ├── modules.ts             # Controle de módulos ativos (com cache)
-│   │   ├── auth.ts                # Autenticação (register, login, logout, reset)
-│   │   ├── queryCache.ts          # Cache em memória com TTL
-│   │   └── types.ts               # Interfaces TypeScript globais
+│   │   ├── firebase.ts          # Inicialização do Firebase
+│   │   ├── store.ts · store_modules.ts · subscriptions.ts · goals.ts · budgets.ts  # CRUD (Firestore)
+│   │   ├── queryCache.ts        # Cache em memória com TTL
+│   │   ├── ml/                  # forecast.ts, spendingSeries.ts, forecastApi.ts, classifier.ts, ...
+│   │   └── classifier/          # Cliente da API, CSV e exemplos
+│   ├── contexts/FinanceDataContext.tsx
 │   └── hooks/
-│       ├── useDeepLink.ts
-│       └── usePlatform.ts
-├── android/                       # Wrapper Android (Capacitor/WebView)
-├── index.html
-├── vite.config.ts
-└── tailwind.config.ts
+├── ml-api/                      # API Python (FastAPI): /health, /classify, /forecast
+│   ├── app/                     # main.py, forecast.py, model.py, auth.py
+│   └── tests/                   # pytest
+├── firestore.rules              # Regras de segurança do Firestore
+├── android/                     # Wrapper Android (Capacitor)
+└── public/manifest.webmanifest
 ```
+
+**Convenção:** páginas só orquestram (dados + estado + composição); a lógica de cálculo fica em funções puras em `features/<área>/calculations.ts`, o que permite testá-las sem renderizar nada.
 
 ---
 
-## Rotas da Aplicação
+## Rotas
 
-| Rota | Página | Descrição |
-|---|---|---|
-| `/` | Dashboard | Visão geral do mês |
-| `/fixed` | Gastos/Ganhos Fixos | Receitas e despesas recorrentes |
-| `/cards` | Cartões | Gerenciamento de cartões e lançamentos parcelados |
-| `/faturas` | Faturas | Confirmação de faturas mensais |
-| `/reports` | Relatórios | Fluxo de caixa e previsões |
-| `/subscriptions` | Assinaturas | Módulo de assinaturas recorrentes |
-| `/goals` | Metas | Objetivos financeiros |
-| `/loans` | Empréstimos | Controle de dívidas |
-| `/investments` | Investimentos | Patrimônio e rentabilidade |
-| `/modules` | Módulos | Ativar/desativar módulos extras |
+| Rota | Descrição |
+|---|---|
+| `/` | Dashboard |
+| `/fixed` | Gastos e ganhos fixos |
+| `/cards` | Cartões e lançamentos parcelados |
+| `/faturas` | Faturas mensais |
+| `/reports` | Relatórios e previsão (ML) |
+| `/classifier` | Classificador de gastos (ML) |
+| `/ml-lab` | **Laboratório de ML público** (sem login): previsão com dados sintéticos e classificador ao vivo |
+| `/subscriptions` · `/goals` · `/loans` · `/investments` | Módulos adicionais |
+| `/modules` | Ativar/desativar módulos |
 
 ---
 
 ## Como Rodar Localmente
 
 ### Pré-requisitos
-
 - Node.js 18+
-- npm ou yarn
-- Conta no [Supabase](https://supabase.com/)
+- Um projeto no [Firebase](https://console.firebase.google.com/) com **Authentication** (e-mail/senha) e **Firestore** habilitados
+- (Opcional) Python 3.11+ para a API de ML
 
 ### Instalação
 
 ```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/financeflow.git
-cd financeflow
-
-# Instale as dependências
+git clone https://github.com/gabicavalheiro/finance-flow.git
+cd finance-flow
 npm install
+cp .env.example .env.local   # preencha com os valores do seu projeto Firebase
 ```
 
-### Variáveis de Ambiente
-
-Crie um arquivo `.env.local` na raiz do projeto:
+### Variáveis de ambiente
 
 ```env
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-anon-key
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=seu-projeto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=seu-projeto
+VITE_FIREBASE_STORAGE_BUCKET=seu-projeto.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+
+# Opcional: ativa os modelos completos em Python (sem isso, o app usa os modelos locais)
+# VITE_ML_API_URL=http://localhost:8000
 ```
 
-### Rodando o Projeto
+Publique as regras do Firestore com `firebase deploy --only firestore:rules` (arquivo `firestore.rules`).
+
+### Comandos
 
 ```bash
-# Desenvolvimento
-npm run dev
-
-# Build de produção
-npm run build
-
-# Preview do build
-npm run preview
+npm run dev            # desenvolvimento
+npm run build          # build de produção
+npm run preview        # preview do build
+npm test               # testes do front-end (Vitest)
+npm run sync:android   # build mobile + cap sync
 ```
 
+### API de ML (opcional)
+
+```bash
+cd ml-api
+pip install -r requirements.txt -r requirements-dev.txt
+REQUIRE_AUTH=false uvicorn app.main:app --reload   # só para desenvolvimento local
+pytest                                              # testes da API
+```
+
+Em produção, defina `FIREBASE_PROJECT_ID` (a API valida o ID token do Firebase enviado pelo app) e `ALLOWED_ORIGINS`. Há um `Dockerfile` pronto.
+
 ---
 
-## Banco de Dados (Supabase)
+## Dados (Firestore)
 
-O projeto usa as seguintes tabelas no PostgreSQL via Supabase:
+Todos os dados ficam em subcoleções de `users/{uid}/...`, e as regras (`firestore.rules`) permitem que cada usuário leia e escreva **somente** o próprio documento-raiz:
 
-| Tabela | Descrição |
+`cards` · `expenses` · `fixedExpenses` · `fixedIncomes` · `variableTransactions` · `cardInvoices` · `subscriptions` · `loans` · `investments` · `goals` · `budgets` · `customCategories` · `moduleSettings`
+
+---
+
+## Instalação no celular
+
+- **Manifest (PWA básico):** o app pode ser adicionado à tela inicial (Android/Chrome, iOS/Safari, desktop/Chrome). **Ainda não há service worker**, então não funciona offline.
+- **Android nativo:** `npm run sync:android` + `npm run open:android` (Capacitor). Deep link `financeflow://` usado na redefinição de senha.
+
+---
+
+## Performance e robustez
+
+- **Code splitting** por página (`React.lazy` + `Suspense`)
+- **Cache em memória** com TTL e invalidação seletiva por chave (`queryCache.ts`)
+- **Cache de módulos ativos** com invalidação ao ativar/desativar
+- **Estados de tela** padronizados (carregando, vazio, erro com "tentar de novo") e `ErrorBoundary` por rota
+
+---
+
+## Testes
+
+| Escopo | Comando |
 |---|---|
-| `credit_cards` | Cartões de crédito (nome, bandeira, limite, dia de vencimento) |
-| `expenses` | Lançamentos parcelados vinculados a cartões |
-| `fixed_expenses` | Gastos fixos mensais |
-| `fixed_incomes` | Receitas fixas com dia de recebimento |
-| `variable_transactions` | Transações variáveis (gastos ou receitas avulsas) |
-| `invoices` | Faturas confirmadas por cartão e mês |
-| `subscriptions` | Assinaturas recorrentes |
-| `loans` | Empréstimos com juros e parcelas |
-| `investments` | Investimentos com rendimento |
-| `goals` | Metas financeiras |
-| `budgets` | Orçamentos por categoria |
-| `user_module_settings` | Módulos ativos por usuário |
-
-Todas as tabelas utilizam **Row Level Security (RLS)** — cada usuário acessa apenas seus próprios dados.
-
----
-
-## PWA — Instalação no Mobile / Desktop
-
-O FinanceFlow é uma PWA completa e pode ser instalada diretamente do navegador:
-
-- **Android/Chrome:** Menu ⋮ → "Adicionar à tela inicial"
-- **iOS/Safari:** Compartilhar → "Adicionar à Tela de Início"
-- **Desktop/Chrome:** Ícone de instalação na barra de endereços
-
-Configurações do manifest:
-- **Cor do tema:** `#6a21d9` (roxo)
-- **Fundo:** `#0f0e13` (dark)
-- **Orientação:** Portrait
-- **Display:** Standalone (sem barra do navegador)
-- **Deep link nativo:** `financeflow://` (para reset de senha no app)
-
----
-
-## Design System
-
-- **Tema padrão:** Dark, com suporte a Light via `next-themes`
-- **Cor primária:** Roxo `hsl(262 83% 58%)`
-- **Sucesso:** Verde esmeralda `hsl(152 69% 45%)`
-- **Destrutivo:** Vermelho `hsl(0 72% 51%)`
-- **Aviso:** Âmbar `hsl(38 92% 50%)`
-- **Tipografia:** Sistema nativo
-- **Border radius:** `rounded-xl` / `rounded-2xl` / `rounded-3xl`
-- **Animações:** Framer Motion com `initial/animate` e delays escalonados
-
----
-
-## Performance
-
-- **Code splitting** com `React.lazy` + `Suspense` — cada página carrega como chunk separado
-- **Cache em memória** com TTL configurável (5 min para dados estáticos, 1 min para dinâmicos)
-- **Cache de userId** para evitar round-trips extras ao Supabase por mutação
-- **Cache de módulos ativos** com invalidação automática após ativar/desativar
-- Invalidação seletiva de cache por chave (não invalida tudo a cada mutação)
-
----
-
-## Alertas Inteligentes
-
-O sistema gera alertas automáticos baseados nos dados do mês:
-
-- 🔴 **Déficit previsto** — fatura vence antes do próximo recebimento e o saldo não cobre
-- 🟡 **Fatura próxima** — cartão vence em até 7 dias
-- 🟢 **Mês positivo** — saldo livre após todos os compromissos
-- 🔴 **Gastos maiores que a renda** — deficit no mês
-- 🟡 **Orçamento apertado** — menos de 10% da renda livre
-- 🔵 **Recebimento chegando** — receita em até 3 dias
+| Front-end (cálculos, previsão, painel, páginas, estados) | `npm test` |
+| E2E (Playwright: laboratório de ML, login, dashboard, relatórios) | `npx playwright install chromium && npx playwright test` — os fluxos autenticados exigem `E2E_EMAIL` e `E2E_PASSWORD` de um usuário de teste do Firebase; sem eles, são pulados |
+| API de ML (classificador, previsão, sem vazamento de dados futuros) | `cd ml-api && pytest` |
 
 ---
 
 ## Licença
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+Distribuído sob a licença MIT. Veja [`LICENSE`](LICENSE).
 
 ---
 
