@@ -94,14 +94,11 @@ function AppRoutes() {
               <Route path="/loans"         element={<LoansPage />} />
               <Route path="/investments"   element={<InvestmentsPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
-<<<<<<< HEAD
               <Route path="/classifier"    element={<ExpenseClassifierPage />} />
               <Route path="/inteligencia"  element={<IntelligencePage />} />
-=======
               {/* /reset-password sem ?mode=resetPassword&oobCode=... (link já usado,
                   página recarregada, etc.) — manda pra home em vez de dar 404. */}
               <Route path="/reset-password" element={<Navigate to="/" replace />} />
->>>>>>> 11ee79e370208466292cfd8b09c1a4aa32c2e783
               <Route path="*"              element={<NotFound />} />
             </Routes>
           </Suspense>
