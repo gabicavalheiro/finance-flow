@@ -102,45 +102,38 @@ export default function DashboardSidebar({
       <div className="space-y-3">
 
         {/* ── BALANCE CARD ── */}
-        <div className="rounded-2xl overflow-hidden"
-          style={{
-            background: isPositive
-              ? 'linear-gradient(135deg, hsl(152 55% 20%) 0%, hsl(165 50% 15%) 100%)'
-              : 'linear-gradient(135deg, hsl(0 55% 22%) 0%, hsl(15 50% 16%) 100%)',
-            border: `1px solid ${isPositive ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}`,
-          }}>
+        <div className="rounded-2xl overflow-hidden border border-border bg-card">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Saldo do mês</p>
+              <p className="text-xs font-medium text-muted-foreground">Saldo do mês</p>
               <span className={cn(
-                'flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full',
-                isPositive ? 'bg-emerald-400/20 text-emerald-300' : 'bg-red-400/20 text-red-300',
+                'flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full',
+                isPositive ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive',
               )}>
                 {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                 {ratio}%
               </span>
             </div>
-            <p className={cn('text-2xl font-bold tabular-nums', isPositive ? 'text-emerald-300' : 'text-red-300')}>
+            <p className={cn('text-2xl font-display font-semibold tabular-nums', isPositive ? 'text-foreground' : 'text-destructive')}>
               {fmt(balance)}
             </p>
             {/* Progress bar */}
-            <div className="mt-3 h-1 rounded-full bg-white/10 overflow-hidden">
+            <div className="mt-3 h-1 rounded-full bg-muted overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700"
                 style={{
                   width: `${ratio}%`,
-                  background: ratio > 90 ? 'hsl(0 80% 65%)' : ratio > 70 ? 'hsl(38 95% 62%)' : 'hsl(152 70% 55%)',
+                  background: ratio > 90 ? 'hsl(0 80% 65%)' : ratio > 70 ? 'hsl(38 95% 62%)' : 'hsl(var(--primary))',
                 }} />
             </div>
-            <div className="flex justify-between mt-2 text-[10px] text-white/35">
+            <div className="flex justify-between mt-2 text-[11px] text-muted-foreground">
               <span>{fmt(totalInc)} receitas</span>
               <span>{fmt(totalExp)} gastos</span>
             </div>
           </div>
           {totalSubs > 0 && (
-            <div className="px-4 py-2.5 flex items-center justify-between"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <span className="text-[10px] text-white/40">Assinaturas ({subscriptions.filter(s => s.active).length}x)</span>
-              <span className="text-[10px] font-semibold text-red-400">{fmt(totalSubs)}</span>
+            <div className="px-4 py-2.5 flex items-center justify-between border-t border-border">
+              <span className="text-[11px] text-muted-foreground">Assinaturas ({subscriptions.filter(s => s.active).length}x)</span>
+              <span className="text-[11px] font-semibold text-destructive">{fmt(totalSubs)}</span>
             </div>
           )}
         </div>

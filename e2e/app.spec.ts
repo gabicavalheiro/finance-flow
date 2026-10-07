@@ -16,9 +16,9 @@ test.describe('app autenticado', () => {
 
   test('dashboard mostra os três resumos e permite ocultar valores', async ({ page }) => {
     await login(page);
-    await expect(page.getByText('Saldo do Mês')).toBeVisible();
-    await expect(page.getByText('Pendente a Pagar')).toBeVisible();
-    await expect(page.getByText('A Receber')).toBeVisible();
+    await expect(page.getByText('Saldo do mês').first()).toBeVisible();
+    await expect(page.getByText('Pendente a pagar')).toBeVisible();
+    await expect(page.getByText('A receber')).toBeVisible();
     const toggle = page.getByRole('button', { name: 'Ocultar valores' });
     await toggle.click();
     await expect(page.getByRole('button', { name: 'Mostrar valores' })).toHaveAttribute('aria-pressed', 'true');

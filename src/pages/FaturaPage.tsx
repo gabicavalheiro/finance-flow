@@ -24,7 +24,8 @@ import {
   upsertInvoice,
   CardInvoice,
 } from '@/lib/store';
-import { BRAND_GRADIENTS, CreditCard, MonthlyInstallment } from '@/lib/types';
+import { CreditCard, MonthlyInstallment } from '@/lib/types';
+import { cardSurface } from '@/lib/cardStyle';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -70,8 +71,8 @@ function FaturaCardItem({
     >
       {/* Cabeçalho colorido */}
       <div
-        className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} px-4 py-3 flex items-center justify-between`}
-        style={card.customGradient ? { background: card.customGradient } : undefined}
+        className="px-4 py-3 flex items-center justify-between"
+        style={{ background: cardSurface(card.brand, card.customGradient) }}
       >
         <div>
           <p className="font-semibold text-white text-sm">{card.name}</p>

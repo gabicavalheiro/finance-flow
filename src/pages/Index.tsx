@@ -210,12 +210,11 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Saldo */}
                 <SummaryCard
-                  label="Saldo do Mês"
+                  label="Saldo do mês"
                   value={balance}
                   sub={`${Math.round(expenseRatio)}% da renda comprometida`}
-                  icon={<Scale size={17} className="text-white" />}
-                  gradient="linear-gradient(135deg, #3b0764 0%, #4c1d95 35%, #1e3a8a 75%, #1e40af 100%)"
-                  accentColor="rgba(167,139,250,0.6)"
+                  icon={<Scale size={16} />}
+                  tone="primary"
                   delay={0}
                   onClick={() => setBreakdownOpen(true)}
                   hidden={hidden}
@@ -223,24 +222,22 @@ export default function Dashboard() {
 
                 {/* Pendente a pagar */}
                 <SummaryCard
-                  label="Pendente a Pagar"
+                  label="Pendente a pagar"
                   value={pendingExpense}
                   sub={`de ${formatCurrency(totalExpense)} em gastos`}
-                  icon={<ArrowDownRight size={17} className="text-white" />}
-                  gradient="linear-gradient(135deg, #450a0a 0%, #7f1d1d 35%, #9f1239 75%, #be123c 100%)"
-                  accentColor="rgba(251,113,133,0.6)"
+                  icon={<ArrowDownRight size={16} />}
+                  tone="danger"
                   delay={0.07}
                   hidden={hidden}
                 />
 
                 {/* A receber */}
                 <SummaryCard
-                  label="A Receber"
+                  label="A receber"
                   value={toReceive}
                   sub={`de ${formatCurrency(totalIncome)} previsto`}
-                  icon={<ArrowUpRight size={17} className="text-white" />}
-                  gradient="linear-gradient(135deg, #052e16 0%, #14532d 35%, #166534 75%, #15803d 100%)"
-                  accentColor="rgba(74,222,128,0.6)"
+                  icon={<ArrowUpRight size={16} />}
+                  tone="success"
                   delay={0.14}
                   hidden={hidden}
                 />

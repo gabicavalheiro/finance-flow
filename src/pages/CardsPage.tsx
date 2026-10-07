@@ -12,7 +12,8 @@ import {
   setCardActive, getCardPendingInstallments, CardPendingSummary,
 } from '@/lib/store';
 import { subscriptionsAsInstallments } from '@/lib/subscriptions';
-import { BRAND_GRADIENTS, CreditCard } from '@/lib/types';
+import { CreditCard } from '@/lib/types';
+import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import { formatCurrency, getCurrentMonth, getMonthLabel } from '@/lib/helpers';
 import {
@@ -52,15 +53,13 @@ function CardItem({
     <motion.div key={card.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
       {/* Face do cartão */}
       <div
-        className={`${card.customGradient ? '' : BRAND_GRADIENTS[card.brand]} rounded-2xl p-5 relative overflow-hidden text-white transition-all`}
+        className="rounded-2xl p-5 relative overflow-hidden text-white transition-all"
         style={{
-          ...(card.customGradient ? { background: card.customGradient } : undefined),
+          background: cardSurface(card.brand, card.customGradient),
+          border: CARD_BORDER,
           ...(isBlocked ? { filter: 'grayscale(0.85)', opacity: 0.72 } : undefined),
         }}
       >
-        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
-        <div className="absolute -right-2 top-8 w-16 h-16 rounded-full bg-white/10" />
-
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-6">
             <div>

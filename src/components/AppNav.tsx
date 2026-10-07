@@ -94,9 +94,9 @@ export default function AppNav() {
         )}
         style={{
           background: active
-            ? 'linear-gradient(90deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 100%)'
+            ? 'linear-gradient(90deg, hsl(var(--primary) / 0.16) 0%, hsl(var(--primary) / 0.04) 100%)'
             : undefined,
-          border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
+          border: active ? '1px solid hsl(var(--primary) / 0.28)' : '1px solid transparent',
         }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'hsl(var(--sidebar-accent))'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
@@ -345,13 +345,13 @@ export default function AppNav() {
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 h-full relative transition-all"
-                style={{ color: active ? '#e5e5e5' : 'hsl(var(--muted-foreground))' }}
+                style={{ color: active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}
               >
                 {active && (
                   <motion.span
                     layoutId="mob-pip"
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
-                    style={{ background: '#a3a3a3' }}
+                    style={{ background: 'hsl(var(--primary))' }}
                   />
                 )}
                 <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />
@@ -368,7 +368,7 @@ export default function AppNav() {
               <motion.span
                 layoutId="mob-pip"
                 className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
-                style={{ background: '#a3a3a3' }}
+                style={{ background: 'hsl(var(--primary))' }}
               />
             )}
             {moreOpen ? <X size={20} strokeWidth={2} /> : <MoreHorizontal size={20} strokeWidth={1.7} />}
@@ -406,9 +406,9 @@ export default function AppNav() {
                       onClick={() => navigate(tab.path)}
                       className="flex flex-col items-center gap-2 py-3 rounded-2xl text-xs font-medium transition-all border"
                       style={{
-                        background: active ? 'rgba(255,255,255,0.10)' : 'hsl(var(--secondary))',
-                        border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent',
-                        color: active ? '#e5e5e5' : 'hsl(var(--muted-foreground))',
+                        background: active ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--secondary))',
+                        border: active ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
+                        color: active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
                       }}
                     >
                       <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />

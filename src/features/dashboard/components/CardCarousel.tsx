@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { formatCurrency } from '@/lib/helpers';
 import { CreditCard } from '@/lib/types';
-import { CARD_BRAND_GRADIENTS } from '@/features/dashboard/constants';
+import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 
 // Símbolo da bandeira
 export function BrandSymbol({ brand }: { brand: string }) {
@@ -44,7 +44,7 @@ export function CardCarousel({
     const el = containerRef.current;
     if (!el) return;
     isScrolling.current = true;
-    const cardWidth = el.offsetWidth * 0.88 + 12; // largura do card + gap
+    const cardWidth = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? el.offsetWidth * 0.88) + 12; // largura do card + gap
     el.scrollTo({ left: idx * cardWidth, behavior: 'smooth' });
     setTimeout(() => { isScrolling.current = false; }, 400);
   };
@@ -71,7 +71,7 @@ export function CardCarousel({
     if (isScrolling.current) return;
     const el = containerRef.current;
     if (!el) return;
-    const cardWidth = el.offsetWidth * 0.88 + 12;
+    const cardWidth = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? el.offsetWidth * 0.88) + 12;
     const newIdx = Math.round(el.scrollLeft / cardWidth);
     if (newIdx !== activeIdx && newIdx >= 0 && newIdx < total) {
       setActiveIdx(newIdx);
@@ -90,7 +90,7 @@ export function CardCarousel({
           <div className="w-7 h-7 rounded-xl bg-primary/15 flex items-center justify-center">
             <CreditCardIcon size={13} className="text-primary" />
           </div>
-          <p className="text-sm font-semibold">Meus Cartões</p>
+          <p className="text-sm font-semibold">Meus cartões</p>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">{total}</span>
         </div>
         {total > 1 && (
@@ -119,13 +119,18 @@ export function CardCarousel({
           ref={containerRef}
           onScroll={handleScroll}
           className="flex gap-3 overflow-x-auto scrollbar-hide px-3"
-          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          style={{
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            scrollPaddingLeft: 12,
+            ...(total > 1 ? { maskImage: 'linear-gradient(to right, black calc(100% - 28px), transparent)' } : undefined),
+          }}
         >
           {cards.map((card, i) => {
             const spent     = installmentsByCard.get(card.id) ?? 0;
             const available = Math.max(0, card.limit - spent);
             const usedPct   = card.limit > 0 ? Math.min(100, (spent / card.limit) * 100) : 0;
-            const gradient  = card.customGradient ?? CARD_BRAND_GRADIENTS[card.brand] ?? CARD_BRAND_GRADIENTS.other;
+            const gradient  = cardSurface(card.brand, card.customGradient);
             const isActive  = i === activeIdx;
 
             return (
@@ -135,9 +140,9 @@ export function CardCarousel({
                 className="relative rounded-3xl overflow-hidden text-white cursor-pointer select-none"
                 style={{
                   background: gradient,
-                  minWidth: '88%',
-                  height: 186,
-                  scrollSnapAlign: 'center',
+                  flex: '0 0 min(88%, 400px)',
+                  height: 190,
+                  scrollSnapAlign: 'start',
                   flexShrink: 0,
                   opacity: isActive ? 1 : 0.65,
                   transform: isActive ? 'scale(1)' : 'scale(0.94)',
@@ -145,13 +150,9 @@ export function CardCarousel({
                   filter: card.active === false ? 'grayscale(0.85)' : undefined,
                 }}
               >
-
-                {/* Brilho diagonal */}
-                <div className="absolute inset-0 pointer-events-none"
-                  style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 50%)' }} />
                 {/* Borda glass */}
                 <div className="absolute inset-0 rounded-3xl pointer-events-none"
-                  style={{ border: '1px solid rgba(255,255,255,0.16)' }} />
+                  style={{ border: CARD_BORDER }} />
 
                 {/* Badge vencimento */}
                 <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-xl"
@@ -192,19 +193,19 @@ export function CardCarousel({
                   <div>
                     <div className="flex items-end justify-between mb-2">
                       <div>
-                        <p className="text-white/40 text-[10px] mb-0.5 uppercase tracking-wide">Fatura</p>
-                        <p className="text-white font-bold text-xl tabular-nums leading-none">{formatCurrency(spent)}</p>
+                        <p className="text-white/50 text-[11px] mb-0.5">Fatura</p>
+                        <p className="text-white font-display font-semibold text-xl tabular-nums leading-none">{formatCurrency(spent)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-white/40 text-[10px] mb-0.5 uppercase tracking-wide">Disponível</p>
+                        <p className="text-white/50 text-[11px] mb-0.5">Disponível</p>
                         <p className="text-white/85 font-semibold text-sm tabular-nums leading-none">{formatCurrency(available)}</p>
                       </div>
                     </div>
                     <div className="h-1 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }}>
                       <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${usedPct}%`, background: 'rgba(255,255,255,0.75)' }} />
+                        style={{ width: `${usedPct}%`, background: usedPct >= 90 ? 'hsl(0 75% 64%)' : 'rgba(255,255,255,0.8)' }} />
                     </div>
-                    <p className="text-white/30 text-[10px] mt-1">{Math.round(usedPct)}% do limite</p>
+                    <p className="text-white/45 text-[10px] mt-1">{Math.round(usedPct)}% do limite</p>
                   </div>
                 </div>
               </div>
@@ -224,7 +225,7 @@ export function CardCarousel({
               style={{
                 width: i === activeIdx ? 20 : 6,
                 height: 6,
-                background: i === activeIdx ? 'hsl(263 70% 58%)' : 'hsl(var(--border))',
+                background: i === activeIdx ? 'hsl(var(--primary))' : 'hsl(var(--border))',
               }}
             />
           ))}

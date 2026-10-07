@@ -3,68 +3,60 @@ import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 
-// ─── SUMMARY CARD (Saldo / Pendente / A Receber) ──────────────────────────────
+// ─── SUMMARY CARD (Saldo / Pendente / A receber) ──────────────────────────────
+// Superfície neutra; só o saldo recebe a cor de destaque (orquídea). Verde e
+// vermelho aparecem apenas no ícone, para o número continuar sendo o foco.
+export type SummaryTone = 'primary' | 'danger' | 'success';
+
+const TONES: Record<SummaryTone, { surface: string; icon: string }> = {
+  primary: { surface: 'bg-primary/[0.08] border-primary/30', icon: 'bg-primary/15 text-primary' },
+  danger:  { surface: 'bg-card border-border',               icon: 'bg-destructive/15 text-destructive' },
+  success: { surface: 'bg-card border-border',               icon: 'bg-success/15 text-success' },
+};
+
 export function SummaryCard({
-  label, value, sub, icon, gradient, accentColor, delay = 0, onClick, hidden,
+  label, value, sub, icon, tone = 'danger', delay = 0, onClick, hidden,
 }: {
   label: string;
   value: number;
   sub?: string;
   icon: React.ReactNode;
-  gradient: string;
-  accentColor?: string;
+  tone?: SummaryTone;
   delay?: number;
   onClick?: () => void;
   hidden?: boolean;
 }) {
+  const t = TONES[tone];
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.45, ease: 'easeOut' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay, duration: 0.3 }}
       onClick={onClick}
-      className={cn('relative rounded-3xl overflow-hidden text-white group', onClick && 'cursor-pointer')}
-      style={{ background: gradient }}
-      whileHover={onClick ? { scale: 1.015 } : undefined}
-      whileTap={onClick ? { scale: 0.985 } : undefined}
+      className={cn(
+        'rounded-2xl border p-4 md:p-5 transition-colors',
+        t.surface,
+        onClick && 'cursor-pointer hover:border-primary/50',
+      )}
     >
-
-      {/* Linha de brilho diagonal */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 55%)' }} />
-      {/* Borda glass sutil */}
-      <div className="absolute inset-0 rounded-3xl pointer-events-none"
-        style={{ border: '1px solid rgba(255,255,255,0.15)' }} />
-
-      <div className="relative z-10 p-4 md:p-5">
-        {/* Ícone em pill glass */}
-        <div className="inline-flex items-center justify-center w-9 h-9 rounded-2xl mb-4"
-          style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', t.icon)}>
           {icon}
         </div>
-
-        {/* Label */}
-        <p className="text-white/55 text-[11px] font-medium uppercase tracking-wide mb-1">{label}</p>
-
-        {/* Valor */}
-        <p className={cn(
-          'font-bold tracking-tight tabular-nums leading-none',
-          hidden ? 'text-white/30 tracking-[0.4em] text-sm mt-2' : 'text-white text-2xl',
-        )}>
-          {hidden ? '• • • • •' : formatCurrency(value)}
-        </p>
-
-        {/* Sub */}
-        {sub && !hidden && (
-          <p className="text-white/40 text-[10px] mt-2 leading-tight">{sub}</p>
-        )}
-
-        {/* Linha decorativa no fundo */}
-        {accentColor && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-            style={{ background: accentColor }} />
-        )}
+        <p className="text-sm text-muted-foreground font-medium">{label}</p>
       </div>
+
+      <p className={cn(
+        'font-display font-semibold tabular-nums leading-none',
+        hidden ? 'text-muted-foreground/40 tracking-[0.4em] text-base' : 'text-3xl',
+        !hidden && value < 0 ? 'text-destructive' : !hidden && 'text-foreground',
+      )}>
+        {hidden ? '• • • • •' : formatCurrency(value)}
+      </p>
+
+      {sub && !hidden && (
+        <p className="text-muted-foreground text-xs mt-2.5 leading-tight">{sub}</p>
+      )}
     </motion.div>
   );
 }

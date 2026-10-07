@@ -15,7 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['"Instrument Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Bricolage Grotesque"', '"Instrument Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
