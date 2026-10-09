@@ -23,7 +23,7 @@ export default function HistoryTab({ month, setMonth, barDataHist, totalFixedInc
     >
       <MonthSelector month={month} onChange={setMonth} />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-grid gap-3">
         <div className="bg-card rounded-2xl p-4 border border-border">
           <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
             <TrendingUp size={10} className="text-success" /> Receitas

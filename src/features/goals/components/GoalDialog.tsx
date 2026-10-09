@@ -75,7 +75,7 @@ export function GoalDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="bg-card border-border max-w-sm max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border max-w-sm max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? 'Editar meta' : 'Nova meta'}</DialogTitle>
         </DialogHeader>

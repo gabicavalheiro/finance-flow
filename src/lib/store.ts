@@ -256,7 +256,10 @@ export async function deleteVariableTransaction(id: string): Promise<void> {
 export interface CardInvoice {
   cardId:       string;
   month:        string;
+  /** Valor FINAL da fatura informado pelo usuário (0 = não informado → usa o calculado). */
   actualAmount: number;
+  /** Quanto já foi pago. undefined/null = legado (fatura informada conta como paga por inteiro). */
+  paidAmount?:  number | null;
   notes?:       string;
 }
 
@@ -323,7 +326,9 @@ export async function getInvoicesForMonthRange(
   return result;
 }
 
-export async function upsertInvoice(invoice: CardInvoice): Promise<void> {
+export async function upsertInvoice(
+  invoice: Pick<CardInvoice, 'cardId' | 'month'> & Partial<Omit<CardInvoice, 'cardId' | 'month'>>,
+): Promise<void> {
   const id = invoiceDocId(invoice.cardId, invoice.month);
   await setDoc(
     userDoc('cardInvoices', id),
@@ -331,6 +336,7 @@ export async function upsertInvoice(invoice: CardInvoice): Promise<void> {
       cardId: invoice.cardId,
       month: invoice.month,
       actualAmount: invoice.actualAmount,
+      paidAmount: invoice.paidAmount,
       notes: invoice.notes,
     }),
     { merge: true },

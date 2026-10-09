@@ -16,6 +16,7 @@ import QuickAddFAB from "@/components/QuickAddFAB";
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
+import { loadPreferences } from '@/lib/preferences';
 
 // ── Lazy imports — cada página vira um chunk separado ─────────────────────────
 const Index             = lazy(() => import('./pages/Index'));
@@ -32,11 +33,12 @@ const GoalsPage         = lazy(() => import('./pages/GoalsPage'));
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
 const ExpenseClassifierPage = lazy(() => import('./pages/ExpenseClassifierPage'));
 const IntelligencePage    = lazy(() => import('./pages/IntelligencePage'));
+const SettingsPage        = lazy(() => import('./pages/SettingsPage'));
 
 // ── Fallback mínimo enquanto chunk carrega ────────────────────────────────────
 function PageLoader() {
   return (
-    <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+    <div className="flex-1 flex items-center justify-center min-h-[60dvh]">
       <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
     </div>
   );
@@ -65,7 +67,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 );
 
 // Páginas onde o FAB não aparece
-const FAB_HIDDEN_PATHS = ['/subscriptions', '/inteligencia'];
+const FAB_HIDDEN_PATHS = ['/subscriptions', '/inteligencia', '/settings'];
 
 function ConnectedFAB() {
   const { refresh } = useFinanceData();
@@ -75,11 +77,13 @@ function ConnectedFAB() {
 function AppRoutes() {
   useDeepLink();
   const location = useLocation();
+  // Traz da conta as preferências (tela inicial, avisos) assim que o usuário entra
+  useEffect(() => { loadPreferences(); }, []);
   const showFAB  = !FAB_HIDDEN_PATHS.includes(location.pathname);
 
   return (
     <FinanceDataProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-dvh bg-background">
         <AppNav />
         <main className="flex-1 min-w-0 md:pl-64">
           <ErrorBoundary resetKey={location.pathname}>
@@ -96,6 +100,7 @@ function AppRoutes() {
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/classifier"    element={<ExpenseClassifierPage />} />
               <Route path="/inteligencia"  element={<IntelligencePage />} />
+              <Route path="/settings"      element={<SettingsPage />} />
               {/* /reset-password sem ?mode=resetPassword&oobCode=... (link já usado,
                   página recarregada, etc.) — manda pra home em vez de dar 404. */}
               <Route path="/reset-password" element={<Navigate to="/" replace />} />
@@ -153,4 +158,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default App;

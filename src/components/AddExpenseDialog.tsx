@@ -160,7 +160,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
           </DialogHeader>
         </div>
 
-        <div className="px-6 py-5 space-y-4 max-h-[72vh] overflow-y-auto overflow-x-hidden">
+        <div className="px-6 py-5 space-y-4 max-h-[72dvh] overflow-y-auto overflow-x-hidden">
           {/* Nome */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Nome</Label>
@@ -285,4 +285,4 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
       </DialogContent>
     </Dialog>
   );
-}
+}

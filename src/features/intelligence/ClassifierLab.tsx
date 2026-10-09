@@ -2,7 +2,7 @@
 // o grau de certeza e as outras categorias possíveis. Roda no navegador, sem login.
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Lightbulb } from 'lucide-react';
 import { CATEGORY_CONFIG, type ExpenseCategory } from '@/lib/types';
 import { classify, trainClassifier, REVIEW_THRESHOLD } from '@/lib/ml/model';
 import { SEED_EXAMPLES } from '@/lib/ml/seedData';
@@ -31,7 +31,7 @@ export default function ClassifierLab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-        <label htmlFor="clf-text" className="text-sm font-semibold">Descrição do gasto</label>
+        <label htmlFor="clf-text" className="text-sm font-semibold">1. Digite o nome de uma compra</label>
         <input id="clf-text" value={text} onChange={(e) => setText(e.target.value)} autoComplete="off"
           placeholder="ex.: IFOOD *RESTAURANTE"
           className="w-full rounded-xl border border-border bg-secondary px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -54,7 +54,7 @@ export default function ClassifierLab() {
           <>
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Categoria prevista</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">2. Categoria sugerida</p>
                 <p className="text-xl font-bold">{label(result.category)}</p>
               </div>
               <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium',
@@ -80,6 +80,19 @@ export default function ClassifierLab() {
               ))}
             </ul>
             <p className="text-[11px] text-muted-foreground">Quando a certeza fica abaixo de {pct(REVIEW_THRESHOLD)}, o app pede para você conferir em vez de decidir sozinho.</p>
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+              <p className="flex items-center gap-1.5 text-sm font-semibold"><Lightbulb size={14} className="text-primary" aria-hidden /> O que isso significa na prática</p>
+              <p className="text-sm leading-relaxed">
+                {!result.prediction.known
+                  ? 'Ao importar um extrato com um nome assim, o app não teria base para sugerir: o gasto ficaria marcado para você escolher a categoria.'
+                  : result.needsReview
+                    ? `Ao importar um extrato, este gasto entraria como "${label(result.category)}", mas marcado para você conferir antes de confirmar.`
+                    : `Ao importar um extrato, este gasto já entraria como "${label(result.category)}" sem você precisar escolher. Você só revisa se quiser.`}
+              </p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Isso economiza o trabalho de categorizar compra por compra, e as categorias certas deixam os gráficos e orçamentos mais confiáveis. Quando você corrige uma sugestão, o app aprende com isso.
+              </p>
+            </div>
           </>
         )}
       </div>

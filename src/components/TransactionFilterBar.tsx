@@ -48,7 +48,7 @@ export default function TransactionFilterBar({
 
       {/* ── Dialog (mesmo componente que BulkEditCategoryDialog) ── */}
       <Dialog open={open} onOpenChange={v => !v && onToggle()}>
-        <DialogContent className="bg-card border-border rounded-2xl w-[calc(100vw-2rem)] max-w-[420px] p-0 gap-0 flex flex-col max-h-[88vh]">
+        <DialogContent className="bg-card border-border rounded-2xl w-[calc(100vw-2rem)] max-w-[420px] p-0 gap-0 flex flex-col max-h-[88dvh]">
 
           {/* Header */}
           <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
@@ -218,4 +218,4 @@ function Chip({
       {active && <Check size={10} className="shrink-0 opacity-80" />}
     </button>
   );
-}
+}

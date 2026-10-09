@@ -119,6 +119,18 @@ export async function confirmPasswordResetWithCode(
   }
 }
 
+/** Altera o nome exibido do usuário logado. */
+export async function updateUserName(name: string): Promise<{ ok: boolean; error?: string }> {
+  const user = auth.currentUser;
+  if (!user) return { ok: false, error: 'Usuário não autenticado' };
+  try {
+    await updateProfile(user, { displayName: name.trim() });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: mapAuthError(err) };
+  }
+}
+
 export async function getUser(): Promise<AuthUser | null> {
   const user = auth.currentUser;
   if (!user) return null;

@@ -112,7 +112,7 @@ export default function CategoryDrilldown({ category, details, month, cards, onC
             </p>
           </DialogHeader>
 
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto -mx-1 px-1">
+          <div className="space-y-2 max-h-[50dvh] overflow-y-auto -mx-1 px-1">
             {selectedItems.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">Nenhum lançamento encontrado</p>
             ) : (

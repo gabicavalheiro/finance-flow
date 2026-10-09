@@ -324,7 +324,7 @@ export default function ExpenseClassifierPage() {
             <section className="space-y-3">
               <div>
                 <p className="text-xs text-muted-foreground">Total gasto{category ? ` · ${catLabel(category)}` : ''}</p>
-                <p className="text-5xl font-bold tracking-tight">{formatCurrency(total)}</p>
+                <p className="text-4xl sm:text-5xl font-bold tracking-tight">{formatCurrency(total)}</p>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {[

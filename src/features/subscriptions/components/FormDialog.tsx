@@ -86,7 +86,7 @@ export function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDia
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden max-h-[92dvh] flex flex-col">
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-border shrink-0">

@@ -212,7 +212,7 @@ function InvestmentCard({ inv, onEdit, onDelete }: {
       {expanded && (
         <motion.div
           initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-          className="grid grid-cols-3 gap-2 pt-1"
+          className="stat-grid gap-2 pt-1"
         >
           {[
             { label: 'Investido',     value: fmt(inv.amountInvested) },
@@ -385,4 +385,4 @@ export default function InvestmentsPage() {
       </AlertDialog>
     </div>
   );
-}
+}

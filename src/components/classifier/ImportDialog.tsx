@@ -110,7 +110,7 @@ export default function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{rows ? 'Revisar antes de importar' : 'Importar extrato (CSV)'}</DialogTitle>
           <DialogDescription>
@@ -139,7 +139,7 @@ export default function ImportDialog({
                     Não consegui identificar as colunas sozinho. Escolha qual é a data, a descrição e o valor.
                   </p>
                 )}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {colSelect('Data', 'date')}
                   {colSelect('Descrição', 'description')}
                   {colSelect('Valor', 'amount')}
@@ -173,7 +173,7 @@ export default function ImportDialog({
               <p className="text-xs text-amber-500">{lowCount} {lowCount === 1 ? 'linha tem' : 'linhas têm'} confiança baixa (revisar) — confira a categoria.</p>
             )}
 
-            <div className="rounded-xl border border-border divide-y divide-border/60 max-h-[48vh] overflow-y-auto">
+            <div className="rounded-xl border border-border divide-y divide-border/60 max-h-[48dvh] overflow-y-auto">
               {rows.map((r, i) => {
                 const low = !r.edited && r.confidence < REVIEW_THRESHOLD;
                 return (

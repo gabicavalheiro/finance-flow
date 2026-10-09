@@ -245,7 +245,7 @@ export default function BulkEditCategoryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={v => !v && handleClose()}>
-        <DialogContent className="bg-card border-border rounded-3xl max-w-lg w-[95vw] p-0 gap-0 flex flex-col max-h-[90vh]">
+        <DialogContent className="bg-card border-border rounded-3xl max-w-lg w-[95vw] p-0 gap-0 flex flex-col max-h-[90dvh]">
 
           {/* ── Cabeçalho ── */}
           <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
@@ -556,4 +556,4 @@ export default function BulkEditCategoryDialog({
       </AlertDialog>
     </>
   );
-}
+}

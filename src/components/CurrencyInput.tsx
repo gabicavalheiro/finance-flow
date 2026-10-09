@@ -5,13 +5,15 @@ interface Props {
   value: string;           // e.g. "300.50" or ""
   onChange: (raw: string) => void;
   className?: string;
+  /** Mostrado (ex: "1.234,56") enquanto o valor está vazio, depois do prefixo R$. */
+  placeholder?: string;
 }
 
 /**
  * ATM-style currency input — digits preenchem da direita (centavos primeiro).
  * Funciona com teclado físico (desktop) e teclado virtual (mobile).
  */
-export default function CurrencyInput({ value, onChange, className }: Props) {
+export default function CurrencyInput({ value, onChange, className, placeholder }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── helpers ────────────────────────────────────────────────────────────────
@@ -103,7 +105,8 @@ export default function CurrencyInput({ value, onChange, className }: Props) {
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        value={formatDisplay(cents)}
+        value={cents === 0 && placeholder ? '' : formatDisplay(cents)}
+        placeholder={placeholder}
         onKeyDown={handleKeyDown}
         onChange={handleChange}
         className={cn(
@@ -113,4 +116,4 @@ export default function CurrencyInput({ value, onChange, className }: Props) {
       />
     </div>
   );
-}
+}

@@ -74,7 +74,7 @@ export default function AddVariableDialog({ onAdded }: Props) {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-border">
           <DialogHeader>
@@ -168,4 +168,4 @@ export default function AddVariableDialog({ onAdded }: Props) {
       </DialogContent>
     </Dialog>
   );
-}
+}

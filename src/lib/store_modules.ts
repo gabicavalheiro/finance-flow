@@ -32,6 +32,10 @@ export interface Loan {
   paidInstallments: number;
   monthlyPayment: number;
   startDate: string;       // 'YYYY-MM-DD'
+  /** Números das parcelas marcadas como pagas (1..installments). */
+  paidNumbers?: number[];
+  /** Valores já pagos informados fora das parcelas marcadas (R$). */
+  extraPaid?: number;
 }
 
 export async function getLoans(): Promise<Loan[]> {

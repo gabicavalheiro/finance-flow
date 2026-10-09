@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatCurrency, getCurrentMonth } from '@/lib/helpers';
 import { Subscription, getSubscriptions, deleteSubscription, toggleSubscriptionPaid, toggleSubscriptionActive, monthlyAmount } from '@/lib/subscriptions';
+import { fixedAmountForMonth } from '@/lib/fixedExpenses';
 import { computeInstallmentsForMonth, getVariableForMonth, deleteExpense, deleteFixedExpense, deleteVariableTransaction } from '@/lib/store';
 import { VariableTransaction, PAYMENT_METHOD_CONFIG, Expense, FixedExpense } from '@/lib/types';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
@@ -85,7 +86,7 @@ export default function SubscriptionsPage() {
       .filter(fx => fx.category === 'subscription')
       .forEach(fx => {
         items.push({
-          id: `fixed-${fx.id}`, name: fx.name, amount: fx.amount,
+          id: `fixed-${fx.id}`, name: fx.name, amount: fixedAmountForMonth(fx, month),
           source: 'Fixo', fixedExpense: fx,
         });
       });
@@ -276,7 +277,7 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8 pt-6 px-4 md:px-8 max-w-2xl mx-auto">
+    <div className="min-h-dvh pb-24 md:pb-8 pt-6 px-4 md:px-8 max-w-2xl mx-auto">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -302,7 +303,7 @@ export default function SubscriptionsPage() {
 
       {/* Resumo */}
       {!loading && active.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="stat-grid gap-3 mb-6">
           <div className="bg-card border border-border rounded-2xl p-4">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Mensal</p>
             <p className="text-lg font-bold mt-1 tabular-nums">{formatCurrency(totalMonthly)}</p>
@@ -535,4 +536,4 @@ export default function SubscriptionsPage() {
       </AlertDialog>
     </div>
   );
-}
+}

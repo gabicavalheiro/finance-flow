@@ -4,7 +4,7 @@
 // ele ao menos supera "repetir o último mês". Se não superar, diz isso em vez de fingir precisão.
 
 import { useMemo } from 'react';
-import { Brain, Cpu, Cloud, AlertTriangle, Info, ShieldCheck } from 'lucide-react';
+import { Brain, Cpu, Cloud, AlertTriangle, Info, ShieldCheck, Lightbulb } from 'lucide-react';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
@@ -81,32 +81,67 @@ function Loaded({
       month: m,
       real: Object.values(history.byCategory).reduce((s, v) => s + v[i], 0),
     }));
-    const recent = totals.slice(-12);
+    const recent = totals.slice(-9);
     const rows: { month: string; label: string; real?: number; previsto?: number; faixa?: [number, number] }[] =
       recent.map((r) => ({ month: r.month, label: monthShort(r.month), real: r.real }));
     // ponto de ligação: a linha prevista começa no último valor real
     if (rows.length) rows[rows.length - 1].previsto = rows[rows.length - 1].real;
-    forecast.total.forEach((p) =>
+    forecast.total.slice(0, 3).forEach((p) =>
       rows.push({ month: p.month, label: monthShort(p.month), previsto: p.mean, faixa: [p.lower, p.upper] }));
     return rows;
   }, [history, forecast]);
 
-  const first = forecast.total[0];
-  const committed = committedByMonth[first.month] ?? 0;
-  const expectedTotal = committed + first.mean;
-  const balance = monthlyIncome - expectedTotal;
-  const balanceLow = monthlyIncome - (committed + first.upper);
-  const balanceHigh = monthlyIncome - (committed + first.lower);
+  // Mês atual (previsto inteiro) e PRÓXIMO mês, cada um com seus números
+  const figures = (p: PortfolioForecast['total'][number]) => {
+    const committed = committedByMonth[p.month] ?? 0;
+    const expectedTotal = committed + p.mean;
+    return {
+      p, committed, expectedTotal,
+      balance: monthlyIncome - expectedTotal,
+      balanceLow: monthlyIncome - (committed + p.upper),
+      balanceHigh: monthlyIncome - (committed + p.lower),
+    };
+  };
+  const thisMonth = figures(forecast.total[0]);
+  const nextMonth = forecast.total[1] ? figures(forecast.total[1]) : null;
+  // As dicas e o resumo falam do PRÓXIMO mês (ou do atual, se não houver outro)
+  const target = nextMonth ?? thisMonth;
+  const first = target.p;
+  const balance = target.balance;
+  const balanceLow = target.balanceLow;
 
   const categories = useMemo(
     () => Object.entries(forecast.byKey)
-      .map(([key, f]) => ({ key, f, next: f.points[0]?.mean ?? 0 }))
+      .map(([key, f]) => ({ key, f, next: (f.points[1] ?? f.points[0])?.mean ?? 0 }))
       .sort((a, b) => b.next - a.next)
       .slice(0, 6),
     [forecast],
   );
 
   const beatsBaseline = bt ? bt.skill > 0.05 : false;
+
+  // Dicas simples para o próximo mês, a partir dos números acima
+  const tips = useMemo(() => {
+    const list: string[] = [];
+    const topCat = categories[0];
+    const topLabel = topCat ? ((CATEGORY_CONFIG as Record<string, { label: string }>)[topCat.key]?.label ?? topCat.key) : null;
+    if (balance < 0) {
+      list.push(`Se você gastar o esperado, ${monthLong(first.month)} fecha no vermelho em ${formatCurrency(Math.abs(balance))}. Vale cortar ou adiar compras já no começo do mês${topLabel ? `, principalmente em ${topLabel}` : ''}.`);
+    } else if (balanceLow < 0) {
+      list.push(`O saldo esperado é positivo (${formatCurrency(balance)}), mas se o mês vier mais caro ele pode ficar negativo em ${formatCurrency(Math.abs(balanceLow))}. Segure uma folga de ${formatCurrency(first.upper - first.mean)} para não ser pego de surpresa.`);
+    } else {
+      list.push(`Mesmo no cenário mais caro o mês fecha positivo. Sobra esperada de ${formatCurrency(balance)}: separe uma parte para reserva ou meta assim que o salário entrar, antes de gastar.`);
+    }
+    if (topLabel && topCat.next > 0) {
+      list.push(`O maior gasto variável previsto é ${topLabel} (${formatCurrency(topCat.next)}). Definir um limite para essa categoria no orçamento ajuda a não passar do combinado.`);
+    }
+    if (!forecast.reliable) {
+      list.push('Registre seus gastos todos os meses: com 5 meses completos de histórico a previsão passa a ser validada e fica mais confiável.');
+    } else if (!beatsBaseline) {
+      list.push('Seus gastos variam sem um padrão forte. Use a faixa de valores como guia, não o número central.');
+    }
+    return list;
+  }, [categories, balance, balanceLow, first, forecast.reliable, beatsBaseline]);
   const summary = `Previsão de gastos variáveis para ${monthLong(first.month)}: ${formatCurrency(first.mean)}, `
     + `com faixa de ${formatCurrency(first.lower)} a ${formatCurrency(first.upper)}.`;
 
@@ -132,13 +167,33 @@ function Loaded({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Kpi label={`Gasto variável · ${monthShort(first.month)}`} value={formatCurrency(first.mean)}
-          hint={`faixa ${formatCurrency(first.lower)} – ${formatCurrency(first.upper)}`} />
-        <Kpi label="Gasto total esperado" value={formatCurrency(expectedTotal)}
-          hint={`${formatCurrency(committed)} já comprometido + variável`} />
-        <Kpi label="Saldo esperado" value={formatCurrency(balance)} tone={balance < 0 ? 'bad' : 'good'}
-          hint={`entre ${formatCurrency(balanceLow)} e ${formatCurrency(balanceHigh)}`} />
+      {[
+        { title: 'Este mês', f: thisMonth },
+        ...(nextMonth ? [{ title: 'Próximo mês', f: nextMonth }] : []),
+      ].map(({ title, f }) => (
+        <div key={f.p.month} className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground capitalize">
+            {title} · {monthLong(f.p.month)}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Kpi label={`Gasto variável · ${monthShort(f.p.month)}`} value={formatCurrency(f.p.mean)}
+              hint={`faixa ${formatCurrency(f.p.lower)} – ${formatCurrency(f.p.upper)}`} />
+            <Kpi label="Gasto total esperado" value={formatCurrency(f.expectedTotal)}
+              hint={`${formatCurrency(f.committed)} já comprometido + variável`} />
+            <Kpi label="Saldo esperado" value={formatCurrency(f.balance)} tone={f.balance < 0 ? 'bad' : 'good'}
+              hint={`entre ${formatCurrency(f.balanceLow)} e ${formatCurrency(f.balanceHigh)}`} />
+          </div>
+        </div>
+      ))}
+
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Lightbulb size={14} className="text-primary" aria-hidden />
+          <p className="text-sm font-semibold capitalize">Dicas para {monthLong(first.month)}</p>
+        </div>
+        <ul className="space-y-1.5 text-sm leading-relaxed list-disc pl-5 marker:text-primary">
+          {tips.map((t, i) => <li key={i}>{t}</li>)}
+        </ul>
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-4">
@@ -146,13 +201,13 @@ function Loaded({
           Gasto variável — histórico e previsão
         </p>
         <p className="text-[10px] text-muted-foreground mb-3">
-          Linha cheia = realizado · tracejada = previsto · faixa = intervalo de 80%
+          Linha cheia = realizado (até {monthLong(history.lastMonth!)}) · tracejada = previsto · faixa = intervalo de 80%
         </p>
         <div className="h-56" role="img" aria-label={summary}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="label" interval={0} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false}
                 width={52} tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`} />
               <Tooltip content={<ForecastTooltip />} />
@@ -192,7 +247,7 @@ function Loaded({
         )}
 
         {forecast.totalCandidates.length > 0 && (
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto -mx-1 px-1"><table className="w-full text-xs">
             <caption className="sr-only">Erro médio absoluto de cada modelo candidato nos testes retroativos</caption>
             <thead>
               <tr className="text-muted-foreground text-left">
@@ -211,7 +266,7 @@ function Loaded({
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
 
         <details className="text-xs text-muted-foreground">
@@ -232,7 +287,7 @@ function Loaded({
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
             Por categoria · {monthShort(first.month)}
           </p>
-          <table className="w-full text-xs">
+          <div className="overflow-x-auto -mx-1 px-1"><table className="w-full text-xs">
             <caption className="sr-only">Previsão do próximo mês por categoria</caption>
             <thead>
               <tr className="text-muted-foreground text-left">
@@ -253,7 +308,7 @@ function Loaded({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {categories.some((c) => !c.f.reliable) && (
             <p className="text-[10px] text-muted-foreground mt-2">* poucos meses de histórico nessa categoria.</p>
           )}

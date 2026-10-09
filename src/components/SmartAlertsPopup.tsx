@@ -11,6 +11,7 @@ import {
   computeInstallmentsForMonth,
 } from '@/lib/store';
 import { CreditCard as CardType, FixedIncome, Expense, FixedExpense } from '@/lib/types';
+import { fixedAmountForMonth } from '@/lib/fixedExpenses';
 import { getCurrentMonth, addMonths } from '@/lib/helpers';
 
 const TRIGGER_PATHS = ['/reports', '/faturas'];
@@ -80,7 +81,7 @@ function buildAlerts(
 
   const curInst    = computeInstallmentsForMonth(expenses, cards, curMonth);
   const totalCard  = curInst.reduce((s, i) => s + i.amount, 0);
-  const totalFixed = fixed.reduce((s, f) => s + f.amount, 0);
+  const totalFixed = fixed.reduce((s, f) => s + fixedAmountForMonth(f, curMonth), 0);
   const totalExp   = totalCard + totalFixed;
   const totalInc   = incomes.reduce((s, i) => s + i.amount, 0);
   const balance    = totalInc - totalExp;
@@ -409,4 +410,4 @@ export default function SmartAlertsPopup() {
       )}
     </AnimatePresence>
   );
-}
+}

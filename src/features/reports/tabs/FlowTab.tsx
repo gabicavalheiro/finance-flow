@@ -24,7 +24,7 @@ export default function FlowTab({ month, setMonth, dailyFlowData }: Props) {
     >
       <MonthSelector month={month} onChange={setMonth} />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stat-grid gap-3">
         {[
           { label: 'Entradas', value: dailyFlowData[dailyFlowData.length - 1]?.entradas ?? 0, color: 'text-emerald-400' },
           { label: 'Saídas',   value: dailyFlowData[dailyFlowData.length - 1]?.saidas   ?? 0, color: 'text-destructive' },

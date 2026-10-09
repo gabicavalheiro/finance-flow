@@ -8,6 +8,8 @@ import type {
   CreditCard, Expense, FixedExpense, FixedIncome, VariableTransaction,
 } from '@/lib/types';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { alignInstallmentsToInvoices } from '@/lib/invoiceAdjust';
+import { invoicePaidAmount } from '@/lib/invoiceStatus';
 
 export interface MonthSummaryInput {
   month:         string;
@@ -92,7 +94,7 @@ export function computeMonthSummary(inp: MonthSummaryInput) {
 
   // Pendente = gastos ainda não pagos; A receber = receitas que ainda não entraram
   const paidFixed = fixedExpenses.filter(f => f.paidMonths?.includes(month)).reduce((s, f) => s + f.amount, 0);
-  const paidCards = invoices.filter(inv => inv.actualAmount > 0).reduce((s, inv) => s + inv.actualAmount, 0);
+  const paidCards = invoices.reduce((s, inv) => s + invoicePaidAmount(inv), 0);
   const paidExpense = paidFixed + paidCards;
   const receivedIncome = incomes.filter(i => i.receivedMonths?.includes(month)).reduce((s, i) => s + i.amount, 0);
 
@@ -108,7 +110,8 @@ export function computeMonthSummary(inp: MonthSummaryInput) {
   const avgDaily = totalExpense > 0 ? totalExpense / daysElapsed : 0;
   const expenseRatio = totalIncome > 0 ? Math.min(100, (totalExpense / totalIncome) * 100) : 0;
 
-  const pieData = buildPieData(allInstallments, fixedExpenses, varTxs);
+  // Categorias respeitam o valor final informado em Faturas
+  const pieData = buildPieData(alignInstallmentsToInvoices(allInstallments, invoices, month), fixedExpenses, varTxs);
 
   return {
     allInstallments, cardMap, invoiceMap, installmentsByCard,

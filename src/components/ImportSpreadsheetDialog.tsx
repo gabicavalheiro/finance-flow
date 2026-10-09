@@ -123,7 +123,7 @@ export default function ImportSpreadsheetDialog({ open, onOpenChange, onAdded }:
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-card border-border max-w-lg rounded-3xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      <DialogContent className="bg-card border-border max-w-lg rounded-3xl p-0 overflow-hidden max-h-[92dvh] flex flex-col">
 
         <div className="px-6 pt-6 pb-4 border-b border-border">
           <DialogHeader>

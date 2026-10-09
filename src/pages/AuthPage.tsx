@@ -76,7 +76,7 @@ export default function AuthPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-4 relative overflow-hidden">
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -282,4 +282,4 @@ export default function AuthPage() {
       </motion.div>
     </div>
   );
-}
+}

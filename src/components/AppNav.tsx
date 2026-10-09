@@ -2,7 +2,7 @@
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch,
   LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain, Tags,
-  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight,
+  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight, Settings,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -46,10 +46,14 @@ export default function AppNav() {
 
   useEffect(() => {
     setMounted(true);
-    getUser().then((user) => {
+    const loadUser = () => getUser().then((user) => {
       setUserName(user?.name ?? '');
       setUserEmail(user?.email ?? '');
     });
+    loadUser();
+    // Configurações avisa quando o nome muda
+    window.addEventListener('ff-profile-updated', loadUser);
+    return () => window.removeEventListener('ff-profile-updated', loadUser);
   }, []);
 
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
@@ -68,7 +72,7 @@ export default function AppNav() {
   const moduleTabs = AVAILABLE_MODULES
     .map(m => ({ path: m.path, label: m.label, icon: MODULE_ICONS[m.icon] ?? Sparkles }));
 
-  const moreTabs   = moduleTabs;
+  const moreTabs   = [...moduleTabs, { path: '/settings', label: 'Configurações', icon: Settings }];
   const toggleTheme  = () => setTheme(theme === 'dark' ? 'light' : 'dark');
   const isDark       = mounted ? theme === 'dark' : true;
   const moreIsActive = moreTabs.some(t => location.pathname === t.path);
@@ -215,6 +219,10 @@ export default function AppNav() {
           {MAIN_TABS.map((tab, i) => <NavItem key={tab.path} tab={tab} delay={i * 0.03} />)}
 
           {moduleTabs.map((tab, i) => <NavItem key={tab.path} tab={tab} delay={0.15 + i * 0.03} />)}
+
+          <div className="pt-2">
+            <NavItem tab={{ path: '/settings', label: 'Configurações', icon: Settings }} delay={0.3} />
+          </div>
         </nav>
 
         {/* ── Footer ── */}
@@ -439,4 +447,4 @@ export default function AppNav() {
       </AnimatePresence>
     </>
   );
-}
+}

@@ -12,6 +12,7 @@ import { computeInstallmentsForMonth, getVariableForMonth } from '@/lib/store';
 import { VariableTransaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
+import { resolveFixedForMonth } from '@/lib/fixedExpenses';
 import {
   buildBarDataHist, buildCategoryDetails, buildCategoryList, buildDailyFlow,
   buildForecasts, buildInsights, buildPrevCategoryTotals,
@@ -47,13 +48,15 @@ export default function ReportsPage() {
   const installments     = useMemo(() => computeInstallmentsForMonth(expenses, cards, month), [expenses, cards, month]);
   const totalFixedIncome = useMemo(() => incomes.reduce((s, i) => s + i.amount, 0), [incomes]);
   const totalFixedExpense = useMemo(() => fixed.reduce((s, f) => s + f.amount, 0), [fixed]);
+  // Gastos fixos com o valor ajustado do mês selecionado (gastos variáveis)
+  const fixedForMonth     = useMemo(() => resolveFixedForMonth(fixed, month), [fixed, month]);
   const cardMap          = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const expenseMap       = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
   const current          = getCurrentMonth();
 
   const categoryDetails = useMemo(
-    () => buildCategoryDetails({ installments, fixed, subscriptions, cardMap, expenseMap }),
-    [installments, fixed, cardMap, expenseMap, subscriptions],
+    () => buildCategoryDetails({ installments, fixed: fixedForMonth, subscriptions, cardMap, expenseMap }),
+    [installments, fixedForMonth, cardMap, expenseMap, subscriptions],
   );
   const categoryList = useMemo(() => buildCategoryList(categoryDetails), [categoryDetails]);
   const totalHist    = categoryList.reduce((s, c) => s + c.value, 0);
@@ -73,8 +76,8 @@ export default function ReportsPage() {
     [month, expenses, cards, fixed, totalFixedIncome],
   );
   const dailyFlowData = useMemo(
-    () => buildDailyFlow({ month, incomes, cards, installments, fixed, varTxs }),
-    [month, incomes, cards, installments, fixed, varTxs],
+    () => buildDailyFlow({ month, incomes, cards, installments, fixed: fixedForMonth, varTxs }),
+    [month, incomes, cards, installments, fixedForMonth, varTxs],
   );
   const forecasts = useMemo(
     () => buildForecasts({ expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current }),

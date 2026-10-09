@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Circle, CreditCard as CardIcon,
   ArrowUpCircle, ArrowDownCircle, ChevronDown, ChevronUp,
-  Check, X, ListChecks,
+  Check, X, ListChecks, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/helpers';
+import { invoicePaymentStatus, invoicePaidAmount } from '@/lib/invoiceStatus';
 import {
   updateFixedExpense, updateIncome,
   computeInstallmentsForMonth, CardInvoice,
@@ -27,10 +28,11 @@ interface Props {
 }
 
 function CardAmountInput({
-  calculated, current, onSave, onCancel,
+  calculated, current, onSave, onCancel, onClear,
 }: {
   calculated: number; current: number;
   onSave: (v: number) => Promise<void>; onCancel: () => void;
+  onClear?: () => void;
 }) {
   const [raw, setRaw]       = useState(current > 0 ? String(current).replace('.', ',') : '');
   const [saving, setSaving] = useState(false);
@@ -49,7 +51,7 @@ function CardAmountInput({
   return (
     <div className="pt-2">
       <p className="text-[10px] text-muted-foreground mb-1.5">
-        Quanto você pagou? (estimado: {formatCurrency(calculated)})
+        Quanto você pagou? (fatura: {formatCurrency(calculated)}) — pode ser parcial
       </p>
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
@@ -75,6 +77,12 @@ function CardAmountInput({
           <X size={14} className="text-muted-foreground" />
         </button>
       </div>
+      {onClear && (
+        <button onClick={onClear} disabled={saving}
+          className="mt-2 text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50">
+          Marcar como pendente
+        </button>
+      )}
     </div>
   );
 }
@@ -88,7 +96,7 @@ export default function BillsChecklist({
 
   const [paidSet,     setPaidSet]     = useState<Set<string>>(new Set());
   const [receivedSet, setReceivedSet] = useState<Set<string>>(new Set());
-  const [cardActuals, setCardActuals] = useState<Record<string, number>>({});
+  const [cardPaid, setCardPaid] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setPaidSet(new Set(fixedExpenses.filter(f => f.paidMonths.includes(month)).map(f => f.id)));
@@ -100,8 +108,15 @@ export default function BillsChecklist({
 
   useEffect(() => {
     const map: Record<string, number> = {};
-    for (const inv of invoices) map[inv.cardId] = inv.actualAmount;
-    setCardActuals(map);
+    for (const inv of invoices) map[inv.cardId] = invoicePaidAmount(inv);
+    setCardPaid(map);
+  }, [invoices]);
+
+  // Valor FINAL da fatura informado em Faturas (0 = não informado → usa o calculado)
+  const cardFinals = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const inv of invoices) map[inv.cardId] = inv.actualAmount > 0 ? inv.actualAmount : 0;
+    return map;
   }, [invoices]);
 
   const installments = useMemo(
@@ -113,10 +128,15 @@ export default function BillsChecklist({
     cards.flatMap(card => {
       const calculated = installments.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
       if (calculated === 0) return [];
-      const actual = cardActuals[card.id] ?? 0;
-      return [{ id: card.id, name: `Fatura ${card.name}`, calculated, actual, isPaid: actual > 0, dueDay: card.dueDay }];
+      const finalAmount = cardFinals[card.id] > 0 ? cardFinals[card.id] : calculated;
+      const paid   = cardPaid[card.id] ?? 0;
+      const status = invoicePaymentStatus(paid, finalAmount);
+      return [{
+        id: card.id, name: `Fatura ${card.name}`, calculated, finalAmount, paid,
+        isPaid: paid > 0, isPartial: status === 'partial', status, dueDay: card.dueDay,
+      }];
     }),
-  [cards, installments, cardActuals]);
+  [cards, installments, cardPaid, cardFinals]);
 
   const expenseItems = useMemo(() =>
     fixedExpenses.map(fe => ({ id: fe.id, name: fe.name, amount: fe.amount, dueDay: 99, isPaid: paidSet.has(fe.id) })),
@@ -126,21 +146,21 @@ export default function BillsChecklist({
     incomes.map(inc => ({ id: inc.id, name: inc.name, amount: inc.amount, receiveDay: inc.receiveDay ?? 1, isReceived: receivedSet.has(inc.id) })),
   [incomes, receivedSet]);
 
-  const totalExpense    = useMemo(() => expenseItems.reduce((s, i) => s + i.amount, 0) + cardItems.reduce((s, i) => s + (i.actual > 0 ? i.actual : i.calculated), 0), [expenseItems, cardItems]);
+  const totalExpense    = useMemo(() => expenseItems.reduce((s, i) => s + i.amount, 0) + cardItems.reduce((s, i) => s + i.finalAmount, 0), [expenseItems, cardItems]);
   const totalIncome     = useMemo(() => incomeItems.reduce((s, i) => s + i.amount, 0), [incomeItems]);
-  const paidExpense     = useMemo(() => expenseItems.filter(i => i.isPaid).reduce((s, i) => s + i.amount, 0) + cardItems.filter(i => i.isPaid).reduce((s, i) => s + (i.actual || i.calculated), 0), [expenseItems, cardItems]);
+  const paidExpense     = useMemo(() => expenseItems.filter(i => i.isPaid).reduce((s, i) => s + i.amount, 0) + cardItems.reduce((s, i) => s + i.paid, 0), [expenseItems, cardItems]);
   const receivedIncome  = useMemo(() => incomeItems.filter(i => i.isReceived).reduce((s, i) => s + i.amount, 0), [incomeItems]);
   const currentBalance  = receivedIncome - paidExpense;
   const expectedBalance = totalIncome - totalExpense;
 
   const totalBills  = expenseItems.length + cardItems.length;
-  const paidBills   = expenseItems.filter(i => i.isPaid).length + cardItems.filter(i => i.isPaid).length;
+  const paidBills   = expenseItems.filter(i => i.isPaid).length + cardItems.filter(i => i.isPaid && !i.isPartial).length;
   const progress    = totalBills > 0 ? (paidBills / totalBills) * 100 : 0;
   const receivedCnt = incomeItems.filter(i => i.isReceived).length;
 
   const allExpenses = useMemo(() => [
     ...expenseItems.map(i => ({ ...i, type: 'fixed' as const })),
-    ...cardItems.map(i => ({ ...i, type: 'card' as const, amount: i.calculated })),
+    ...cardItems.map(i => ({ ...i, type: 'card' as const, amount: i.finalAmount })),
   ].sort((a, b) => (a.dueDay ?? 99) - (b.dueDay ?? 99)), [expenseItems, cardItems]);
 
   const sortedIncomes = useMemo(() => [...incomeItems].sort((a, b) => a.receiveDay - b.receiveDay), [incomeItems]);
@@ -169,20 +189,22 @@ export default function BillsChecklist({
   };
 
   const saveCardPayment = async (cardId: string, amount: number) => {
-    setCardActuals(prev => ({ ...prev, [cardId]: amount }));
+    const before = cardPaid[cardId] ?? 0;
+    setCardPaid(prev => ({ ...prev, [cardId]: amount }));
     setEditingCardId(null);
     setLoadingId(cardId);
-    try { await upsertInvoice({ cardId, month, actualAmount: amount, notes: '' }); toast.success('Fatura registrada ✓'); await onUpdated(); }
-    catch { setCardActuals(prev => ({ ...prev, [cardId]: 0 })); toast.error('Erro ao salvar'); }
+    // Só o valor PAGO muda — o valor final da fatura (Faturas) fica como está
+    try { await upsertInvoice({ cardId, month, paidAmount: amount }); toast.success('Pagamento registrado ✓'); await onUpdated(); }
+    catch { setCardPaid(prev => ({ ...prev, [cardId]: before })); toast.error('Erro ao salvar'); }
     finally { setLoadingId(null); }
   };
 
   const clearCardPayment = async (cardId: string) => {
-    const prev = cardActuals[cardId] ?? 0;
-    setCardActuals(p => ({ ...p, [cardId]: 0 }));
+    const prev = cardPaid[cardId] ?? 0;
+    setCardPaid(p => ({ ...p, [cardId]: 0 }));
     setLoadingId(cardId);
-    try { await upsertInvoice({ cardId, month, actualAmount: 0, notes: '' }); toast.success('Pendente'); await onUpdated(); }
-    catch { setCardActuals(p => ({ ...p, [cardId]: prev })); toast.error('Erro'); }
+    try { await upsertInvoice({ cardId, month, paidAmount: 0 }); toast.success('Pendente'); await onUpdated(); }
+    catch { setCardPaid(p => ({ ...p, [cardId]: prev })); toast.error('Erro'); }
     finally { setLoadingId(null); }
   };
 
@@ -332,9 +354,12 @@ export default function BillsChecklist({
                   {allExpenses.map((item, idx) => {
                     const isCard   = item.type === 'card';
                     const cardData = isCard ? cardItems.find(c => c.id === item.id) : null;
-                    const actual   = cardData?.actual ?? 0;
+                    const paid     = cardData?.paid ?? 0;
                     const calc     = cardData?.calculated ?? 0;
+                    const finalAmt = cardData?.finalAmount ?? calc;
                     const isEditing = editingCardId === item.id;
+                    const isPartial = !!cardData?.isPartial;
+                    const isOver    = cardData?.status === 'over';
 
                     return (
                       <motion.div
@@ -342,40 +367,57 @@ export default function BillsChecklist({
                         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}
                         className="rounded-2xl overflow-hidden transition-all"
                         style={{
-                          background: item.isPaid ? 'hsl(0 72% 51% / 0.08)' : 'hsl(var(--secondary) / 0.5)',
-                          border: item.isPaid ? '1px solid hsl(0 72% 51% / 0.2)' : '1px solid hsl(var(--border))',
+                          background: isPartial ? 'hsl(38 92% 50% / 0.10)' : item.isPaid ? 'hsl(0 72% 51% / 0.08)' : 'hsl(var(--secondary) / 0.5)',
+                          border: isPartial ? '1px solid hsl(38 92% 50% / 0.45)' : item.isPaid ? '1px solid hsl(0 72% 51% / 0.2)' : '1px solid hsl(var(--border))',
                         }}
                       >
                         <button
                           onClick={() => {
-                            if (isCard && !item.isPaid) { setEditingCardId(isEditing ? null : item.id); }
+                            if (isCard && (!item.isPaid || isPartial)) { setEditingCardId(isEditing ? null : item.id); }
                             else if (isCard && item.isPaid) { clearCardPayment(item.id); }
                             else { toggleFixedExpense(item.id, item.isPaid); }
                           }}
                           disabled={!!loadingId}
                           className="w-full flex items-center gap-3 px-3.5 py-3 text-left transition-all"
                         >
-                          {item.isPaid
-                            ? <CheckCircle2 size={16} className="text-red-400 shrink-0" />
-                            : <Circle       size={16} className="text-muted-foreground/40 shrink-0" />}
+                          {isPartial
+                            ? <AlertCircle size={16} className="text-amber-400 shrink-0" />
+                            : item.isPaid
+                              ? <CheckCircle2 size={16} className="text-red-400 shrink-0" />
+                              : <Circle       size={16} className="text-muted-foreground/40 shrink-0" />}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               {isCard && <CardIcon size={11} className="text-muted-foreground shrink-0" />}
-                              <p className={cn('text-sm font-medium truncate text-foreground', item.isPaid && 'line-through text-muted-foreground')}>
+                              <p className={cn('text-sm font-medium truncate text-foreground', item.isPaid && !isPartial && 'line-through text-muted-foreground')}>
                                 {item.name}
                               </p>
+                              {isPartial && (
+                                <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-400">
+                                  Pago parcial
+                                </span>
+                              )}
+                              {isOver && (
+                                <span className="shrink-0 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-400">
+                                  Pago a mais
+                                </span>
+                              )}
                             </div>
+                            {isPartial && (
+                              <p className="text-[10px] text-amber-400/90 mt-0.5 tabular-nums">
+                                faltam {formatCurrency(finalAmt - paid)} de {formatCurrency(finalAmt)} · pago {formatCurrency(paid)}
+                              </p>
+                            )}
                             {item.dueDay && item.dueDay !== 99 && (
                               <p className="text-[10px] text-muted-foreground mt-0.5">vence dia {item.dueDay}</p>
                             )}
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={cn('text-sm font-bold tabular-nums', item.isPaid ? 'text-destructive' : 'text-foreground')}>
+                            <p className={cn('text-sm font-bold tabular-nums', isPartial ? 'text-amber-400' : item.isPaid ? 'text-destructive' : 'text-foreground')}>
                               {isCard
-                                ? formatCurrency(actual > 0 ? actual : calc)
+                                ? formatCurrency(finalAmt)
                                 : formatCurrency((item as any).amount)}
                             </p>
-                            {isCard && actual > 0 && actual !== calc && (
+                            {isCard && Math.abs(finalAmt - calc) > 0.009 && (
                               <p className="text-[9px] text-muted-foreground/50 line-through tabular-nums">{formatCurrency(calc)}</p>
                             )}
                           </div>
@@ -390,10 +432,11 @@ export default function BillsChecklist({
                               className="overflow-hidden px-3.5 pb-3"
                             >
                               <CardAmountInput
-                                calculated={cardData?.calculated ?? 0}
-                                current={cardData?.actual ?? 0}
+                                calculated={cardData?.finalAmount ?? 0}
+                                current={cardData?.paid ?? 0}
                                 onSave={v => saveCardPayment(item.id, v)}
                                 onCancel={() => setEditingCardId(null)}
+                                onClear={(cardData?.paid ?? 0) > 0 ? () => { setEditingCardId(null); clearCardPayment(item.id); } : undefined}
                               />
                             </motion.div>
                           )}
@@ -409,4 +452,4 @@ export default function BillsChecklist({
       </AnimatePresence>
     </div>
   );
-}
+}

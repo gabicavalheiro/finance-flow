@@ -43,16 +43,18 @@ export interface GenerateOptions {
   seed: number;
   /** nível médio mensal em R$ */
   base?: number;
+  /** mês do ano (0 = janeiro … 11 = dezembro) em que a série começa; padrão janeiro */
+  startMonthOfYear?: number;
 }
 
 /** Série mensal de gasto discricionário (R$), sempre ≥ 0. */
-export function generateSeries({ profile, months, noise, seed, base = 2000 }: GenerateOptions): number[] {
+export function generateSeries({ profile, months, noise, seed, base = 2000, startMonthOfYear = 0 }: GenerateOptions): number[] {
   const rand = mulberry32(seed);
   return Array.from({ length: months }, (_, t) => {
     let level = base;
     if (profile === 'tendencia') level = base * (1 + 0.02 * t);
     if (profile === 'sazonal') {
-      const monthOfYear = t % 12; // série começa em janeiro
+      const monthOfYear = (t + startMonthOfYear) % 12;
       level = base * (1 + 0.18 * Math.sin((2 * Math.PI * (monthOfYear - 2)) / 12) + (monthOfYear === 11 ? 0.35 : 0));
     }
     let value = level * (1 + noise * gaussian(rand));

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Landmark, Plus, Trash2, Pencil, TrendingDown,
-  CalendarDays, Building2, ChevronDown, ChevronUp, Loader2,
+  CalendarDays, Building2, ChevronDown, ChevronUp, Loader2, Check, PartyPopper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,11 @@ import DatePicker from '@/components/DatePicker';
 import {
   Loan, getLoans, addLoan, updateLoan, deleteLoan,
 } from '@/lib/store_modules';
+import {
+  getPaidNumbers, togglePaidInstallment, registerPaidAmount, totalPaid, isLoanSettled,
+} from '@/lib/loanPayments';
+import { fireConfetti, HappyFace } from '@/components/Celebration';
+import { cn } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (v: number) =>
@@ -157,27 +162,71 @@ function LoanDialog({
 }
 
 // ─── Card de empréstimo ───────────────────────────────────────────────────────
-function LoanCard({ loan, onEdit, onDelete }: {
+function LoanCard({ loan, onEdit, onDelete, onUpdate }: {
   loan: Loan;
   onEdit: (l: Loan) => void;
   onDelete: (id: string) => void;
+  onUpdate: (l: Loan) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const progress = loan.installments > 0
-    ? (loan.paidInstallments / loan.installments) * 100 : 0;
+  const [face, setFace]         = useState(0);
+  const [bigFace, setBigFace]   = useState(false);
+  const [amountRaw, setAmountRaw] = useState('');
+
+  const paidSet   = getPaidNumbers(loan);
+  const paidCount = paidSet.size;
+  const settled   = isLoanSettled(loan);
+  const progress  = loan.installments > 0
+    ? Math.min(100, (paidCount / loan.installments) * 100) : 0;
+
+  const celebrate = (x: number, y: number, finished: boolean) => {
+    fireConfetti(x, y, finished ? 220 : 90);
+    setBigFace(finished);
+    setFace(f => f + 1);
+  };
+
+  const handleToggle = async (n: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    const wasPaid = paidSet.has(n);
+    const next    = togglePaidInstallment(loan, n);
+    if (!wasPaid) {
+      const r = e.currentTarget.getBoundingClientRect();
+      const finished = isLoanSettled(next);
+      celebrate(r.left + r.width / 2, r.top + r.height / 2, finished);
+      toast.success(finished ? 'Empréstimo quitado! 🎉' : `Parcela ${n} paga! 😄`);
+    }
+    await onUpdate(next);
+  };
+
+  const handleRegisterAmount = async () => {
+    const v = parseFloat(amountRaw);
+    if (!(v > 0)) { toast.error('Informe um valor válido'); return; }
+    const next = registerPaidAmount(loan, v);
+    setAmountRaw('');
+    celebrate(window.innerWidth / 2, window.innerHeight / 2, isLoanSettled(next));
+    toast.success(`Pagamento de ${fmt(v)} registrado 😄`);
+    await onUpdate(next);
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-2xl border border-border p-4 space-y-3"
+      className="relative overflow-hidden bg-card rounded-2xl border border-border p-4 space-y-3"
     >
+      <HappyFace trigger={face} big={bigFace} />
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: 'hsl(25 95% 53% / 0.12)', color: 'hsl(25 95% 53%)' }}>
           <Landmark size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold truncate">{loan.name}</p>
+          <p className="text-sm font-semibold truncate">
+            {loan.name}
+            {settled && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase text-emerald-400">
+                <PartyPopper size={9} />Quitado
+              </span>
+            )}
+          </p>
           {loan.institution && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Building2 size={10} />{loan.institution}
@@ -205,7 +254,7 @@ function LoanCard({ loan, onEdit, onDelete }: {
       {/* Barra de progresso */}
       <div className="space-y-1">
         <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>{loan.paidInstallments}/{loan.installments} parcelas</span>
+          <span>{paidCount}/{loan.installments} parcelas pagas</span>
           <span>{progress.toFixed(0)}%</span>
         </div>
         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -234,6 +283,72 @@ function LoanCard({ loan, onEdit, onDelete }: {
             <CalendarDays size={10} />
             Início: {loan.startDate.split('-').reverse().join('/')}
           </div>
+
+          {/* Já pago / quanto falta */}
+          <div className="col-span-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-center">
+              <p className="text-[10px] text-muted-foreground">Já pago</p>
+              <p className="text-xs font-semibold text-emerald-400 mt-0.5">{fmt(totalPaid(loan))}</p>
+            </div>
+            <div className="rounded-xl p-2 text-center" style={{ background: 'hsl(25 95% 53% / 0.1)' }}>
+              <p className="text-[10px] text-muted-foreground">Falta pagar</p>
+              <p className="text-xs font-semibold mt-0.5" style={{ color: 'hsl(25 95% 53%)' }}>
+                {fmt(loan.remainingAmount)}
+              </p>
+            </div>
+          </div>
+
+          {/* Parcelas */}
+          <div className="col-span-3 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Parcelas — toque para marcar como paga
+            </p>
+            <div className="grid grid-cols-6 gap-1.5 max-h-44 overflow-y-auto pr-0.5 sm:grid-cols-8">
+              {Array.from({ length: loan.installments }, (_, i) => i + 1).map(n => {
+                const paid = paidSet.has(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={e => handleToggle(n, e)}
+                    aria-pressed={paid}
+                    aria-label={`Parcela ${n}${paid ? ' paga' : ''}`}
+                    className={cn(
+                      'flex h-9 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors',
+                      paid
+                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-400'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {paid ? <Check size={14} /> : n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Informar valor já pago */}
+          <div className="col-span-3 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Ou informe um valor já pago
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <CurrencyInput
+                  value={amountRaw}
+                  onChange={v => setAmountRaw(v)}
+                  className="bg-secondary border-border" />
+              </div>
+              <Button size="sm" onClick={handleRegisterAmount} disabled={!(parseFloat(amountRaw) > 0)}>
+                Registrar
+              </Button>
+            </div>
+            {(loan.extraPaid ?? 0) > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Inclui {fmt(loan.extraPaid ?? 0)} informados fora das parcelas.
+              </p>
+            )}
+          </div>
         </motion.div>
       )}
     </motion.div>
@@ -258,15 +373,35 @@ export default function LoansPage() {
   const totalRemaining = loans.reduce((s, l) => s + l.remainingAmount, 0);
   const totalMonthly   = loans.reduce((s, l) => s + l.monthlyPayment, 0);
 
+  const handleUpdate = async (loan: Loan) => {
+    setLoans(prev => prev.map(l => (l.id === loan.id ? loan : l)));
+    try { await updateLoan(loan); }
+    catch { toast.error('Erro ao salvar pagamento'); loadAll(); }
+  };
+
   const handleAdd = async (data: Omit<Loan, 'id'>) => {
-    await addLoan({ ...data, id: crypto.randomUUID() });
+    // Sem saldo informado, o que falta é o total das parcelas (ou o valor total)
+    const remaining = data.remainingAmount > 0
+      ? data.remainingAmount
+      : data.monthlyPayment > 0
+        ? Math.max(0, data.monthlyPayment * (data.installments - data.paidInstallments))
+        : data.totalAmount;
+    await addLoan({ ...data, remainingAmount: remaining, id: crypto.randomUUID() });
     toast.success('Empréstimo adicionado');
     loadAll();
   };
 
   const handleEdit = async (data: Omit<Loan, 'id'>) => {
     if (!editing) return;
-    await updateLoan({ ...data, id: editing.id });
+    // Se o nº de parcelas pagas foi editado à mão, refaz o conjunto (1..n);
+    // senão mantém as parcelas marcadas, descartando as que passam do total.
+    const paidChanged = data.paidInstallments !== editing.paidInstallments;
+    const paidNumbers = paidChanged
+      ? Array.from({ length: Math.min(data.paidInstallments, data.installments) }, (_, i) => i + 1)
+      : [...getPaidNumbers(editing)].filter(n => n <= data.installments).sort((a, b) => a - b);
+    await updateLoan({
+      ...data, id: editing.id, paidNumbers, paidInstallments: paidNumbers.length,
+    });
     toast.success('Empréstimo atualizado');
     setEditing(null);
     loadAll();
@@ -340,7 +475,7 @@ export default function LoansPage() {
           <div className="space-y-3">
             {loans.map(l => (
               <LoanCard key={l.id} loan={l}
-                onEdit={setEditing} onDelete={setDeletingId} />
+                onEdit={setEditing} onDelete={setDeletingId} onUpdate={handleUpdate} />
             ))}
           </div>
         )}
@@ -376,4 +511,4 @@ export default function LoansPage() {
       </AlertDialog>
     </div>
   );
-}
+}

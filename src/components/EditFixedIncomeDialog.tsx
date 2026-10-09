@@ -55,7 +55,7 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="bg-card border-border rounded-3xl max-w-sm mx-auto p-0 overflow-hidden">
+      <DialogContent className="bg-card border-border rounded-3xl max-w-sm mx-auto p-0 max-h-[92dvh] overflow-y-auto">
         <div className="px-6 pt-6 pb-4 border-b border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">Editar Ganho Fixo</DialogTitle>
@@ -109,4 +109,4 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
       </DialogContent>
     </Dialog>
   );
-}
+}

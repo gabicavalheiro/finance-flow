@@ -48,6 +48,11 @@ export interface FixedExpense {
   category: ExpenseCategory;
   paidMonths: string[];
   paymentMethod: PaymentMethod;
+  /** Valor que costuma variar (ex.: medicamentos). `amount` é o valor padrão,
+   *  contado todo mês; cada mês pode ser ajustado em `amountByMonth`. */
+  variable?: boolean;
+  /** Ajustes por mês: 'YYYY-MM' → valor real daquele mês. */
+  amountByMonth?: Record<string, number>;
 }
 
 export interface MonthlyInstallment {
@@ -129,4 +134,4 @@ export const PAYMENT_METHOD_CONFIG: Record<PaymentMethod, { label: string; icon:
   debit:    { label: 'Débito',        icon: 'CreditCard'    },
   boleto:   { label: 'Boleto',        icon: 'FileText'      },
   other:    { label: 'Outro',         icon: 'MoreHorizontal' },
-};
+};

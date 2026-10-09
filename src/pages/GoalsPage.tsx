@@ -90,7 +90,7 @@ export default function GoalsPage() {
             className="bg-card rounded-2xl border border-border p-4"
           >
             <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-3">Visão geral</p>
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="stat-grid gap-3 text-center">
               <div>
                 <p className="text-lg font-bold">{activeGoals.length}</p>
                 <p className="text-[10px] text-muted-foreground">Ativas</p>
@@ -277,4 +277,4 @@ export default function GoalsPage() {
       </AlertDialog>
     </div>
   );
-}
+}

@@ -24,7 +24,9 @@ import {
   computeInstallmentsForMonth,
 } from '@/lib/store';
 import { CreditCard as CardType, FixedIncome, Expense, FixedExpense } from '@/lib/types';
+import { fixedAmountForMonth } from '@/lib/fixedExpenses';
 import { getCurrentMonth, addMonths } from '@/lib/helpers';
+import { alertAllowed, getPreferences } from '@/lib/preferences';
 
 const TRIGGER_PATHS = ['/reports', '/faturas'];
 
@@ -87,7 +89,7 @@ function buildAlerts(
 
   const curInst    = computeInstallmentsForMonth(expenses, cards, targetMonth);
   const totalCard  = curInst.reduce((s, i) => s + i.amount, 0);
-  const totalFix   = fixed.reduce((s, f) => s + f.amount, 0);
+  const totalFix   = fixed.reduce((s, f) => s + fixedAmountForMonth(f, targetMonth), 0);
   const totalExp   = totalCard + totalFix;
   const totalInc   = incomes.reduce((s, i) => s + i.amount, 0);
   const balance    = totalInc - totalExp;
@@ -254,11 +256,15 @@ export default function DailyAlertsDialog({ month }: Props) {
   }, [month]);
 
   async function load(targetMonth: string) {
+    // Configurações → Avisos: janela desligada = não abre
+    if (!getPreferences().alerts.daily) { setAlerts([]); setOpen(false); return; }
     try {
       const [cards, incomes, expenses, fixed] = await Promise.all([
         getCards(), getIncomes(), getExpenses(), getFixedExpenses(),
       ]);
-      const built = buildAlerts(cards, incomes, expenses, fixed, targetMonth);
+      const prefs = getPreferences().alerts;
+      const built = buildAlerts(cards, incomes, expenses, fixed, targetMonth)
+        .filter(a => alertAllowed(a.id, prefs));
       setAlerts(built);
       if (built.length > 0) setOpen(true);
     } catch (e) {
@@ -310,7 +316,7 @@ export default function DailyAlertsDialog({ month }: Props) {
               </div>
 
               {/* Lista de alertas */}
-              <div className="px-4 py-3 space-y-2.5 max-h-[55vh] overflow-y-auto">
+              <div className="px-4 py-3 space-y-2.5 max-h-[55dvh] overflow-y-auto">
                 <AnimatePresence initial={false}>
                   {visible.map((alert, i) => {
                     const s = SEV_STYLE[alert.severity];
@@ -363,4 +369,4 @@ export default function DailyAlertsDialog({ month }: Props) {
       )}
     </AnimatePresence>
   );
-}
+}

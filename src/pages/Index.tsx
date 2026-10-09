@@ -1,10 +1,12 @@
 // src/pages/Index.tsx
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Wallet, Scale, CreditCard as CreditCardIcon, ChartNoAxesCombined, Eye, EyeOff, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
 import EditVariableDialog from '@/components/EditVariableDialog';
+import EditFixedExpenseDialog from '@/components/EditFixedExpenseDialog';
+import { resolveFixedForMonth, isFixedAdjusted } from '@/lib/fixedExpenses';
 import CategoryIcon from '@/components/CategoryIcon';
 import ShowMoreButton from '@/components/ShowMoreButton';
 import BulkEditCategoryDialog from '@/components/BulkEditCategoryDialog';
@@ -17,7 +19,7 @@ import { useCollapse } from '@/hooks/useCollapse';
 import { useTransactionFilter } from '@/hooks/useTransactionFilter';
 import { getCurrentMonth, formatCurrency } from '@/lib/helpers';
 import { getVariableForMonth, getInvoicesForMonth, CardInvoice, deleteExpense, deleteVariableTransaction } from '@/lib/store';
-import { Expense, VariableTransaction, PAYMENT_METHOD_CONFIG } from '@/lib/types';
+import { Expense, FixedExpense, VariableTransaction, PAYMENT_METHOD_CONFIG } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { getUser } from '@/lib/auth';
@@ -25,6 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getActiveModuleIds } from '@/lib/modules';
+import { usePreferences, visibleSections, type HomeSectionId } from '@/lib/preferences';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import BalanceBreakdownSheet from '@/components/BalanceBreakdownSheet';
 import { LoadingState, EmptyState } from '@/components/states/StateViews';
@@ -42,6 +45,7 @@ export default function Dashboard() {
   const [selectedCardId, setSelectedCardId]              = useState<string | null>(null);
   const [editingExpense, setEditingExpense]               = useState<Expense | null>(null);
   const [editingVar, setEditingVar]                      = useState<VariableTransaction | null>(null);
+  const [editingFixed, setEditingFixed]                  = useState<FixedExpense | null>(null);
   const [deletingExpenseId, setDeletingExpenseId]        = useState<string | null>(null);
   const [deletingVarId, setDeletingVarId]                = useState<string | null>(null);
   const [bulkEditOpen, setBulkEditOpen]                  = useState(false);
@@ -53,6 +57,7 @@ export default function Dashboard() {
   const [breakdownOpen, setBreakdownOpen]                = useState(false);
   const [hidden, setHidden]                              = useState(false);
 
+  const prefs = usePreferences();
   const [varTxs,   setVarTxs]   = useState<VariableTransaction[]>([]);
   const [invoices, setInvoices] = useState<CardInvoice[]>([]);
 
@@ -69,7 +74,8 @@ export default function Dashboard() {
 
   const cards         = rawCards    ?? [];
   const expenses      = rawExpenses ?? [];
-  const fixedExpenses = rawFixed    ?? [];
+  // Gastos fixos já com o valor do mês selecionado (ajustes de gastos variáveis)
+  const fixedExpenses = useMemo(() => resolveFixedForMonth(rawFixed ?? [], month), [rawFixed, month]);
   const incomes       = rawIncomes  ?? [];
   const subscriptions = rawSubs     ?? [];
 
@@ -144,6 +150,225 @@ export default function Dashboard() {
     catch { toast.error('Erro ao remover'); } finally { setDeletingVarId(null); }
   };
 
+  // ── Seções da tela inicial (a ordem e o que aparece vêm de Configurações) ──
+  const sectionNodes: Record<HomeSectionId, ReactNode> = {
+    summary: (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Saldo */}
+        <SummaryCard
+          label="Saldo do mês"
+          value={balance}
+          sub={`${Math.round(expenseRatio)}% da renda comprometida`}
+          icon={<Scale size={16} />}
+          tone="primary"
+          delay={0}
+          onClick={() => setBreakdownOpen(true)}
+          hidden={hidden}
+        />
+
+        {/* Pendente a pagar */}
+        <SummaryCard
+          label="Pendente a pagar"
+          value={pendingExpense}
+          sub={`de ${formatCurrency(totalExpense)} em gastos`}
+          icon={<ArrowDownRight size={16} />}
+          tone="danger"
+          delay={0.07}
+          hidden={hidden}
+        />
+
+        {/* A receber */}
+        <SummaryCard
+          label="A receber"
+          value={toReceive}
+          sub={`de ${formatCurrency(totalIncome)} previsto`}
+          icon={<ArrowUpRight size={16} />}
+          tone="success"
+          delay={0.14}
+          hidden={hidden}
+        />
+      </div>
+    ),
+    cards: cards.length > 0 ? (
+      <CardCarousel cards={cards} installmentsByCard={installmentsByCard} />
+    ) : null,
+    goals: hasGoalsModule ? (
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <DashboardGoalsWidget monthlyBalance={balance} />
+      </motion.div>
+    ) : null,
+    checklist: !loadingData ? (
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
+        <BillsChecklist
+          month={month} cards={cards} incomes={incomes}
+          fixedExpenses={fixedExpenses} expenses={expenses}
+          invoices={invoices} onUpdated={loadAll}
+        />
+      </motion.div>
+    ) : null,
+    categories: pieData.length > 0 ? (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
+        className="rounded-3xl overflow-hidden p-5 bg-card border border-border"
+      >
+        <CategoryBreakdown data={pieData} hidden={hidden} />
+      </motion.div>
+    ) : null,
+    transactions: (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+        className="relative rounded-3xl overflow-hidden"
+        style={{
+          background: 'hsl(var(--card))',
+          border: '1px solid hsl(var(--border))',
+        }}
+      >
+
+        {/* Header */}
+        <div className="relative z-10 px-5 pt-5 pb-3 flex items-center justify-between gap-2 border-b border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl flex items-center justify-center"
+              style={{ background: 'hsl(var(--primary) / 0.12)' }}>
+              <Wallet size={13} className="text-primary" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">Lançamentos</p>
+            {txCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium text-muted-foreground bg-secondary">
+                {txCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <TransactionFilterBar
+              open={filterOpen} onToggle={() => setFilterOpen(v => !v)}
+              filters={filters} setFilters={setFilters}
+              activeCount={activeCount} clearFilters={clearFilters}
+              availableCategories={availableCategories} cards={cards}
+            />
+            <button onClick={() => setBulkEditOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border border-border text-muted-foreground hover:text-foreground transition-all">
+              <Pencil size={10} /> Editar
+            </button>
+          </div>
+        </div>
+
+        {/* Filtro cartão */}
+        {cards.length > 1 && (
+          <div className="relative z-10 px-5 py-2.5 border-b border-border/40">
+            <ScrollArea>
+              <div className="flex gap-1.5 pb-1">
+                <button onClick={() => setSelectedCardId(null)}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  style={{
+                    background: !selectedCardId ? 'hsl(var(--primary) / 0.1)' : 'hsl(var(--secondary))',
+                    border: !selectedCardId ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
+                    color: !selectedCardId ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                  }}>
+                  Todos
+                </button>
+                {cards.map(card => {
+                  const isActive = selectedCardId === card.id;
+                  const s = installmentsByCard.get(card.id) ?? 0;
+                  return (
+                    <button key={card.id} onClick={() => setSelectedCardId(isActive ? null : card.id)}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                      style={{
+                        background: isActive ? 'hsl(var(--primary) / 0.12)' : 'hsl(var(--secondary))',
+                        border: isActive ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
+                        color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                      }}>
+                      <CreditCardIcon size={11} /> {card.name}
+                      {s > 0 && <span className="opacity-60 tabular-nums">{formatCurrency(s)}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Lista */}
+        <div className="relative z-10 px-3 py-3">
+          {loadingData && <LoadingState rows={4} label="Carregando lançamentos…" />}
+          {!loadingData && isEmpty && (
+            <EmptyState
+              icon={<Wallet size={20} />}
+              title="Nenhum lançamento"
+              description={activeCount > 0 ? 'Limpe os filtros para ver todos' : 'Adicione um gasto ou receita'}
+            />
+          )}
+          {!loadingData && !isEmpty && (
+            <>
+              <AnimatePresence mode="popLayout">
+                {visibleInstallments.slice(0, collapseInst.visible).map((inst) => {
+                  const orig = getExpenseById(inst.expenseId);
+                  const cardName = cardMap.get(inst.cardId)?.name ?? '';
+                  return (
+                    <TransactionRow key={inst.expenseId + inst.installmentNumber}
+                      icon={<CategoryIcon category={inst.category} />}
+                      title={inst.expenseName}
+                      subtitle={inst.totalInstallments > 1
+                        ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardName}`
+                        : `À vista · ${cardName}`}
+                      amount={inst.amount} tone="expense"
+                      onEdit={orig ? () => setEditingExpense(orig) : undefined}
+                      onDelete={() => setDeletingExpenseId(inst.expenseId)}
+                    />
+                  );
+                })}
+              </AnimatePresence>
+              <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
+
+              {visibleVarTxs.length > 0 && (
+                <>
+                  {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
+                  <AnimatePresence mode="popLayout">
+                    {visibleVarTxs.slice(0, collapseVar.visible).map((tx) => (
+                      <TransactionRow key={tx.id}
+                        icon={<CategoryIcon category={tx.category} />}
+                        title={tx.name}
+                        subtitle={<>
+                          {METHOD_ICONS[tx.paymentMethod] ?? null}
+                          {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
+                          {tx.date && ` · ${tx.date.split('-').reverse().slice(0, 2).join('/')}`}
+                        </>}
+                        amount={tx.amount} tone={tx.type === 'income' ? 'income' : 'expense'}
+                        onEdit={() => setEditingVar(tx)}
+                        onDelete={() => setDeletingVarId(tx.id)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                  <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
+                </>
+              )}
+
+              {visibleFixed.length > 0 && (
+                <>
+                  {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
+                  {visibleFixed.slice(0, collapseFixed.visible).map(f => (
+                    <TransactionRow key={f.id}
+                      icon={<CategoryIcon category={f.category} />}
+                      title={f.name}
+                      subtitle={isFixedAdjusted(f, month) ? 'Fixo · ajustado neste mês' : f.variable ? 'Fixo · variável' : 'Fixo mensal'}
+                      amount={f.amount} tone="expense"
+                      onEdit={() => {
+                        const raw = (rawFixed ?? []).find(x => x.id === f.id);
+                        if (raw) setEditingFixed(raw);
+                      }}
+                    />
+                  ))}
+                  <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </motion.div>
+    ),
+  };
+  const shownSections = visibleSections(prefs).filter(id => sectionNodes[id]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="pb-24 md:pb-10 max-w-7xl mx-auto">
@@ -176,7 +401,7 @@ export default function Dashboard() {
             onMouseLeave={e => (e.currentTarget.style.background = 'hsl(var(--secondary))')}>
             {hidden ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
-          <div className="xl:hidden">
+          {prefs.showSidebar && <div className="xl:hidden">
             <Sheet>
               <SheetTrigger asChild>
                 <button type="button" aria-label="Abrir resumo e alertas" className="p-2 rounded-xl transition-colors"
@@ -193,7 +418,7 @@ export default function Dashboard() {
                 </div>
               </SheetContent>
             </Sheet>
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -204,242 +429,34 @@ export default function Dashboard() {
           {dashTab === 'patrimonio' ? <DashboardPatrimonioTab /> : (
             <>
 
-              {/* ════════════════════════════════════════════
-                  3 SUMMARY CARDS (Saldo / Pendente / A receber)
-              ════════════════════════════════════════════ */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Saldo */}
-                <SummaryCard
-                  label="Saldo do mês"
-                  value={balance}
-                  sub={`${Math.round(expenseRatio)}% da renda comprometida`}
-                  icon={<Scale size={16} />}
-                  tone="primary"
-                  delay={0}
-                  onClick={() => setBreakdownOpen(true)}
-                  hidden={hidden}
+              {shownSections.length === 0 && (
+                <EmptyState
+                  icon={<Wallet size={20} />}
+                  title="Tudo escondido por aqui"
+                  description="Em Configurações → Tela inicial você escolhe o que aparece."
                 />
-
-                {/* Pendente a pagar */}
-                <SummaryCard
-                  label="Pendente a pagar"
-                  value={pendingExpense}
-                  sub={`de ${formatCurrency(totalExpense)} em gastos`}
-                  icon={<ArrowDownRight size={16} />}
-                  tone="danger"
-                  delay={0.07}
-                  hidden={hidden}
-                />
-
-                {/* A receber */}
-                <SummaryCard
-                  label="A receber"
-                  value={toReceive}
-                  sub={`de ${formatCurrency(totalIncome)} previsto`}
-                  icon={<ArrowUpRight size={16} />}
-                  tone="success"
-                  delay={0.14}
-                  hidden={hidden}
-                />
-              </div>
-
-              {/* ════════════════════════════════════════
-                  CARROSSEL DE CARTÕES
-              ════════════════════════════════════════ */}
-              {cards.length > 0 && (
-                <CardCarousel cards={cards} installmentsByCard={installmentsByCard} />
               )}
-
-              {/* ═══════════════════════
-                  METAS
-              ═══════════════════════ */}
-              {hasGoalsModule && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-                  <DashboardGoalsWidget monthlyBalance={balance} />
-                </motion.div>
-              )}
-
-              {/* ═══════════════════════════════
-                  CHECKLIST DO MÊS
-              ═══════════════════════════════ */}
-              {!loadingData && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
-                  <BillsChecklist
-                    month={month} cards={cards} incomes={incomes}
-                    fixedExpenses={fixedExpenses} expenses={expenses}
-                    invoices={invoices} onUpdated={loadAll}
-                  />
-                </motion.div>
-              )}
-
-              {/* ═══════════════════════════════════════
-                  GRID INFERIOR (Pie + Lançamentos)
-              ═══════════════════════════════════════ */}
-              <div className={cn('grid gap-4', pieData.length > 0 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1')}>
-
-                {/* Pie chart */}
-                {pieData.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.42 }}
-                    className="rounded-3xl overflow-hidden p-5 bg-card border border-border"
-                  >
-                    <CategoryBreakdown data={pieData} hidden={hidden} />
-                  </motion.div>
-                )}
-
-                {/* Lançamentos */}
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-                  className="relative rounded-3xl overflow-hidden"
-                  style={{
-                    background: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                  }}
-                >
-
-                  {/* Header */}
-                  <div className="relative z-10 px-5 pt-5 pb-3 flex items-center justify-between gap-2 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center"
-                        style={{ background: 'hsl(var(--primary) / 0.12)' }}>
-                        <Wallet size={13} className="text-primary" />
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">Lançamentos</p>
-                      {txCount > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium text-muted-foreground bg-secondary">
-                          {txCount}
-                        </span>
-                      )}
+              {shownSections.map((id, i) => {
+                // Categorias e lançamentos lado a lado quando ficam um depois do outro
+                const pair = (id === 'categories' && shownSections[i + 1] === 'transactions')
+                  || (id === 'transactions' && shownSections[i - 1] === 'categories');
+                if (pair) {
+                  if (id === 'transactions') return null; // já renderizado junto com 'categories'
+                  return (
+                    <div key="pair" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {sectionNodes.categories}
+                      {sectionNodes.transactions}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <TransactionFilterBar
-                        open={filterOpen} onToggle={() => setFilterOpen(v => !v)}
-                        filters={filters} setFilters={setFilters}
-                        activeCount={activeCount} clearFilters={clearFilters}
-                        availableCategories={availableCategories} cards={cards}
-                      />
-                      <button onClick={() => setBulkEditOpen(true)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border border-border text-muted-foreground hover:text-foreground transition-all">
-                        <Pencil size={10} /> Editar
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Filtro cartão */}
-                  {cards.length > 1 && (
-                    <div className="relative z-10 px-5 py-2.5 border-b border-border/40">
-                      <ScrollArea>
-                        <div className="flex gap-1.5 pb-1">
-                          <button onClick={() => setSelectedCardId(null)}
-                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-                            style={{
-                              background: !selectedCardId ? 'hsl(var(--primary) / 0.1)' : 'hsl(var(--secondary))',
-                              border: !selectedCardId ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                              color: !selectedCardId ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-                            }}>
-                            Todos
-                          </button>
-                          {cards.map(card => {
-                            const isActive = selectedCardId === card.id;
-                            const s = installmentsByCard.get(card.id) ?? 0;
-                            return (
-                              <button key={card.id} onClick={() => setSelectedCardId(isActive ? null : card.id)}
-                                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-                                style={{
-                                  background: isActive ? 'hsl(var(--primary) / 0.12)' : 'hsl(var(--secondary))',
-                                  border: isActive ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                                  color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
-                                }}>
-                                <CreditCardIcon size={11} /> {card.name}
-                                {s > 0 && <span className="opacity-60 tabular-nums">{formatCurrency(s)}</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                      </ScrollArea>
-                    </div>
-                  )}
-
-                  {/* Lista */}
-                  <div className="relative z-10 px-3 py-3">
-                    {loadingData && <LoadingState rows={4} label="Carregando lançamentos…" />}
-                    {!loadingData && isEmpty && (
-                      <EmptyState
-                        icon={<Wallet size={20} />}
-                        title="Nenhum lançamento"
-                        description={activeCount > 0 ? 'Limpe os filtros para ver todos' : 'Adicione um gasto ou receita'}
-                      />
-                    )}
-                    {!loadingData && !isEmpty && (
-                      <>
-                        <AnimatePresence mode="popLayout">
-                          {visibleInstallments.slice(0, collapseInst.visible).map((inst) => {
-                            const orig = getExpenseById(inst.expenseId);
-                            const cardName = cardMap.get(inst.cardId)?.name ?? '';
-                            return (
-                              <TransactionRow key={inst.expenseId + inst.installmentNumber}
-                                icon={<CategoryIcon category={inst.category} />}
-                                title={inst.expenseName}
-                                subtitle={inst.totalInstallments > 1
-                                  ? `${inst.installmentNumber}/${inst.totalInstallments} · ${cardName}`
-                                  : `À vista · ${cardName}`}
-                                amount={inst.amount} tone="expense"
-                                onEdit={orig ? () => setEditingExpense(orig) : undefined}
-                                onDelete={() => setDeletingExpenseId(inst.expenseId)}
-                              />
-                            );
-                          })}
-                        </AnimatePresence>
-                        <ShowMoreButton expanded={collapseInst.expanded} hidden={collapseInst.hidden} onToggle={collapseInst.toggle} />
-
-                        {visibleVarTxs.length > 0 && (
-                          <>
-                            {visibleInstallments.length > 0 && <SectionDivider label="Variáveis" />}
-                            <AnimatePresence mode="popLayout">
-                              {visibleVarTxs.slice(0, collapseVar.visible).map((tx) => (
-                                <TransactionRow key={tx.id}
-                                  icon={<CategoryIcon category={tx.category} />}
-                                  title={tx.name}
-                                  subtitle={<>
-                                    {METHOD_ICONS[tx.paymentMethod] ?? null}
-                                    {PAYMENT_METHOD_CONFIG[tx.paymentMethod]?.label ?? tx.paymentMethod}
-                                    {tx.date && ` · ${tx.date.split('-').reverse().slice(0, 2).join('/')}`}
-                                  </>}
-                                  amount={tx.amount} tone={tx.type === 'income' ? 'income' : 'expense'}
-                                  onEdit={() => setEditingVar(tx)}
-                                  onDelete={() => setDeletingVarId(tx.id)}
-                                />
-                              ))}
-                            </AnimatePresence>
-                            <ShowMoreButton expanded={collapseVar.expanded} hidden={collapseVar.hidden} onToggle={collapseVar.toggle} />
-                          </>
-                        )}
-
-                        {visibleFixed.length > 0 && (
-                          <>
-                            {(visibleInstallments.length > 0 || visibleVarTxs.length > 0) && <SectionDivider label="Fixos" />}
-                            {visibleFixed.slice(0, collapseFixed.visible).map(f => (
-                              <TransactionRow key={f.id}
-                                icon={<CategoryIcon category={f.category} />}
-                                title={f.name} subtitle="Fixo mensal"
-                                amount={f.amount} tone="expense"
-                              />
-                            ))}
-                            <ShowMoreButton expanded={collapseFixed.expanded} hidden={collapseFixed.hidden} onToggle={collapseFixed.toggle} />
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
+                  );
+                }
+                return <div key={id}>{sectionNodes[id]}</div>;
+              })}
             </>
           )}
         </div>
 
         {/* ── SIDEBAR ── */}
-        {dashTab === 'geral' && (
+        {dashTab === 'geral' && prefs.showSidebar && (
           <aside className="hidden xl:block w-72 shrink-0">
             <div className="sticky top-6">
               <DashboardSidebar cards={cards} incomes={incomes} expenses={expenses}
@@ -463,6 +480,12 @@ export default function Dashboard() {
         <EditExpenseDialog expense={editingExpense} cards={cards} open={!!editingExpense}
           onClose={() => setEditingExpense(null)}
           onSaved={() => { setEditingExpense(null); loadAll(); }} />
+      )}
+
+      {editingFixed && (
+        <EditFixedExpenseDialog expense={editingFixed} month={month} open={!!editingFixed}
+          onClose={() => setEditingFixed(null)}
+          onSaved={() => { setEditingFixed(null); loadAll(); }} />
       )}
 
       {editingVar && (
@@ -499,4 +522,4 @@ export default function Dashboard() {
 
     </div>
   );
-}
+}

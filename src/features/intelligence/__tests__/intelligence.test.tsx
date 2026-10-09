@@ -40,14 +40,14 @@ describe('generateSeries', () => {
 describe('ForecastLab', () => {
   it('mostra a avaliação e a tabela de modelos candidatos', () => {
     render(<ForecastLab />);
-    expect(screen.getByText('Previsão x realidade')).toBeTruthy();
+    expect(screen.getByText('Previsão x o que realmente aconteceu')).toBeTruthy();
     expect(screen.getByText(/Método escolhido/)).toBeTruthy();
     expect(screen.getAllByRole('row').length).toBeGreaterThan(3);
   });
 
   it('com 3 meses de histórico avisa que não consegue se validar', () => {
     render(<ForecastLab />);
-    fireEvent.change(screen.getByLabelText(/Meses de histórico/), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/Quantos meses o app conhece/), { target: { value: '3' } });
     expect(screen.getByText(/não consegue se validar/)).toBeTruthy();
   });
 
@@ -62,7 +62,7 @@ describe('ForecastLab', () => {
 describe('ClassifierLab', () => {
   it('classifica um exemplo e mostra a confiança', async () => {
     render(<ClassifierLab />);
-    expect(await screen.findByText('Categoria prevista', {}, { timeout: 8000 })).toBeTruthy();
+    expect(await screen.findByText('2. Categoria sugerida', {}, { timeout: 8000 })).toBeTruthy();
     // a categoria prevista aparece no título e na lista de probabilidades
     expect(screen.getAllByText('Transporte').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/confiante/)).toBeTruthy();
@@ -70,7 +70,7 @@ describe('ClassifierLab', () => {
 
   it('texto desconhecido pede revisão ou avisa palpite sem base', async () => {
     render(<ClassifierLab />);
-    const input = await screen.findByLabelText('Descrição do gasto', {}, { timeout: 8000 });
+    const input = await screen.findByLabelText('1. Digite o nome de uma compra', {}, { timeout: 8000 });
     fireEvent.change(input, { target: { value: 'zzqxv' } });
     expect((await screen.findAllByText(/palpite sem base|vale conferir/)).length).toBeGreaterThan(0);
   }, 15000);

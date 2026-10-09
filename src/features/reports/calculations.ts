@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/helpers';
 import type {
   CreditCard, Expense, FixedExpense, FixedIncome, MonthlyInstallment, VariableTransaction,
 } from '@/lib/types';
+import { fixedAmountForMonth } from '@/lib/fixedExpenses';
 import { daysInMonth, monthLabel, monthLabelFull } from './format';
 import type { CategoryLineItem, Insight, MonthForecast } from './types';
 
@@ -92,7 +93,7 @@ export function buildPrevCategoryTotals({ expenses, cards, fixed, prevMonth }: {
     totals.set(label, (totals.get(label) ?? 0) + amount);
   };
   prevInst.forEach(i => add(i.category, i.amount));
-  fixed.forEach(f => add(f.category, f.amount));
+  fixed.forEach(f => add(f.category, fixedAmountForMonth(f, prevMonth)));
   return totals;
 }
 
@@ -137,7 +138,7 @@ export function buildBarDataHist({ month, expenses, cards, fixed, totalFixedInco
   return Array.from({ length: 6 }, (_, i) => {
     const m      = addMonths(month, -(5 - i));
     const inst   = computeInstallmentsForMonth(expenses, cards, m);
-    const gastos = inst.reduce((s, x) => s + x.amount, 0) + fixed.reduce((s, f) => s + f.amount, 0);
+    const gastos = inst.reduce((s, x) => s + x.amount, 0) + fixed.reduce((s, f) => s + fixedAmountForMonth(f, m), 0);
     return { name: monthLabel(m), gastos, receitas: totalFixedIncome };
   });
 }

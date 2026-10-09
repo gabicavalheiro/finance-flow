@@ -6,6 +6,7 @@ import { CreditCard as CardType, FixedIncome, Expense, FixedExpense, VariableTra
 import { computeInstallmentsForMonth, CardInvoice } from '@/lib/store';
 import { getBudgets, Budget } from '@/lib/budgets';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { alignInstallmentsToInvoices } from '@/lib/invoiceAdjust';
 import BudgetSettingsDialog from '@/components/BudgetSettingsDialog';
 import { Subscription, monthlyAmount, subscriptionsAsInstallments } from '@/lib/subscriptions';
 
@@ -46,6 +47,8 @@ export default function DashboardSidebar({
   const subInstallments = useMemo(() => subscriptionsAsInstallments(subscriptions, month), [subscriptions, month]);
   const allInst         = useMemo(() => [...installments, ...subInstallments], [installments, subInstallments]);
   const invoiceMap      = useMemo(() => new Map(invoices.map(i => [i.cardId, i])), [invoices]);
+  // Lançamentos já ajustados ao valor final informado em Faturas
+  const allInstAdj      = useMemo(() => alignInstallmentsToInvoices(allInst, invoices, month), [allInst, invoices, month]);
 
   const totalCard = useMemo(() =>
     cards.reduce((sum, card) => {
@@ -66,12 +69,12 @@ export default function DashboardSidebar({
 
   const spentByCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const i of allInst) map[i.category] = (map[i.category] || 0) + i.amount;
+    for (const i of allInstAdj) map[i.category] = (map[i.category] || 0) + i.amount;
     for (const f of fixedExpenses) map[f.category] = (map[f.category] || 0) + f.amount;
     for (const v of varTxs.filter(t => t.type === 'expense')) map[v.category] = (map[v.category] || 0) + v.amount;
     for (const s of subscriptions.filter(s => s.active && !s.cardId)) map[s.category] = (map[s.category] || 0) + monthlyAmount(s);
     return map;
-  }, [allInst, fixedExpenses, varTxs, subscriptions]);
+  }, [allInstAdj, fixedExpenses, varTxs, subscriptions]);
 
   const budgetUsage = useMemo(() =>
     budgets.map(b => {
@@ -88,12 +91,12 @@ export default function DashboardSidebar({
       list.push({ id: `inc-${inc.id}`, label: inc.name, date: dayDateLabel(inc.receiveDay, today), sortDay: inc.receiveDay === today ? -1 : inc.receiveDay, amount: inc.amount, type: 'income' });
     }
     for (const card of cards) {
-      const amt = allInst.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
+      const amt = allInstAdj.filter(i => i.cardId === card.id).reduce((s, i) => s + i.amount, 0);
       if (amt === 0) continue;
       list.push({ id: `card-${card.id}`, label: card.name, date: dayDateLabel(card.dueDay, today), sortDay: card.dueDay === today ? -1 : card.dueDay, amount: amt, type: 'expense' });
     }
     return list.sort((a, b) => a.sortDay - b.sortDay).slice(0, 6);
-  }, [incomes, cards, allInst, today]);
+  }, [incomes, cards, allInstAdj, today]);
 
   const isPositive = balance >= 0;
 
@@ -211,4 +214,4 @@ export default function DashboardSidebar({
       <BudgetSettingsDialog open={budgetOpen} onClose={() => setBudgetOpen(false)} onSaved={loadBudgets} />
     </>
   );
-}
+}

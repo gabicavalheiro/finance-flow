@@ -94,12 +94,19 @@
   html {
     /* Aumenta levemente o tamanho base de todo o texto (escala com rem) */
     font-size: 106.5%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Celulares bem pequenos: tira o aumento para caber mais conteúdo */
+  @media (max-width: 380px) {
+    html { font-size: 100%; }
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
     text-rendering: optimizeLegibility;
+    overflow-x: clip; /* nunca deixa a página rolar para os lados */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -151,3 +158,17 @@
 
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Grade de cards de resumo: 2 colunas no celular (o 3º ocupa a linha toda),
+   3 colunas a partir de 640px. Evita valores em R$ estourando o card. */
+@layer components {
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-grid > :last-child:nth-child(odd) { grid-column: span 2 / span 2; }
+  @media (min-width: 640px) {
+    .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stat-grid > :last-child:nth-child(odd) { grid-column: auto; }
+  }
+}

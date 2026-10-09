@@ -202,7 +202,7 @@ export default function UnifiedTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden max-h-[92dvh] flex flex-col">
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-border">
@@ -472,4 +472,4 @@ export default function UnifiedTransactionDialog({
       </DialogContent>
     </Dialog>
   );
-}
+}

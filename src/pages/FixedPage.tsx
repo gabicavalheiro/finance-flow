@@ -20,12 +20,15 @@ import { INCOME_CATEGORY_CONFIG, FixedExpense, FixedIncome } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { formatReceiveDay } from '@/components/DayPicker';
+import { fixedAmountForMonth, isFixedAdjusted } from '@/lib/fixedExpenses';
+import { useFinanceData } from '@/contexts/FinanceDataContext';
 
 export default function FixedPage() {
   const [month, setMonth] = useState(getCurrentMonth());
   const [fixedState, setFixedState] = useState<FixedExpense[]>([]);
   const [incomeState, setIncomeState] = useState<FixedIncome[]>([]);
   const [loading, setLoading] = useState(true);
+  const { refresh } = useFinanceData();
 
   // estados de edição
   const [editingFixed, setEditingFixed] = useState<FixedExpense | null>(null);
@@ -40,8 +43,11 @@ export default function FixedPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // Depois de criar/editar, atualiza também o contexto global (tela inicial, relatórios...)
+  const reloadAndSync = useCallback(async () => { await loadAll(); await refresh(); }, [loadAll, refresh]);
+
   const totalIncome = incomeState.reduce((s, i) => s + i.amount, 0);
-  const totalExpense = fixedState.reduce((s, f) => s + f.amount, 0);
+  const totalExpense = fixedState.reduce((s, f) => s + fixedAmountForMonth(f, month), 0);
   const balance = totalIncome - totalExpense;
   const balancePct = totalIncome > 0 ? Math.min((totalExpense / totalIncome) * 100, 100) : 0;
 
@@ -210,7 +216,7 @@ export default function FixedPage() {
                     +{formatCurrency(income.amount)}
                   </span>
                   {/* Botões editar + deletar */}
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity shrink-0">
                     <Button
                       variant="ghost" size="icon"
                       className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
@@ -239,7 +245,7 @@ export default function FixedPage() {
               <h2 className="text-sm font-semibold">Gastos Fixos</h2>
               <p className="text-[10px] text-muted-foreground">{paidCount}/{fixedState.length} pagos</p>
             </div>
-            <AddFixedExpenseDialog onAdded={loadAll} />
+            <AddFixedExpenseDialog onAdded={reloadAndSync} />
           </div>
 
           {!loading && fixedState.length === 0 && (
@@ -247,7 +253,9 @@ export default function FixedPage() {
           )}
 
           {fixedState.slice(0, collapseFixed.visible).map((fixed, idx) => {
-            const isPaid = fixed.paidMonths.includes(month);
+            const isPaid      = fixed.paidMonths.includes(month);
+            const adjusted    = isFixedAdjusted(fixed, month);
+            const monthAmount = fixedAmountForMonth(fixed, month);
             return (
               <motion.div
                 key={fixed.id}
@@ -265,10 +273,25 @@ export default function FixedPage() {
                   <p className={`text-sm font-medium truncate ${isPaid ? 'line-through text-muted-foreground' : ''}`}>
                     {fixed.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">Fixo mensal</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                    {adjusted ? (
+                      <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-400">
+                        Ajustado neste mês
+                      </span>
+                    ) : fixed.variable ? (
+                      <span className="rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-400">
+                        Variável · valor padrão
+                      </span>
+                    ) : 'Fixo mensal'}
+                  </p>
                 </div>
-                <span className="text-sm font-semibold text-destructive">{formatCurrency(fixed.amount)}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold text-destructive tabular-nums">{formatCurrency(monthAmount)}</p>
+                  {adjusted && (
+                    <p className="text-[10px] text-muted-foreground line-through tabular-nums">{formatCurrency(fixed.amount)}</p>
+                  )}
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity shrink-0">
                   <Button
                     variant="ghost" size="icon"
                     className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
@@ -297,7 +320,8 @@ export default function FixedPage() {
           expense={editingFixed}
           open={!!editingFixed}
           onClose={() => setEditingFixed(null)}
-          onSaved={() => { setEditingFixed(null); loadAll(); }}
+          month={month}
+          onSaved={() => { setEditingFixed(null); reloadAndSync(); }}
         />
       )}
 
@@ -311,4 +335,4 @@ export default function FixedPage() {
       )}
     </div>
   );
-}
+}

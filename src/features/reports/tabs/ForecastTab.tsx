@@ -11,6 +11,7 @@ import { monthLabel } from '@/features/reports/format';
 import { MonthForecast } from '@/features/reports/types';
 import { formatCurrency } from '@/lib/helpers';
 import { CreditCard, Expense } from '@/lib/types';
+import { usePreferences } from '@/lib/preferences';
 
 interface Props {
   forecasts: MonthForecast[];
@@ -27,6 +28,7 @@ export default function ForecastTab({ forecasts, expenses, cards, current, total
     [expenses, cards, forecasts, totalFixedExpense],
   );
 
+  const { hints } = usePreferences();
   const futureForecasts = forecasts.filter(f => f.isFuture);
   const lightestMonth   = futureForecasts.reduce<MonthForecast | null>(
     (best, fc) => !best || fc.balance > best.balance ? fc : best, null);
@@ -123,13 +125,13 @@ export default function ForecastTab({ forecasts, expenses, cards, current, total
         monthlyIncome={totalFixedIncome}
       />
 
-      <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
+      {hints && <div className="flex items-start gap-2 bg-primary/8 border border-primary/20 rounded-xl px-4 py-3">
         <Sparkles size={13} className="text-primary mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground leading-relaxed">
           Os cartões abaixo usam só o que já é <strong className="text-foreground">conhecido</strong>: parcelas cadastradas e{' '}
           <strong className="text-foreground">ganhos/gastos fixos</strong>. O gasto variável esperado está na previsão com ML, acima.
         </p>
-      </div>
+      </div>}
 
       <div className="space-y-3">
         {forecasts.map((fc, i) => (

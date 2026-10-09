@@ -1,5 +1,5 @@
 // src/components/CategorySelect.tsx
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG } from '@/lib/types';
 import { resolveCategoryInfo, CustomCategory, deleteCustomCategory } from '@/lib/customCategories';
@@ -21,6 +21,9 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dropUp, setDropUp]         = useState(false);
   const [listMaxHeight, setListMaxHeight] = useState(216);
+  // Posição/largura do painel (px). Em telas pequenas o painel é centralizado
+  // no modal (ou na tela) em vez de ficar preso à largura do botão.
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedRef  = useRef<HTMLButtonElement>(null);
 
@@ -50,15 +53,11 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
   // Fecha ao clicar/tocar fora
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent | TouchEvent) => {
+    const close = (e: PointerEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('touchstart', close, { passive: true });
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('touchstart', close);
-    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
   }, [open]);
 
   // Scroll até item selecionado ao abrir
@@ -66,21 +65,49 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
     if (open) setTimeout(() => selectedRef.current?.scrollIntoView({ block: 'nearest' }), 60);
   }, [open]);
 
-  // Decide se o dropdown abre pra baixo ou pra cima (e quanto de altura tem
-  // disponível), pra não ficar cortado quando o trigger está perto do fim
-  // da tela (ex: dentro de um popup/modal) — sem isso, categorias abaixo da
-  // dobra simplesmente não apareciam.
-  useEffect(() => {
+  // Decide se o dropdown abre pra baixo ou pra cima, quanto de altura tem
+  // disponível e — no mobile — centraliza o painel dentro do modal (ou da
+  // tela), com largura confortável, em vez de herdar a meia coluna do grid.
+  useLayoutEffect(() => {
     if (!open || !containerRef.current) return;
-    const rect       = containerRef.current.getBoundingClientRect();
-    const FOOTER      = 56; // botão "criar nova categoria" + bordas
-    const MARGIN      = 12;
-    const spaceBelow  = window.innerHeight - rect.bottom - MARGIN;
-    const spaceAbove  = rect.top - MARGIN;
-    const preferUp    = spaceBelow < 220 && spaceAbove > spaceBelow;
-    setDropUp(preferUp);
-    const available   = (preferUp ? spaceAbove : spaceBelow) - FOOTER;
-    setListMaxHeight(Math.max(120, Math.min(216, available)));
+
+    const place = () => {
+      const el   = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const vv   = window.visualViewport;
+      const vh   = vv?.height ?? window.innerHeight;
+      const vw   = vv?.width  ?? window.innerWidth;
+
+      const FOOTER     = 56; // botão "criar nova categoria" + bordas
+      const MARGIN     = 12;
+      const spaceBelow = vh - rect.bottom - MARGIN;
+      const spaceAbove = rect.top - MARGIN;
+      const preferUp   = spaceBelow < 220 && spaceAbove > spaceBelow;
+      setDropUp(preferUp);
+      const available  = (preferUp ? spaceAbove : spaceBelow) - FOOTER;
+      setListMaxHeight(Math.max(120, Math.min(260, available)));
+
+      const isMobile = vw < 640;
+      if (!isMobile) { setPanelStyle({}); return; }
+
+      // limites: o modal aberto (se houver) ou a tela inteira
+      const dialog   = el.closest('[role="dialog"]') as HTMLElement | null;
+      const bounds   = dialog ? dialog.getBoundingClientRect() : { left: 0, width: vw };
+      const SIDE     = 12;
+      const width    = Math.min(bounds.width - SIDE * 2, 380, vw - SIDE * 2);
+      let   left     = bounds.left + (bounds.width - width) / 2;
+      left = Math.max(SIDE, Math.min(left, vw - width - SIDE));
+      setPanelStyle({ left: left - rect.left, right: 'auto', width });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('resize', place);
+    };
   }, [open]);
 
   const handleSelect = useCallback((id: string) => {
@@ -88,7 +115,7 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
     setOpen(false);
   }, [onChange]);
 
-  const handleDelete = async (e: React.MouseEvent | React.TouchEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     setDeletingId(id);
@@ -134,15 +161,20 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
 
         {/* ── Dropdown sem Radix — scroll nativo ── */}
         {open && (
-          <div className={cn(
-            'absolute left-0 right-0 z-[9999] flex flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl',
-            dropUp ? 'bottom-full mb-1' : 'top-full mt-1',
-          )}>
+          <div
+            style={panelStyle}
+            className={cn(
+              'absolute left-0 right-0 z-[9999] flex flex-col overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl',
+              dropUp ? 'bottom-full mb-1' : 'top-full mt-1',
+            )}
+          >
 
             {/* Lista */}
-            <div style={{ overflowY: 'scroll', maxHeight: listMaxHeight, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              <style>{`.__cs::-webkit-scrollbar{display:none}`}</style>
-              <div className="__cs p-1.5 space-y-0.5">
+            <div
+              className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ overflowY: 'auto', maxHeight: listMaxHeight, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+            >
+              <div className="p-1.5 space-y-0.5">
 
                 {/* Padrão */}
                 {allCustom.length > 0 && (
@@ -153,8 +185,7 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
                     key={item.id}
                     ref={item.id === value ? selectedRef : undefined}
                     type="button"
-                    onMouseDown={e => { e.preventDefault(); handleSelect(item.id); }}
-                    onTouchEnd={e => { e.preventDefault(); handleSelect(item.id); }}
+                    onClick={() => handleSelect(item.id)}
                     className={cn(
                       'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
                       item.id === value ? 'bg-primary/10 font-medium text-foreground' : 'text-foreground/80 hover:bg-secondary/60 active:bg-secondary',
@@ -181,8 +212,7 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
                         <button
                           ref={item.id === value ? selectedRef : undefined}
                           type="button"
-                          onMouseDown={e => { e.preventDefault(); handleSelect(item.id); }}
-                          onTouchEnd={e => { e.preventDefault(); handleSelect(item.id); }}
+                          onClick={() => handleSelect(item.id)}
                           className="flex flex-1 min-w-0 items-center gap-2.5 text-left"
                         >
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: `hsl(${item.color})` }} />
@@ -192,9 +222,9 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
                         <button
                           type="button"
                           disabled={deletingId === item.id}
-                          onMouseDown={e => handleDelete(e, item.id)}
-                          onTouchEnd={e => handleDelete(e, item.id)}
-                          className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-40"
+                          onClick={e => handleDelete(e, item.id)}
+                          aria-label={`Remover categoria ${item.label}`}
+                          className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-60 transition-all hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-40"
                         >
                           {deletingId === item.id
                             ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -211,8 +241,7 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
             <div className="shrink-0 border-t border-border p-1">
               <button
                 type="button"
-                onMouseDown={e => { e.preventDefault(); setOpen(false); setCreateOpen(true); }}
-                onTouchEnd={e => { e.preventDefault(); setOpen(false); setCreateOpen(true); }}
+                onClick={() => { setOpen(false); setCreateOpen(true); }}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-secondary/60 active:bg-secondary"
               >
                 <Plus size={14} />
@@ -231,4 +260,4 @@ export default function CategorySelect({ type, value, onChange, className }: Pro
       />
     </>
   );
-}
+}

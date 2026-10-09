@@ -341,7 +341,7 @@ export default function BudgetSettingsDialog({ open, onClose, onSaved }: Props) 
             className={cn(
               'w-full max-w-sm pointer-events-auto',
               'bg-card border border-white/10 rounded-2xl shadow-2xl',
-              'flex flex-col max-h-[85vh]',
+              'flex flex-col max-h-[85dvh]',
             )}
           >
             {/* Header */}
@@ -412,4 +412,4 @@ export default function BudgetSettingsDialog({ open, onClose, onSaved }: Props) 
       )}
     </AnimatePresence>
   );
-}
+}

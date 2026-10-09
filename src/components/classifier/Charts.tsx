@@ -12,7 +12,7 @@ const compact = (v: number) =>
 
 function ValueTable({ rows, grand }: { rows: ChartDatum[]; grand: number }) {
   return (
-    <table className="w-full text-sm">
+    <div className="overflow-x-auto -mx-1 px-1"><table className="w-full text-sm">
       <thead>
         <tr className="text-xs text-muted-foreground text-left">
           <th className="font-medium pb-2">Item</th>
@@ -31,7 +31,7 @@ function ValueTable({ rows, grand }: { rows: ChartDatum[]; grand: number }) {
           </tr>
         ))}
       </tbody>
-    </table>
+    </table></div>
   );
 }
 

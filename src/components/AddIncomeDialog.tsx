@@ -58,7 +58,7 @@ export default function AddIncomeDialog({ onAdded }: Props) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 overflow-hidden">
+      <DialogContent className="bg-card border-border max-w-sm rounded-3xl p-0 max-h-[92dvh] overflow-y-auto">
         <div className="px-6 pt-6 pb-4 border-b border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">Novo Ganho Fixo</DialogTitle>
@@ -118,4 +118,4 @@ export default function AddIncomeDialog({ onAdded }: Props) {
       </DialogContent>
     </Dialog>
   );
-}
+}
