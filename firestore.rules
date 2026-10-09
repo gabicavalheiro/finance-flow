@@ -1,14 +1,40 @@
 rules_version = '2';
 
-// Equivalente às políticas de RLS que existiam no Postgres/Supabase
-// (trigger enforce_user_id()): cada usuário só lê/escreve dentro do
-// próprio namespace users/{uid}/... — nunca vê dados de outro usuário.
+// Modelo de acesso (ver docs/adr/0003-seguranca-firestore.md):
+//  • Negar por padrão: tudo que não está listado abaixo é bloqueado.
+//  • Isolamento por usuário: só o dono (request.auth.uid == userId) lê/escreve em users/{userId}/...
+//  • Só coleções conhecidas do app; um cliente adulterado não cria coleções arbitrárias.
+//  • Limites de tamanho (quantidade de campos e de caracteres) para conter abuso e custo.
+//  • O documento raiz users/{userId} e as demais rotas ficam sem acesso.
 //
 // Publicar com: firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Escrita saudável: objeto com poucos campos (os documentos do app têm < 40).
+    function validPayload() {
+      return request.resource.data.keys().size() <= 60;
+    }
+
+    // Coleções de dados financeiros e de configuração do usuário.
+    match /users/{userId}/{collectionName}/{docId} {
+      allow read, delete: if isOwner(userId) && collectionName in [
+        'cards', 'expenses', 'fixedExpenses', 'fixedIncomes', 'variableTransactions',
+        'cardInvoices', 'budgets', 'goals', 'investments', 'loans', 'subscriptions',
+        'customCategories', 'mlTransactions', 'mlExamples', 'settings'
+      ];
+      allow create, update: if isOwner(userId)
+        && collectionName in [
+          'cards', 'expenses', 'fixedExpenses', 'fixedIncomes', 'variableTransactions',
+          'cardInvoices', 'budgets', 'goals', 'investments', 'loans', 'subscriptions',
+          'customCategories', 'mlTransactions', 'mlExamples', 'settings'
+        ]
+        && docId.size() <= 200
+        && validPayload();
     }
   }
 }

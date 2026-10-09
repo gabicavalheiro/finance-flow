@@ -252,3 +252,11 @@ Distribuído sob a licença MIT. Veja [`LICENSE`](LICENSE).
 <p align="center">
   Feito com 💜 para quem quer ter controle financeiro de verdade
 </p>
+
+---
+
+## Documentação
+
+- [Arquitetura](docs/ARCHITECTURE.md)
+- [Decisões de arquitetura (ADRs)](docs/adr/README.md)
+- [Segurança](SECURITY.md)

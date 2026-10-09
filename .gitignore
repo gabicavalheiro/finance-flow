@@ -38,3 +38,9 @@ db_cluster*
 *.njsproj
 *.sln
 *.sw?
+
+# Artefatos gerados (não versionar)
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.pytest_cache/

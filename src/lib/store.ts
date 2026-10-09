@@ -14,11 +14,9 @@
  * precisou mudar por causa disso.
  */
 
-import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp,
-} from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { auth } from './firebase';
+import { userCol, userDoc } from './firestorePaths';
 import { queryCache } from './queryCache';
 import { clearCustomCategoryCache } from './customCategories';
 import { addMonths, getInvoiceMonth } from './helpers';
@@ -26,16 +24,6 @@ import {
   CreditCard, Expense, FixedExpense, FixedIncome,
   MonthlyInstallment, VariableTransaction,
 } from './types';
-
-// ─── uid ──────────────────────────────────────────────────────────────────────
-// auth.currentUser já está populado de forma síncrona nesse ponto: o app só
-// renderiza as telas que chamam store.ts depois que App.tsx confirma a sessão
-// via onAuthStateChanged (ver App.tsx).
-function uid(): string {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.uid;
-}
 
 // Limpa o cache em memória ao trocar de usuário (login/logout) — evita que
 // dados de um usuário fiquem visíveis para o próximo que logar no mesmo device.
@@ -53,12 +41,7 @@ const TTL = {
 };
 
 // ─── Helpers genéricos de coleção ─────────────────────────────────────────────
-function userCol(name: string) {
-  return collection(db, 'users', uid(), name);
-}
-function userDoc(name: string, id: string) {
-  return doc(db, 'users', uid(), name, id);
-}
+// uid/userCol/userDoc vêm de firestorePaths.ts (único lugar que monta caminhos do Firestore).
 
 /** Remove chaves com valor `undefined` — o Firestore rejeita `undefined` (null é ok). */
 function stripUndefined<T extends Record<string, any>>(obj: T): T {

@@ -1,18 +1,7 @@
 // ─── Módulo de Metas — migrado de Supabase/Postgres pra Firebase/Firestore ────
-import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { getDocs, setDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
+import { userCol, userDoc } from './firestorePaths';
 
-function uid(): string {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.uid;
-}
-function userCol(name: string) {
-  return collection(db, 'users', uid(), name);
-}
-function userDoc(name: string, id: string) {
-  return doc(db, 'users', uid(), name, id);
-}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export interface Goal {

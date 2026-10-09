@@ -4,7 +4,7 @@ import { Eye, EyeOff, TrendingUp, ArrowRight, User, Mail, Lock, KeyRound, Send }
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { loginUser, registerUser, sendPasswordReset } from '@/lib/auth';
+import { loginUser, registerUser, sendPasswordReset, MIN_PASSWORD_LENGTH } from '@/lib/auth';
 import { toast } from 'sonner';
 
 export default function AuthPage() {
@@ -28,7 +28,7 @@ export default function AuthPage() {
 
     if (mode === 'register') {
       if (!name.trim()) { toast.error('Informe seu nome'); setLoading(false); return; }
-      if (password.length < 6) { toast.error('Senha deve ter ao menos 6 caracteres'); setLoading(false); return; }
+      if (password.length < MIN_PASSWORD_LENGTH) { toast.error(`Senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres`); setLoading(false); return; }
       if (password !== confirm) { toast.error('As senhas não coincidem'); setLoading(false); return; }
 
       const { ok, error } = await registerUser(name.trim(), email, password);
@@ -182,7 +182,7 @@ export default function AuthPage() {
                     <div className="relative">
                       <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                       <Input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                        placeholder={mode === 'register' ? 'Mínimo 6 caracteres' : '••••••••'}
+                        placeholder={mode === 'register' ? `Mínimo ${MIN_PASSWORD_LENGTH} caracteres` : '••••••••'}
                         className="bg-secondary border-border pl-9 pr-10" onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
                       <button type="button" onClick={() => setShowPass(s => !s)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">

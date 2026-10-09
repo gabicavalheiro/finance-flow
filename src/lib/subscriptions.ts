@@ -1,8 +1,6 @@
 // src/lib/subscriptions.ts — migrado de Supabase/Postgres pra Firebase/Firestore
-import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, orderBy, query, serverTimestamp,
-} from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { getDocs, setDoc, updateDoc, deleteDoc, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { userCol, userDoc } from './firestorePaths';
 import { MonthlyInstallment, ExpenseCategory } from './types';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -71,17 +69,6 @@ export function subscriptionsAsInstallments(
 
 // ─── Firestore ────────────────────────────────────────────────────────────────
 
-function uid(): string {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.uid;
-}
-function userCol(name: string) {
-  return collection(db, 'users', uid(), name);
-}
-function userDoc(name: string, id: string) {
-  return doc(db, 'users', uid(), name, id);
-}
 function stripUndefined<T extends object>(obj: T): T {
   const clean = { ...obj };
   (Object.keys(clean) as Array<keyof T>).forEach((k) => { if (clean[k] === undefined) delete clean[k]; });

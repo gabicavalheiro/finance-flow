@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { confirmPasswordResetWithCode } from '@/lib/auth';
+import { confirmPasswordResetWithCode, MIN_PASSWORD_LENGTH } from '@/lib/auth';
 
 interface Props {
   onDone: () => void;
@@ -24,8 +24,8 @@ export default function PasswordResetPage({ onDone }: Props) {
       toast.error('Link inválido ou expirado — solicite um novo');
       return;
     }
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres`);
       return;
     }
 
@@ -71,7 +71,7 @@ export default function PasswordResetPage({ onDone }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="pl-9"
-              placeholder="Mínimo 6 caracteres"
+              placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
             />
           </div>
         </div>

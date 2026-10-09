@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Pencil, Trash2, CheckCircle2, Circle, Pause, Play, ExternalLink, Loader2, CreditCard as CreditCardIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/helpers';
+import { safeHttpUrl } from '@/lib/safeUrl';
 import { Subscription, SUBSCRIPTION_CATEGORIES, monthlyAmount } from '@/lib/subscriptions';
 import { CYCLE_LABELS } from '@/features/subscriptions/constants';
 
@@ -74,11 +75,11 @@ export function SubCard({
               </span>
             </React.Fragment>
           )}
-          {sub.url && (
+          {safeHttpUrl(sub.url) && (
             <React.Fragment>
               <span className="text-muted-foreground/40 text-xs">·</span>
               <a
-                href={sub.url}
+                href={safeHttpUrl(sub.url) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary/70 hover:text-primary transition-colors"

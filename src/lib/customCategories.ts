@@ -6,8 +6,9 @@
  * via clearCustomCategoryCache() (chamado a partir do listener de auth).
  */
 
-import { collection, doc, getDocs, setDoc, deleteDoc, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { getDocs, setDoc, deleteDoc, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import { auth } from './firebase';
+import { userCol, userDoc } from './firestorePaths';
 import { CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG, ExpenseCategory } from '@/lib/types';
 
 export interface CustomCategory {
@@ -21,17 +22,6 @@ export interface CustomCategory {
 // Cache em memória — populado async, usado sync em resolveCategoryInfo
 let _cache: CustomCategory[] | null = null;
 
-function uid(): string {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.uid;
-}
-function userCol(name: string) {
-  return collection(db, 'users', uid(), name);
-}
-function userDoc(name: string, id: string) {
-  return doc(db, 'users', uid(), name, id);
-}
 
 export async function getCustomCategories(): Promise<CustomCategory[]> {
   if (_cache !== null) return _cache;

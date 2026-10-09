@@ -7,6 +7,9 @@ import {
 import { auth } from './firebase';
 import { isNativeApp } from '@/hooks/usePlatform';
 
+/** Tamanho mínimo da senha exigido pelo app (o Firebase só impõe 6). */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -31,15 +34,18 @@ function mapAuthError(err: unknown): string {
   switch (code) {
     case 'auth/email-already-in-use': return 'Este e-mail já está cadastrado';
     case 'auth/invalid-email':        return 'E-mail inválido';
-    case 'auth/weak-password':        return 'Senha muito fraca (mínimo 6 caracteres)';
+    case 'auth/weak-password':        return `Senha muito fraca (mínimo ${MIN_PASSWORD_LENGTH} caracteres)`;
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':   return 'E-mail ou senha incorretos';
     case 'auth/too-many-requests':    return 'Muitas tentativas — tente novamente em alguns minutos';
     case 'auth/expired-action-code':  return 'Link expirado — solicite um novo';
     case 'auth/invalid-action-code':  return 'Link inválido ou já utilizado';
+    case 'auth/requires-recent-login': return 'Por segurança, saia e entre novamente antes de trocar a senha';
+    case 'auth/network-request-failed': return 'Sem conexão — verifique a internet e tente de novo';
     default:
-      return (err as { message?: string })?.message ?? 'Erro inesperado';
+      // Nunca repassa err.message: mensagens internas do SDK não devem aparecer para o usuário.
+      return 'Não foi possível concluir a operação. Tente novamente';
   }
 }
 

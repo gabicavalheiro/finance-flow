@@ -1,3 +1,4 @@
+import { safeHttpUrl } from '@/lib/safeUrl';
 import { useState, useEffect } from 'react';
 import { Loader2, CreditCard as CreditCardIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -64,7 +65,7 @@ export function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDia
         paidMonths:   editing?.paidMonths ?? [],
         cardId:       form.cardId || undefined,
         icon:         form.icon  || undefined,
-        url:          form.url.trim()   || undefined,
+        url:          safeHttpUrl(form.url) ?? undefined,
         notes:        form.notes.trim() || undefined,
       };
       if (editing) {

@@ -5,9 +5,10 @@
 //
 // Sem índices compostos: lemos a coleção inteira e ordenamos no cliente.
 import {
-  collection, doc, getDocs, writeBatch, setDoc, serverTimestamp,
+  doc, getDocs, writeBatch, setDoc, serverTimestamp,
 } from 'firebase/firestore';
-import { auth, db } from './../firebase';
+import { db } from '../firebase';
+import { userCol } from '../firestorePaths';
 import type { ExpenseCategory } from '../types';
 import { normalize } from './text';
 import type { UserExample } from './model';
@@ -25,13 +26,8 @@ export interface MlTransaction {
 
 const BATCH = 400;
 
-function uid(): string {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado');
-  return user.uid;
-}
-const txCol = () => collection(db, 'users', uid(), 'mlTransactions');
-const exCol = () => collection(db, 'users', uid(), 'mlExamples');
+const txCol = () => userCol('mlTransactions');
+const exCol = () => userCol('mlExamples');
 
 /** Chave de deduplicação: mesma data + descrição normalizada + valor. */
 export const txKey = (t: { date: string; description: string; amount: number }) =>
