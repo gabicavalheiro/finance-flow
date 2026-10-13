@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Trash2, Pencil, CalendarX2, CalendarCheck, Lock, Unlock, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Trash2, Pencil, CalendarX2, CalendarCheck, Lock, Unlock, AlertTriangle, Receipt, ChevronRight } from 'lucide-react';
 import AddCardDialog from '@/components/AddCardDialog';
 import AddExpenseDialog from '@/components/AddExpenseDialog';
 import EditCardDialog from '@/components/EditCardDialog';
@@ -74,6 +75,14 @@ function CardItem({
               </p>
             </div>
             <div className="flex gap-1">
+              <Link
+                to={`/cards/${card.id}/fatura?month=${month}`}
+                className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                aria-label="Ver lançamentos por fatura"
+                title="Ver fatura"
+              >
+                <Receipt size={13} />
+              </Link>
               <button
                 onClick={() => onToggleActive(card)}
                 className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
@@ -133,6 +142,12 @@ function CardItem({
               Lançamentos do mês
               <span className="ml-1 opacity-60">({cardInst.length})</span>
             </p>
+            <Link
+              to={`/cards/${card.id}/fatura?month=${month}`}
+              className="flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline underline-offset-2"
+            >
+              Ver fatura <ChevronRight size={12} />
+            </Link>
           </div>
           {cardInst.slice(0, collapse.visible).map((inst, ii) => (
             <div key={ii} className="flex items-center gap-3 px-4 py-2.5 border-b border-border last:border-0">
@@ -381,4 +396,4 @@ export default function CardsPage() {
       </AlertDialog>
     </div>
   );
-}
+}

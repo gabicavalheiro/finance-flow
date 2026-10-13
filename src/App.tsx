@@ -21,6 +21,7 @@ import { loadPreferences } from '@/lib/preferences';
 // ── Lazy imports — cada página vira um chunk separado ─────────────────────────
 const Index             = lazy(() => import('./pages/Index'));
 const CardsPage         = lazy(() => import('./pages/CardsPage'));
+const CardInvoicePage   = lazy(() => import('./pages/CardInvoicePage'));
 const FixedPage         = lazy(() => import('./pages/FixedPage'));
 const ReportsPage       = lazy(() => import('./pages/ReportsPage'));
 const FaturaPage        = lazy(() => import('./pages/FaturaPage'));
@@ -91,6 +92,7 @@ function AppRoutes() {
             <Routes>
               <Route path="/"              element={<Index />} />
               <Route path="/cards"         element={<CardsPage />} />
+              <Route path="/cards/:cardId/fatura" element={<CardInvoicePage />} />
               <Route path="/fixed"         element={<FixedPage />} />
               <Route path="/faturas"       element={<FaturaPage />} />
               <Route path="/reports"       element={<ReportsPage />} />
