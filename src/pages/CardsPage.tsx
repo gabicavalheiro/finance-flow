@@ -309,7 +309,7 @@ export default function CardsPage() {
       )}
 
       {/* Grid de cartões */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {loading && (
           <p className="text-xs text-muted-foreground text-center py-10 col-span-full">Carregando...</p>
         )}

@@ -92,14 +92,14 @@
   * { @apply border-border; }
 
   html {
-    /* Aumenta levemente o tamanho base de todo o texto (escala com rem) */
-    font-size: 106.5%;
+    /* Escala base do app (tudo em rem acompanha).
+       Celular: 15px · Tablet/desktop: 14px — equivale a ~"zoom 90%" do navegador */
+    font-size: 93.75%;
     -webkit-text-size-adjust: 100%;
   }
 
-  /* Celulares bem pequenos: tira o aumento para caber mais conteúdo */
-  @media (max-width: 380px) {
-    html { font-size: 100%; }
+  @media (min-width: 768px) {
+    html { font-size: 87.5%; }
   }
 
   body {

@@ -267,7 +267,7 @@ export default function CardInvoicePage() {
           onValueChange={id => navigate(`/cards/${id}/fatura?month=${month}`, { replace: true })}
         >
           <SelectTrigger
-            className="h-10 w-auto min-w-[200px] rounded-full border-0 text-white font-semibold px-4 gap-2"
+            className="h-10 w-auto max-w-full min-w-0 sm:min-w-[200px] rounded-full border-0 text-white font-semibold px-4 gap-2"
             style={{ background: cardSurface(card.brand, card.customGradient), border: CARD_BORDER }}
             aria-label="Trocar cartão"
           >
@@ -288,9 +288,9 @@ export default function CardInvoicePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5 items-start">
         {/* ── Lista de lançamentos ─────────────────────────────────────────── */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden order-2 lg:order-1">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden order-2 xl:order-1 min-w-0">
           <div className="p-3 border-b border-border">
             <MonthSelector month={month} onChange={setMonth} />
             <p className="text-[11px] text-muted-foreground text-center mt-2">
@@ -305,12 +305,12 @@ export default function CardInvoicePage() {
             </div>
           ) : (
             <>
-              {/* Desktop: tabela */}
-              <div className="hidden md:block overflow-x-auto">
+              {/* Desktop: tabela (só quando há largura de verdade) */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-xs text-muted-foreground">
-                      <th className="text-left font-semibold px-4 py-3">
+                      <th className="text-left font-semibold px-3 py-3">
                         <button
                           type="button"
                           onClick={() => setSortAsc(v => !v)}
@@ -320,11 +320,11 @@ export default function CardInvoicePage() {
                           Data {sortAsc ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
                         </button>
                       </th>
-                      <th className="text-left font-semibold px-4 py-3">Descrição</th>
-                      <th className="text-left font-semibold px-4 py-3">Categoria</th>
-                      <th className="text-left font-semibold px-4 py-3">Parcela</th>
-                      <th className="text-right font-semibold px-4 py-3">Valor</th>
-                      <th className="text-right font-semibold px-4 py-3 w-24">Ações</th>
+                      <th className="text-left font-semibold px-3 py-3 w-full">Descrição</th>
+                      <th className="text-left font-semibold px-3 py-3 whitespace-nowrap">Categoria</th>
+                      <th className="text-left font-semibold px-3 py-3 whitespace-nowrap">Parcela</th>
+                      <th className="text-right font-semibold px-3 py-3">Valor</th>
+                      <th className="text-right font-semibold px-3 py-3"><span className="sr-only">Ações</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -335,29 +335,29 @@ export default function CardInvoicePage() {
                         transition={{ delay: Math.min(i * 0.02, 0.3) }}
                         className="border-b border-border/60 last:border-0 hover:bg-secondary/40 transition-colors"
                       >
-                        <td className="px-4 py-3 tabular-nums text-muted-foreground whitespace-nowrap">
+                        <td className="px-3 py-3 tabular-nums text-muted-foreground whitespace-nowrap">
                           {r.date ? fmtIsoDate(r.date) : '—'}
                         </td>
-                        <td className="px-4 py-3 font-medium max-w-[260px] truncate" title={r.name}>{r.name}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 font-medium max-w-0 w-full truncate" title={r.name}>{r.name}</td>
+                        <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <CategoryIcon category={r.category} size={14} />
-                            <span className="text-xs">{resolveCategoryInfo(r.category).label}</span>
+                            <span className="text-xs whitespace-nowrap">{resolveCategoryInfo(r.category).label}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">{r.installment}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-destructive tabular-nums whitespace-nowrap">
+                        <td className="px-3 py-3 text-xs text-muted-foreground tabular-nums whitespace-nowrap">{r.installment}</td>
+                        <td className="px-3 py-3 text-right font-semibold text-destructive tabular-nums whitespace-nowrap">
                           {formatCurrency(r.amount)}
                         </td>
-                        <td className="px-4 py-3">{rowActions(r)}</td>
+                        <td className="px-3 py-3">{rowActions(r)}</td>
                       </motion.tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Mobile: lista */}
-              <div className="md:hidden">
+              {/* Mobile/tablet: lista */}
+              <div className="lg:hidden">
                 <div className="flex justify-end px-3 pt-2">
                   <button
                     type="button"
@@ -376,7 +376,7 @@ export default function CardInvoicePage() {
                         {r.date ? fmtIsoDate(r.date) : 'Assinatura'} · {r.installment}
                       </p>
                     </div>
-                    <span className="text-sm font-semibold text-destructive tabular-nums">{formatCurrency(r.amount)}</span>
+                    <span className="text-sm font-semibold text-destructive tabular-nums whitespace-nowrap shrink-0">{formatCurrency(r.amount)}</span>
                     {rowActions(r)}
                   </div>
                 ))}
@@ -386,7 +386,7 @@ export default function CardInvoicePage() {
         </div>
 
         {/* ── Painel da fatura ─────────────────────────────────────────────── */}
-        <div className="space-y-3 order-1 lg:order-2">
+        <div className="space-y-3 order-1 xl:order-2">
           <div className="bg-card border border-border rounded-2xl p-4">
             <p className="text-xs text-muted-foreground mb-1">Valor da fatura</p>
             <p className="text-xl font-bold tabular-nums">{formatCurrency(finalAmount)}</p>
@@ -410,7 +410,7 @@ export default function CardInvoicePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 xl:grid-cols-1 gap-3">
             <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between gap-2">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Fechamento</p>
