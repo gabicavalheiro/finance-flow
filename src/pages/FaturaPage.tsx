@@ -25,7 +25,6 @@ import {
   CardInvoice,
 } from '@/lib/store';
 import { CreditCard, MonthlyInstallment } from '@/lib/types';
-import { cardSurface } from '@/lib/cardStyle';
 import { invoicePaymentStatus, invoiceFinalAmount, invoicePaidAmount } from '@/lib/invoiceStatus';
 import { Input } from '@/components/ui/input';
 import CurrencyInput from '@/components/CurrencyInput';
@@ -80,11 +79,8 @@ function FaturaCardItem({
         isUnder ? 'border-amber-400/60 ring-1 ring-amber-400/30' : 'border-border',
       )}
     >
-      {/* Cabeçalho colorido */}
-      <div
-        className="px-4 py-3 flex items-center justify-between"
-        style={{ background: cardSurface(card.brand, card.customGradient) }}
-      >
+      {/* Cabeçalho — vidro fosco, sem cor de bandeira */}
+      <div className="px-4 py-3 flex items-center justify-between card-glass">
         <div>
           <p className="font-semibold text-white text-sm">{card.name}</p>
           <p className="text-white/70 text-xs">•••• {card.lastDigits}</p>

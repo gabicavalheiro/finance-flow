@@ -184,7 +184,7 @@ export default function AppNav() {
           style={{ borderBottom: '1px solid hsl(var(--sidebar-border))' }}
         >
           <img
-            src="/financeflow-icon-purple-bg.svg"
+            src={isDark ? '/financeflow-icon-dark-bg.svg' : '/financeflow-icon-light-bg.svg'}
             alt="FinanceFlow"
             className="w-9 h-9 rounded-xl object-cover shadow-md shrink-0"
           />
@@ -309,6 +309,8 @@ export default function AppNav() {
         {/* ── Botão collapse — aba pill na lateral direita ── */}
         <button
           onClick={toggleCollapse}
+          aria-label={collapsed ? 'Expandir menu' : 'Minimizar menu'}
+          title={collapsed ? 'Expandir menu' : 'Minimizar menu'}
           className="absolute -right-4 top-1/2 -translate-y-1/2 flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-50"
           style={{
             width: 18,

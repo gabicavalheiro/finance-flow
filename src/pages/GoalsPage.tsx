@@ -73,7 +73,7 @@ export default function GoalsPage() {
             onSaved={load}
             trigger={
               <Button size="sm" className="gap-1.5"
-                style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}>
+                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}>
                 <Plus size={14} /> Nova meta
               </Button>
             }
@@ -169,7 +169,7 @@ export default function GoalsPage() {
               trigger={
                 <Button
                   className="gap-2 text-white"
-                  style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+                  style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
                 >
                   <Target size={15} /> Criar primeira meta
                 </Button>

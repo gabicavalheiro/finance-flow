@@ -1,7 +1,7 @@
 // src/pages/Index.tsx
 import { useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pencil, Wallet, Scale, CreditCard as CreditCardIcon, ChartNoAxesCombined, Eye, EyeOff, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Pencil, Wallet, Scale, CreditCard as CreditCardIcon, ChartNoAxesCombined, Eye, EyeOff, ArrowUpRight, ArrowDownRight, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
 import EditVariableDialog from '@/components/EditVariableDialog';
@@ -57,6 +57,16 @@ export default function Dashboard() {
   const [hasGoalsModule, setHasGoalsModule]              = useState(false);
   const [breakdownOpen, setBreakdownOpen]                = useState(false);
   const [hidden, setHidden]                              = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('dashboard-sidebar-collapsed') === '1'; } catch { return false; }
+  });
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed(v => {
+      const next = !v;
+      try { localStorage.setItem('dashboard-sidebar-collapsed', next ? '1' : '0'); } catch { /* indisponível */ }
+      return next;
+    });
+  }, []);
 
   const prefs = usePreferences();
   const [varTxs,   setVarTxs]   = useState<VariableTransaction[]>([]);
@@ -410,7 +420,7 @@ export default function Dashboard() {
             <Sheet>
               <SheetTrigger asChild>
                 <button type="button" aria-label="Abrir resumo e alertas" className="p-2 rounded-xl transition-colors"
-                  style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)', color: 'rgb(196,181,253)' }}>
+                  style={{ background: 'hsl(var(--primary) / 0.14)', border: '1px solid hsl(var(--primary) / 0.3)', color: 'hsl(var(--primary))' }}>
                   <ChartNoAxesCombined size={16} />
                 </button>
               </SheetTrigger>
@@ -460,13 +470,40 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ── SIDEBAR ── */}
+        {/* ── SIDEBAR (minimizável) ── */}
         {dashTab === 'geral' && prefs.showSidebar && (
-          <aside className="hidden xl:block w-72 shrink-0">
+          <aside className={cn('hidden xl:block shrink-0 transition-all duration-200', sidebarCollapsed ? 'w-10' : 'w-72')}>
             <div className="sticky top-6">
-              <DashboardSidebar cards={cards} incomes={incomes} expenses={expenses}
-                fixedExpenses={fixedExpenses} subscriptions={subscriptions}
-                varTxs={varTxs} invoices={invoices} month={month} />
+              {sidebarCollapsed ? (
+                <button
+                  type="button"
+                  onClick={toggleSidebarCollapsed}
+                  aria-label="Expandir resumo"
+                  title="Expandir resumo"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+                  style={{ background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))' }}
+                >
+                  <PanelRightOpen size={16} />
+                </button>
+              ) : (
+                <div>
+                  <div className="flex justify-end mb-2">
+                    <button
+                      type="button"
+                      onClick={toggleSidebarCollapsed}
+                      aria-label="Minimizar resumo"
+                      title="Minimizar resumo"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                      style={{ background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))' }}
+                    >
+                      <PanelRightClose size={13} />
+                    </button>
+                  </div>
+                  <DashboardSidebar cards={cards} incomes={incomes} expenses={expenses}
+                    fixedExpenses={fixedExpenses} subscriptions={subscriptions}
+                    varTxs={varTxs} invoices={invoices} month={month} />
+                </div>
+              )}
             </div>
           </aside>
         )}

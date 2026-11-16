@@ -14,7 +14,6 @@ import {
 } from '@/lib/store';
 import { subscriptionsAsInstallments } from '@/lib/subscriptions';
 import { CreditCard } from '@/lib/types';
-import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import { formatCurrency, getCurrentMonth, getMonthLabel } from '@/lib/helpers';
 import {
@@ -54,12 +53,8 @@ function CardItem({
     <motion.div key={card.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
       {/* Face do cartão */}
       <div
-        className="rounded-2xl p-5 relative overflow-hidden text-white transition-all"
-        style={{
-          background: cardSurface(card.brand, card.customGradient),
-          border: CARD_BORDER,
-          ...(isBlocked ? { filter: 'grayscale(0.85)', opacity: 0.72 } : undefined),
-        }}
+        className="rounded-2xl p-5 relative overflow-hidden text-white transition-all card-glass"
+        style={isBlocked ? { filter: 'grayscale(0.85)', opacity: 0.72 } : undefined}
       >
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-6">

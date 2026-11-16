@@ -57,7 +57,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 transition={{ delay: 0.1 }}
                 onClick={openImport}
                 className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, hsl(220 70% 55%), hsl(263 70% 58%))' }}
+                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
               >
                 <FileSpreadsheet size={18} />
                 Importar planilha

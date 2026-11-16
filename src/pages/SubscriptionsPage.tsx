@@ -294,7 +294,7 @@ export default function SubscriptionsPage() {
           onClick={handleAddNew}
           size="sm"
           className="gap-2 text-white"
-          style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+          style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
         >
           <Plus size={16} />
           Nova
@@ -359,7 +359,7 @@ export default function SubscriptionsPage() {
           <Button
             onClick={handleAddNew}
             className="mt-4 gap-2 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
           >
             <Plus size={16} /> Adicionar assinatura
           </Button>

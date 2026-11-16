@@ -81,15 +81,15 @@ export default function AuthPage() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse 60% 40% at 20% 10%, hsl(263 70% 58% / 0.12) 0%, transparent 70%),
-            radial-gradient(ellipse 50% 35% at 80% 90%, hsl(220 70% 55% / 0.10) 0%, transparent 70%)
+            radial-gradient(ellipse 60% 40% at 20% 10%, hsl(var(--foreground) / 0.08) 0%, transparent 70%),
+            radial-gradient(ellipse 50% 35% at 80% 90%, hsl(var(--foreground) / 0.06) 0%, transparent 70%)
           `,
         }}
       />
       <div className="absolute w-64 h-64 rounded-full pointer-events-none"
-        style={{ top: '-4rem', right: '-4rem', background: 'radial-gradient(circle, hsl(263 70% 58% / 0.08), transparent 70%)' }} />
+        style={{ top: '-4rem', right: '-4rem', background: 'radial-gradient(circle, hsl(var(--foreground) / 0.06), transparent 70%)' }} />
       <div className="absolute w-48 h-48 rounded-full pointer-events-none"
-        style={{ bottom: '4rem', left: '-3rem', background: 'radial-gradient(circle, hsl(220 70% 55% / 0.08), transparent 70%)' }} />
+        style={{ bottom: '4rem', left: '-3rem', background: 'radial-gradient(circle, hsl(var(--foreground) / 0.06), transparent 70%)' }} />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -101,7 +101,7 @@ export default function AuthPage() {
         <div className="flex flex-col items-center mb-8">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
           >
             <TrendingUp size={26} className="text-white" />
           </div>
@@ -121,7 +121,7 @@ export default function AuthPage() {
                   onClick={() => { reset(); setMode(m); }}
                   className="flex-1 text-sm font-medium py-2 rounded-lg transition-all duration-200"
                   style={{
-                    background: mode === m ? 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' : 'transparent',
+                    background: mode === m ? 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' : 'transparent',
                     color: mode === m ? '#fff' : 'hsl(240 5% 55%)',
                   }}
                 >
@@ -135,7 +135,7 @@ export default function AuthPage() {
           {mode === 'forgot' && (
             <div className="mb-6 text-center">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
-                style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}>
+                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}>
                 <KeyRound size={18} className="text-white" />
               </div>
               <h2 className="text-base font-semibold">Esqueci minha senha</h2>
@@ -204,7 +204,7 @@ export default function AuthPage() {
                   )}
 
                   <Button onClick={handleSubmit} disabled={loading} className="w-full h-11 rounded-xl font-semibold text-sm mt-2 gap-2"
-                    style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}>
+                    style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}>
                     {loading ? spinnerSVG : <>{mode === 'login' ? 'Entrar' : 'Criar conta'}<ArrowRight size={16} /></>}
                   </Button>
 
@@ -230,7 +230,7 @@ export default function AuthPage() {
                   </div>
 
                   <Button onClick={handleForgot} disabled={loading} className="w-full h-11 rounded-xl font-semibold text-sm mt-2 gap-2"
-                    style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}>
+                    style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}>
                     {loading ? spinnerSVG : <>Enviar link de redefinição<Send size={15} /></>}
                   </Button>
                 </>

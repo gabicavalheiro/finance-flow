@@ -63,7 +63,7 @@ export default function ForecastCard({ fc }: { fc: MonthForecast }) {
                 <div key={card.cardId}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(263 70% 58%)' }} />
+                      <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(var(--primary))' }} />
                       <span className="font-medium">{card.cardName}</span>
                     </div>
                     <span className="font-semibold tabular-nums">{formatCurrency(card.amount)}</span>
@@ -71,7 +71,7 @@ export default function ForecastCard({ fc }: { fc: MonthForecast }) {
                   <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
-                      style={{ background: 'hsl(263 70% 58%)' }}
+                      style={{ background: 'hsl(var(--primary))' }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}

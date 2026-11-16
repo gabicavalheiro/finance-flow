@@ -299,8 +299,8 @@ export default function DailyAlertsDialog({ month }: Props) {
               {/* Header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/8">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-violet-600/20 flex items-center justify-center">
-                    <Bell size={14} className="text-violet-400" />
+                  <div className="w-7 h-7 rounded-lg bg-foreground/10 flex items-center justify-center">
+                    <Bell size={14} className="text-foreground" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-foreground leading-none">Avisos do dia</p>
@@ -358,7 +358,7 @@ export default function DailyAlertsDialog({ month }: Props) {
                 </button>
                 <button
                   onClick={() => { setOpen(false); navigate('/reports'); }}
-                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-violet-900/30"
+                  className="flex-1 py-2.5 rounded-xl bg-foreground text-background hover:opacity-90 text-sm font-semibold transition-opacity shadow-lg shadow-black/30"
                 >
                   Ver previsões
                 </button>
