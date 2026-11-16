@@ -11,10 +11,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowDown, ArrowUp, CalendarX2, CalendarCheck, Download,
-  Pencil, Trash2, Receipt, FileSearch, Lock, TableProperties,
+  Pencil, Trash2, Receipt, FileSearch, Lock, TableProperties, Check, Loader2, RotateCcw,
 } from 'lucide-react';
 import MonthSelector from '@/components/MonthSelector';
 import CategoryIcon from '@/components/CategoryIcon';
+import CurrencyInput from '@/components/CurrencyInput';
 import EditExpenseDialog from '@/components/EditExpenseDialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
 import {
-  computeInstallmentsForMonth, deleteExpense, getInvoicesForMonth, CardInvoice,
+  computeInstallmentsForMonth, deleteExpense, getInvoicesForMonth, upsertInvoice, CardInvoice,
 } from '@/lib/store';
 import { subscriptionsAsInstallments } from '@/lib/subscriptions';
 import { resolveCategoryInfo } from '@/lib/customCategories';
@@ -61,6 +62,8 @@ const fmtDayMonth = (d: Date) =>
 const fmtShort = (d: Date) =>
   d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 const fmtIsoDate = (iso: string) => iso.split('-').reverse().join('/');
+// Número no padrão BR sem prefixo (ex: 1.234,56) — o R$ já aparece no CurrencyInput
+const brNumber = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const STATUS_TONE: Record<InvoicePaymentStatus, string> = {
   pending: 'text-foreground',
@@ -118,14 +121,21 @@ export default function CardInvoicePage() {
   const [invoice, setInvoice]       = useState<CardInvoice | undefined>();
   const [editing, setEditing]       = useState<Expense | null>(null);
   const [deleting, setDeleting]     = useState<Expense | null>(null);
+  const [draft, setDraft]           = useState('');          // valor em que a fatura fechou (rascunho)
+  const [savingInvoice, setSavingInvoice] = useState(false);
 
   const card = cards.find(c => c.id === cardId);
 
-  // Valor real/pago registrado na tela Faturas
+  // Valor real/pago registrado na tela Faturas (sincroniza o rascunho junto)
   useEffect(() => {
     let alive = true;
     getInvoicesForMonth(month)
-      .then(list => { if (alive) setInvoice(list.find(i => i.cardId === cardId)); })
+      .then(list => {
+        if (!alive) return;
+        const found = list.find(i => i.cardId === cardId);
+        setInvoice(found);
+        setDraft(found && found.actualAmount > 0 ? String(found.actualAmount) : '');
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, [month, cardId, version]);
@@ -220,6 +230,39 @@ export default function CardInvoicePage() {
     } catch {
       toast.error('Erro ao remover gasto');
     }
+  };
+
+  // Valor em que a fatura fechou — salva direto nesta tela (mesmo dado da tela Faturas)
+  const saveInvoiceAmount = async (amount: number) => {
+    setSavingInvoice(true);
+    try {
+      await upsertInvoice({ cardId: card.id, month, actualAmount: amount });
+      setInvoice(prev => ({
+        cardId: card.id,
+        month,
+        actualAmount: amount,
+        paidAmount: prev?.paidAmount ?? null,
+        notes: prev?.notes ?? '',
+      }));
+      toast.success(amount > 0 ? 'Valor da fatura salvo' : 'Voltou a usar o valor calculado');
+      refresh().catch(() => {});
+    } catch {
+      toast.error('Erro ao salvar valor da fatura');
+    } finally {
+      setSavingInvoice(false);
+    }
+  };
+
+  const handleSaveInvoice = () => {
+    const raw = draft.trim();
+    const parsed = parseFloat(raw.replace(',', '.'));
+    if (raw && (isNaN(parsed) || parsed < 0)) { toast.error('Valor inválido'); return; }
+    saveInvoiceAmount(isNaN(parsed) ? 0 : parsed);
+  };
+
+  const handleUseCalculated = () => {
+    setDraft('');
+    saveInvoiceAmount(0);
   };
 
   const rowActions = (r: Row) =>
@@ -387,17 +430,52 @@ export default function CardInvoicePage() {
 
         {/* ── Painel da fatura ─────────────────────────────────────────────── */}
         <div className="space-y-3 order-1 xl:order-2">
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <p className="text-xs text-muted-foreground mb-1">Valor da fatura</p>
-            <p className="text-xl font-bold tabular-nums">{formatCurrency(finalAmount)}</p>
-            {hasActual && Math.abs(finalAmount - calculated) > 0.009 && (
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Valor real informado · calculado {formatCurrency(calculated)}
-              </p>
-            )}
-            {!hasActual && !isEmpty && (
-              <p className="text-[10px] text-muted-foreground mt-1">Calculado pelos lançamentos</p>
-            )}
+          <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Valor da fatura</p>
+              <p className="text-xl font-bold tabular-nums">{formatCurrency(finalAmount)}</p>
+              {hasActual && Math.abs(finalAmount - calculated) > 0.009 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Valor real informado · calculado {formatCurrency(calculated)}
+                </p>
+              )}
+              {!hasActual && !isEmpty && (
+                <p className="text-[10px] text-muted-foreground mt-1">Calculado pelos lançamentos</p>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border/60">
+              <label htmlFor="fatura-fechou-em" className="text-[11px] text-muted-foreground mb-1 block">
+                Fechou em
+              </label>
+              <div className="flex items-center gap-1.5">
+                <CurrencyInput
+                  value={draft}
+                  onChange={setDraft}
+                  placeholder={brNumber(calculated)}
+                  className="h-9 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveInvoice}
+                  disabled={savingInvoice}
+                  aria-label="Salvar valor em que a fatura fechou"
+                  className="h-9 w-9 shrink-0 rounded-lg bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-50 transition-opacity"
+                >
+                  {savingInvoice ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                </button>
+              </div>
+              {hasActual && (
+                <button
+                  type="button"
+                  onClick={handleUseCalculated}
+                  disabled={savingInvoice}
+                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                >
+                  <RotateCcw size={10} /> Usar valor calculado
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-4">
@@ -436,7 +514,7 @@ export default function CardInvoicePage() {
               to="/faturas"
               className="flex items-center justify-center gap-2 h-10 rounded-xl border border-border text-xs font-medium hover:bg-secondary transition-colors"
             >
-              <TableProperties size={14} /> Registrar valor pago
+              <TableProperties size={14} /> Pagamento e observações
             </Link>
             <button
               type="button"
