@@ -18,13 +18,14 @@ import { generateId } from './helpers';
 
 // ─── Colunas do modelo ──────────────────────────────────────────────────────
 export const TEMPLATE_HEADERS = [
-  'tipo', 'movimento', 'data', 'nome', 'valor', 'categoria', 'forma_pagamento', 'cartao', 'parcelas',
+  'tipo', 'movimento', 'data', 'nome', 'valor', 'categoria', 'forma_pagamento', 'cartao', 'parcelas', 'parcela_atual',
 ] as const;
 
 const TEMPLATE_EXAMPLE_ROWS = [
-  ['variavel', 'despesa', '05/08/2026', 'Supermercado',      '250.90', 'Alimentação', 'PIX',    '',            ''],
-  ['variavel', 'receita', '01/08/2026', 'Freelance design',  '600',    'Freelance',   'Transferência', '',      ''],
-  ['cartao',   '',        '10/08/2026', 'Notebook novo',     '3600',   'Compras',     '',       'Nubank •1234', '6'],
+  ['variavel', 'despesa', '05/08/2026', 'Supermercado',      '250.90', 'Alimentação', 'PIX',    '',            '', ''],
+  ['variavel', 'receita', '01/08/2026', 'Freelance design',  '600',    'Freelance',   'Transferência', '',      '', ''],
+  ['cartao',   '',        '10/08/2026', 'Notebook novo',     '3600',   'Compras',     '',       'Nubank •1234', '6', ''],
+  ['cartao',   '',        '16/11/2026', 'Celular (já na 3ª)', '250',  'Compras',     '',       'Nubank •1234', '10', '3'],
 ];
 
 function normalize(s: unknown): string {
@@ -58,6 +59,10 @@ const HEADER_ALIASES: Record<string, string> = {
   cartao: 'cartao', card: 'cartao',
 
   parcelas: 'parcelas', parcela: 'parcelas', installments: 'parcelas',
+  total_parcelas: 'parcelas', qtd_parcelas: 'parcelas',
+
+  parcela_atual: 'parcela_atual', parc_atual: 'parcela_atual', n_parcela: 'parcela_atual',
+  numero_parcela: 'parcela_atual', current_installment: 'parcela_atual',
 
   observacao: 'observacao', obs: 'observacao', nota: 'observacao', notas: 'observacao',
   comentario: 'observacao', comentarios: 'observacao',
@@ -103,7 +108,8 @@ export function generateImportTemplate(cards: CreditCard[]): void {
     ['categoria', 'nome da categoria (veja lista abaixo) — se vazio, usa "Outros"'],
     ['forma_pagamento', 'apenas para tipo=variavel (veja lista abaixo) — se vazio, usa "Outro"'],
     ['cartao', 'apenas para tipo=cartao: nome do cartão cadastrado (ou parte do nome/últimos dígitos)'],
-    ['parcelas', 'apenas para tipo=cartao: número de parcelas (padrão 1)'],
+    ['parcelas', 'apenas para tipo=cartao: número de parcelas (padrão 1). Também aceita "3/10"'],
+    ['parcela_atual', 'opcional, tipo=cartao: qual parcela cai no mês da "data". Se preenchida, "valor" é o valor DA PARCELA'],
     ['', ''],
     ['Categorias de despesa', expenseCats.join(', ')],
     ['Categorias de receita', incomeCats.join(', ')],
@@ -420,9 +426,24 @@ export function buildImportRows(
         errors.push('Informe o cartão (mais de um cadastrado)');
       }
 
-      let parcelas = parseInt(String(raw['parcelas'] ?? '1'), 10);
+      const parcelasRaw = String(raw['parcelas'] ?? '').trim();
+      const atualRaw    = String(raw['parcela_atual'] ?? '').trim();
+
+      // Formato "3/10" direto na coluna parcelas
+      const slash = /^0*(\d+)\s*\/\s*0*(\d+)$/.exec(parcelasRaw);
+      let parcelas = slash ? parseInt(slash[2], 10) : parseInt(parcelasRaw || '1', 10);
       if (!Number.isFinite(parcelas) || parcelas < 1) parcelas = 1;
       if (parcelas > 60) parcelas = 60;
+
+      let explicitCurrent: number | null = slash ? parseInt(slash[1], 10) : null;
+      if (atualRaw) {
+        const n = parseInt(atualRaw, 10);
+        if (Number.isFinite(n) && n >= 1) explicitCurrent = n;
+        else errors.push('parcela_atual inválida');
+      }
+      if (explicitCurrent !== null && explicitCurrent > parcelas) {
+        errors.push(`parcela_atual (${explicitCurrent}) maior que o total de parcelas (${parcelas})`);
+      }
 
       // Coluna "parcelas" não veio, mas detectamos "Parcela X/Y" na observação/nome
       // (comum em extratos, onde cada linha é uma parcela já lançada em um mês).
@@ -431,7 +452,16 @@ export function buildImportRows(
       // cartão), não o mês em que essa parcela específica apareceu no extrato.
       let expenseDate = date as string;
       let expenseAmount = amount as number;
-      if (installmentInfo && (raw['parcelas'] === undefined || raw['parcelas'] === '')) {
+      if (explicitCurrent !== null && parcelas > 1 && explicitCurrent <= parcelas) {
+        // Parcela atual informada explicitamente: "valor" é o valor da parcela
+        // e "data" é o mês em que essa parcela cai.
+        if (date) expenseDate = computeCardPurchaseDate(date, explicitCurrent);
+        if (amount !== null) expenseAmount = amount * parcelas;
+        const [ey, em] = expenseDate.split('-');
+        warnings.push(
+          `Parcela ${explicitCurrent}/${parcelas} — compra original estimada em ${em}/${ey}`,
+        );
+      } else if (installmentInfo && !parcelasRaw) {
         parcelas = installmentInfo.total;
         if (date) expenseDate = computeCardPurchaseDate(date, installmentInfo.current);
         if (amount !== null) expenseAmount = amount * installmentInfo.total;
