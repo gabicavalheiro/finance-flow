@@ -172,3 +172,18 @@
     .stat-grid > :last-child:nth-child(odd) { grid-column: auto; }
   }
 }
+
+/* Impressão/"Salvar como PDF" de relatórios: some com o app (menu, abas, botões) e
+   mostra só o bloco marcado como #extrato-print-area, com fundo claro garantido. */
+@media print {
+  body * { visibility: hidden; }
+  #extrato-print-area, #extrato-print-area * { visibility: visible; }
+  #extrato-print-area {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    color: #111;
+  }
+  #extrato-print-area .text-success { color: #15803d !important; }
+  #extrato-print-area .text-destructive { color: #b91c1c !important; }
+}

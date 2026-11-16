@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { BarChart3, Sparkles, Activity, PieChart } from 'lucide-react';
+import { BarChart3, Sparkles, Activity, PieChart, Receipt } from 'lucide-react';
 import { getCurrentMonth, addMonths } from '@/lib/helpers';
 import { computeInstallmentsForMonth, getVariableForMonth } from '@/lib/store';
 import { VariableTransaction } from '@/lib/types';
@@ -17,14 +17,16 @@ import {
   buildBarDataHist, buildCategoryDetails, buildCategoryList, buildDailyFlow,
   buildForecasts, buildInsights, buildPrevCategoryTotals,
 } from '@/features/reports/calculations';
+import { buildExtractItems } from '@/features/reports/extract';
 import CategoryDrilldown from '@/features/reports/CategoryDrilldown';
 import ForecastTab from '@/features/reports/tabs/ForecastTab';
 import HistoryTab from '@/features/reports/tabs/HistoryTab';
 import CategoriesTab from '@/features/reports/tabs/CategoriesTab';
 import FlowTab from '@/features/reports/tabs/FlowTab';
+import ExtractTab from '@/features/reports/tabs/ExtractTab';
 
 export default function ReportsPage() {
-  const [tab,    setTab]    = useState<'previsao' | 'historico' | 'categorias' | 'fluxo'>('previsao');
+  const [tab,    setTab]    = useState<'previsao' | 'historico' | 'categorias' | 'fluxo' | 'extrato'>('previsao');
   const [month,  setMonth]  = useState(getCurrentMonth());
   const [varTxs, setVarTxs] = useState<VariableTransaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -83,6 +85,12 @@ export default function ReportsPage() {
     () => buildForecasts({ expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current }),
     [expenses, cards, totalFixedExpense, totalFixedIncome, cardMap, current],
   );
+  const extractItems = useMemo(
+    () => buildExtractItems({
+      month, installments, fixed: fixedForMonth, incomes, varTxs, subscriptions, cardMap,
+    }),
+    [month, installments, fixedForMonth, incomes, varTxs, subscriptions, cardMap],
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -107,6 +115,7 @@ export default function ReportsPage() {
             { key: 'historico',  label: 'Histórico',  icon: <BarChart3 size={12} /> },
             { key: 'categorias', label: 'Categorias', icon: <PieChart  size={12} /> },
             { key: 'fluxo',      label: 'Fluxo',       icon: <Activity  size={12} /> },
+            { key: 'extrato',    label: 'Extrato',     icon: <Receipt   size={12} /> },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -155,6 +164,10 @@ export default function ReportsPage() {
 
           {tab === 'fluxo' && (
             <FlowTab key="fluxo" month={month} setMonth={setMonth} dailyFlowData={dailyFlowData} />
+          )}
+
+          {tab === 'extrato' && (
+            <ExtractTab key="extrato" month={month} setMonth={setMonth} items={extractItems} />
           )}
 
         </AnimatePresence>
