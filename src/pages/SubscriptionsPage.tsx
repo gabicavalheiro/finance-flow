@@ -293,8 +293,8 @@ export default function SubscriptionsPage() {
         <Button
           onClick={handleAddNew}
           size="sm"
-          className="gap-2 text-white"
-          style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
+          className="gap-2"
+          style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
         >
           <Plus size={16} />
           Nova
@@ -358,8 +358,8 @@ export default function SubscriptionsPage() {
           </p>
           <Button
             onClick={handleAddNew}
-            className="mt-4 gap-2 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
+            className="mt-4 gap-2"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
           >
             <Plus size={16} /> Adicionar assinatura
           </Button>
@@ -536,4 +536,4 @@ export default function SubscriptionsPage() {
       </AlertDialog>
     </div>
   );
-}
+}

@@ -247,7 +247,7 @@ export default function AddExpenseDialog({ cards, onAdded, iconOnly = false }: P
                   onClick={() => setUseInstRef(v => !v)}
                   className={cn(
                     'shrink-0 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors',
-                    useInstRef ? 'bg-primary text-white' : 'bg-muted text-muted-foreground',
+                    useInstRef ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                   )}
                 >
                   {useInstRef ? 'ativo' : 'inativo'}

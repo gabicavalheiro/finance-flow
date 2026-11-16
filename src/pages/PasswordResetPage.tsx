@@ -55,7 +55,7 @@ export default function PasswordResetPage({ onDone }: Props) {
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
             style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
           >
-            <TrendingUp size={26} className="text-white" />
+            <TrendingUp size={26} style={{ color: 'hsl(var(--background))' }} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">FinanceFlow</h1>
           <p className="text-sm text-muted-foreground mt-1">Redefinir senha</p>

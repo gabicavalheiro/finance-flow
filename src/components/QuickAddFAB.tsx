@@ -56,8 +56,8 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 exit={{ opacity: 0, y: 12, scale: 0.85 }}
                 transition={{ delay: 0.1 }}
                 onClick={openImport}
-                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
+                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
               >
                 <FileSpreadsheet size={18} />
                 Importar planilha
@@ -103,7 +103,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
           className="w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-all hover:brightness-110"
           style={{
             background: expanded
-              ? 'hsl(var(--muted-foreground))'
+              ? 'hsl(0 0% 24%)'
               : 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))',
           }}
           aria-label={expanded ? 'Fechar' : 'Novo lançamento'}

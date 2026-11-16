@@ -254,7 +254,7 @@ function AddBudgetRow({ existing, onAdd }: AddBudgetRowProps) {
             <button
               onClick={handleAdd}
               disabled={saving || !category}
-              className="flex-1 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Adicionar'}
             </button>
@@ -401,7 +401,7 @@ export default function BudgetSettingsDialog({ open, onClose, onSaved }: Props) 
             <div className="px-5 py-4 border-t border-white/8 shrink-0">
               <button
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
                 Concluído
               </button>

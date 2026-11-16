@@ -10,13 +10,13 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "/financeflow-icon-purple-bg.svg",
+      "src": "/financeflow-icon-dark-bg.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/financeflow-icon-purple-bg.svg",
+      "src": "/financeflow-icon-dark-bg.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"

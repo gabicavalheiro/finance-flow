@@ -108,7 +108,7 @@ export default function ExtractTab({ month, setMonth, items }: Props) {
         >
           <SlidersHorizontal size={14} /> Filtros
           {extraActiveCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-primary text-[9px] text-white font-bold flex items-center justify-center px-1">
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-primary text-[9px] text-primary-foreground font-bold flex items-center justify-center px-1">
               {extraActiveCount}
             </span>
           )}

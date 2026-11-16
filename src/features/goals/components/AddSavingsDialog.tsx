@@ -61,8 +61,8 @@ export function AddSavingsDialog({ goal, onSaved }: { goal: Goal; onSaved: () =>
             Cancelar
           </Button>
           <Button
-            className="flex-1 text-white gap-1.5"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
+            className="flex-1 gap-1.5"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
             onClick={handleSave}
             disabled={saving}
           >

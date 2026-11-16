@@ -114,7 +114,7 @@ export default function AppNav() {
         >
           <tab.icon size={16} strokeWidth={active ? 2.3 : 1.8} />
         </span>
-        {!collapsed && <span className="text-sm font-medium">{tab.label}</span>}
+        {!collapsed && <span className="text-sm font-medium uppercase tracking-wide">{tab.label}</span>}
         {/* Dot quando ativo */}
         {active && !collapsed && (
           <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-primary" />
@@ -365,7 +365,7 @@ export default function AppNav() {
                   />
                 )}
                 <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />
-                <span className="text-[9px] font-medium">{tab.label}</span>
+                <span className="text-[9px] font-medium uppercase tracking-wide">{tab.label}</span>
               </button>
             );
           })}
@@ -422,7 +422,7 @@ export default function AppNav() {
                       }}
                     >
                       <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />
-                      <span className="text-[9px]">{tab.label}</span>
+                      <span className="text-[9px] uppercase tracking-wide">{tab.label}</span>
                     </button>
                   );
                 })}
@@ -449,4 +449,4 @@ export default function AppNav() {
       </AnimatePresence>
     </>
   );
-}
+}

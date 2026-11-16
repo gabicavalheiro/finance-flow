@@ -103,7 +103,7 @@ export default function AuthPage() {
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
             style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
           >
-            <TrendingUp size={26} className="text-white" />
+            <TrendingUp size={26} style={{ color: 'hsl(var(--background))' }} />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">FinanceFlow</h1>
           <p className="text-sm text-muted-foreground mt-1">Seu gestor financeiro inteligente</p>
@@ -122,7 +122,7 @@ export default function AuthPage() {
                   className="flex-1 text-sm font-medium py-2 rounded-lg transition-all duration-200"
                   style={{
                     background: mode === m ? 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' : 'transparent',
-                    color: mode === m ? '#fff' : 'hsl(240 5% 55%)',
+                    color: mode === m ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))',
                   }}
                 >
                   {m === 'login' ? 'Entrar' : 'Criar conta'}
@@ -136,7 +136,7 @@ export default function AuthPage() {
             <div className="mb-6 text-center">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
                 style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}>
-                <KeyRound size={18} className="text-white" />
+                <KeyRound size={18} style={{ color: 'hsl(var(--background))' }} />
               </div>
               <h2 className="text-base font-semibold">Esqueci minha senha</h2>
               <p className="text-xs text-muted-foreground mt-1">

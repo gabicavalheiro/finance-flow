@@ -252,8 +252,8 @@ export function FormDialog({ open, editing, prefill, onClose, onSaved }: FormDia
             Cancelar
           </Button>
           <Button
-            className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
+            className="flex-1"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
             onClick={handleSave}
             disabled={saving}
           >
