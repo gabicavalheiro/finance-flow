@@ -32,7 +32,6 @@ import {
 import { subscriptionsAsInstallments } from '@/lib/subscriptions';
 import { resolveCategoryInfo } from '@/lib/customCategories';
 import { useCustomCategories } from '@/contexts/CustomCategoryContext';
-import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 import {
   invoiceFinalAmount, invoicePaidAmount, invoicePaymentStatus, INVOICE_STATUS_LABEL,
   InvoicePaymentStatus,
@@ -315,8 +314,7 @@ export default function CardInvoicePage() {
           onValueChange={id => navigate(`/cards/${id}/fatura?month=${month}`, { replace: true })}
         >
           <SelectTrigger
-            className="h-10 w-auto max-w-full min-w-0 sm:min-w-[200px] rounded-full border-0 text-white font-semibold px-4 gap-2"
-            style={{ background: cardSurface(card.brand, card.customGradient), border: CARD_BORDER }}
+            className="h-10 w-auto max-w-full min-w-0 sm:min-w-[200px] rounded-full border-0 text-white font-semibold px-4 gap-2 card-glass"
             aria-label="Trocar cartão"
           >
             <SelectValue />

@@ -67,7 +67,7 @@ export default function MonthSelector({ month, onChange }: Props) {
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
           >
-            <CalendarDays size={14} className="text-violet-400" />
+            <CalendarDays size={14} className="text-muted-foreground" />
             <span className="text-sm font-semibold capitalize">{label}</span>
           </motion.button>
         </AnimatePresence>

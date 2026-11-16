@@ -3,17 +3,16 @@ import { motion } from 'framer-motion';
 import { CreditCard as CreditCardIcon, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { formatCurrency } from '@/lib/helpers';
 import { CreditCard } from '@/lib/types';
-import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 
-// Símbolo da bandeira
+// Símbolo da bandeira — só o ícone/wordmark, sem cor de marca (tudo branco translúcido)
 export function BrandSymbol({ brand }: { brand: string }) {
   if (brand === 'visa') return (
     <span className="font-bold italic text-white text-lg tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>VISA</span>
   );
   if (brand === 'mastercard') return (
     <div className="flex items-center">
-      <div className="w-6 h-6 rounded-full bg-red-500/90" />
-      <div className="w-6 h-6 rounded-full bg-yellow-400/90 -ml-3" />
+      <div className="w-6 h-6 rounded-full border-[1.5px] border-white/70" />
+      <div className="w-6 h-6 rounded-full border-[1.5px] border-white/70 -ml-3" />
     </div>
   );
   if (brand === 'amex') return (
@@ -130,16 +129,14 @@ export function CardCarousel({
             const spent     = installmentsByCard.get(card.id) ?? 0;
             const available = Math.max(0, card.limit - spent);
             const usedPct   = card.limit > 0 ? Math.min(100, (spent / card.limit) * 100) : 0;
-            const gradient  = cardSurface(card.brand, card.customGradient);
             const isActive  = i === activeIdx;
 
             return (
               <div
                 key={card.id}
                 onClick={() => goTo(i)}
-                className="relative rounded-3xl overflow-hidden text-white cursor-pointer select-none"
+                className="relative rounded-3xl overflow-hidden text-white cursor-pointer select-none card-glass"
                 style={{
-                  background: gradient,
                   flex: '0 0 min(88%, 400px)',
                   height: 190,
                   scrollSnapAlign: 'start',
@@ -150,10 +147,6 @@ export function CardCarousel({
                   filter: card.active === false ? 'grayscale(0.85)' : undefined,
                 }}
               >
-                {/* Borda glass */}
-                <div className="absolute inset-0 rounded-3xl pointer-events-none"
-                  style={{ border: CARD_BORDER }} />
-
                 {/* Badge vencimento */}
                 <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>

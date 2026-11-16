@@ -92,7 +92,9 @@ function AppRoutes() {
       <FinanceDataProvider>
         <div className="flex min-h-dvh bg-background">
           <AppNav />
-          <main className="flex-1 min-w-0 md:pl-64">
+          {/* main-content lê --sidebar-w (setada pelo AppNav) — acompanha o menu
+              esquerdo minimizar/expandir em vez de um padding fixo */}
+          <main className="flex-1 min-w-0 main-content">
             <ErrorBoundary resetKey={location.pathname}>
             <Suspense fallback={<PageLoader />}>
               <Routes>

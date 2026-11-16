@@ -53,7 +53,7 @@ export default function PasswordResetPage({ onDone }: Props) {
         <div className="flex flex-col items-center mb-8">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, hsl(263 70% 58%), hsl(220 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))' }}
           >
             <TrendingUp size={26} className="text-white" />
           </div>
