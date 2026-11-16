@@ -6,7 +6,10 @@ vi.mock('@/lib/firebase', () => ({ auth: { currentUser: null, onAuthStateChanged
 import { computeInstallmentsForMonth } from '@/lib/store';
 import type { Subscription } from '@/lib/subscriptions';
 import type { CreditCard, Expense, FixedExpense, FixedIncome, VariableTransaction } from '@/lib/types';
-import { buildExtractItems, filterExtractItems, summarizeExtract } from '../extract';
+import {
+  applyExtractFilters, availableExtractCategories, buildExtractItems, EMPTY_EXTRACT_FILTERS,
+  filterExtractItems, summarizeExtract,
+} from '../extract';
 
 const card: CreditCard = {
   id: 'c1', name: 'Nubank', brand: 'mastercard', lastDigits: '1234',
@@ -93,6 +96,52 @@ describe('filterExtractItems', () => {
 
   it('sem match devolve lista vazia', () => {
     expect(filterExtractItems(items, 'xyz-nao-existe')).toHaveLength(0);
+  });
+});
+
+describe('availableExtractCategories', () => {
+  it('lista categorias distintas presentes, ordenadas por label, sem duplicar', () => {
+    const items = buildExtractItems({
+      month: '2026-10', installments: [], fixed: [fx({ category: 'home' }), fx({ id: 'f2', category: 'home' })],
+      incomes: [inc({ category: 'salary' })], varTxs: [], subscriptions: [], cardMap,
+    });
+    expect(availableExtractCategories(items).map(c => c.key)).toEqual(['home', 'salary']);
+  });
+});
+
+describe('applyExtractFilters', () => {
+  const items = buildExtractItems({
+    month: '2026-10',
+    installments: [],
+    fixed: [fx({ id: 'f1', name: 'Aluguel apê', category: 'home' })],
+    incomes: [inc({ id: 'i1', name: 'Salário Empresa X', category: 'salary', receiveDay: 5 })],
+    varTxs: [varTx({ id: 'v1', name: 'iFood sexta', category: 'food', date: '2026-10-20' })],
+    subscriptions: [], cardMap,
+  });
+
+  it('sem filtro nenhum devolve tudo', () => {
+    expect(applyExtractFilters(items, EMPTY_EXTRACT_FILTERS)).toHaveLength(3);
+  });
+
+  it('combina busca por nome com categoria', () => {
+    const r = applyExtractFilters(items, { ...EMPTY_EXTRACT_FILTERS, search: 'a', category: 'home' });
+    expect(r.map(i => i.name)).toEqual(['Aluguel apê']);
+  });
+
+  it('filtra por categoria sozinha', () => {
+    expect(applyExtractFilters(items, { ...EMPTY_EXTRACT_FILTERS, category: 'salary' }).map(i => i.name))
+      .toEqual(['Salário Empresa X']);
+  });
+
+  it('filtra por intervalo de data (dateFrom/dateTo)', () => {
+    // só o fixo (dia 1) e a renda (dia 5) ficam antes do dia 10; o iFood é dia 20
+    const r = applyExtractFilters(items, { ...EMPTY_EXTRACT_FILTERS, dateTo: '2026-10-10' });
+    expect(r.map(i => i.name).sort()).toEqual(['Aluguel apê', 'Salário Empresa X'].sort());
+  });
+
+  it('dateFrom e dateTo juntos fecham o intervalo', () => {
+    const r = applyExtractFilters(items, { ...EMPTY_EXTRACT_FILTERS, dateFrom: '2026-10-15', dateTo: '2026-10-25' });
+    expect(r.map(i => i.name)).toEqual(['iFood sexta']);
   });
 });
 

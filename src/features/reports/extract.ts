@@ -138,6 +138,33 @@ export function filterExtractItems(items: ExtractItem[], query: string): Extract
   return items.filter(i => normalize(i.name).includes(q) || normalize(i.categoryLabel).includes(q));
 }
 
+export interface ExtractFilters {
+  search:   string;
+  category: string; // categoryKey; '' = todas
+  dateFrom: string; // 'YYYY-MM-DD' ou ''
+  dateTo:   string;
+}
+
+export const EMPTY_EXTRACT_FILTERS: ExtractFilters = { search: '', category: '', dateFrom: '', dateTo: '' };
+
+/** Busca por nome + categoria + intervalo de data, tudo combinado. */
+export function applyExtractFilters(items: ExtractItem[], filters: ExtractFilters): ExtractItem[] {
+  let list = filterExtractItems(items, filters.search);
+  if (filters.category) list = list.filter(i => i.categoryKey === filters.category);
+  if (filters.dateFrom) list = list.filter(i => i.date >= filters.dateFrom);
+  if (filters.dateTo)   list = list.filter(i => i.date <= filters.dateTo);
+  return list;
+}
+
+export interface ExtractCategoryOption { key: string; label: string; color: string }
+
+/** Categorias presentes na lista (pra montar os chips de filtro) — sem duplicar por label. */
+export function availableExtractCategories(items: ExtractItem[]): ExtractCategoryOption[] {
+  const map = new Map<string, ExtractCategoryOption>();
+  for (const i of items) if (!map.has(i.categoryKey)) map.set(i.categoryKey, { key: i.categoryKey, label: i.categoryLabel, color: i.categoryColor });
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+}
+
 export interface ExtractSummary {
   income: number;
   expense: number;
