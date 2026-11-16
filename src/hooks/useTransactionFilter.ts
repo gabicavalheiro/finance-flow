@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MonthlyInstallment, VariableTransaction, FixedExpense, CreditCard } from '@/lib/types';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 
 export interface TransactionFilters {
   search:    string;
@@ -31,6 +32,8 @@ export function useTransactionFilter(
   cards:           CreditCard[],
 ) {
   const [filters, setFilters] = useState<TransactionFilters>(EMPTY);
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts).
+  const { customCategories } = useCustomCategories();
 
   const activeCount = [
     filters.search, filters.category, filters.cardId,
@@ -98,7 +101,9 @@ export function useTransactionFilter(
       label: resolveCategoryInfo(k).label,
       color: resolveCategoryInfo(k).color,
     })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [allInstallments, varTxs, fixedExpenses]);
+  // customCategories não é usado direto aqui, mas resolveCategoryInfo() lê o cache dele por baixo dos panos.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allInstallments, varTxs, fixedExpenses, customCategories]);
 
   return {
     filters,

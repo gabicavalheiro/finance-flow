@@ -12,6 +12,7 @@ import { computeInstallmentsForMonth, getVariableForMonth } from '@/lib/store';
 import { VariableTransaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import { resolveFixedForMonth } from '@/lib/fixedExpenses';
 import {
   buildBarDataHist, buildCategoryDetails, buildCategoryList, buildDailyFlow,
@@ -40,6 +41,10 @@ export default function ReportsPage() {
     loading,
     refresh,
   } = useFinanceData();
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts) —
+  // sem isso, quem abrisse Relatórios antes desse fetch resolver ficava preso vendo "Outros"
+  // no lugar das categorias criadas, mesmo depois delas chegarem.
+  const { customCategories } = useCustomCategories();
 
   // Transações variáveis são por mês (não estão no contexto)
   useEffect(() => {
@@ -58,7 +63,9 @@ export default function ReportsPage() {
 
   const categoryDetails = useMemo(
     () => buildCategoryDetails({ installments, fixed: fixedForMonth, subscriptions, cardMap, expenseMap }),
-    [installments, fixedForMonth, cardMap, expenseMap, subscriptions],
+    // customCategories não é usado direto aqui, mas resolveCategoryInfo() lê o cache dele por baixo dos panos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [installments, fixedForMonth, cardMap, expenseMap, subscriptions, customCategories],
   );
   const categoryList = useMemo(() => buildCategoryList(categoryDetails), [categoryDetails]);
   const totalHist    = categoryList.reduce((s, c) => s + c.value, 0);
@@ -66,7 +73,8 @@ export default function ReportsPage() {
   const prevMonth = useMemo(() => addMonths(month, -1), [month]);
   const prevCategoryTotals = useMemo(
     () => buildPrevCategoryTotals({ expenses, cards, fixed, prevMonth }),
-    [expenses, cards, prevMonth, fixed],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver comentário em categoryDetails
+    [expenses, cards, prevMonth, fixed, customCategories],
   );
   const insights = useMemo(
     () => buildInsights({ categoryList, totalHist, prevCategoryTotals }),
@@ -89,7 +97,8 @@ export default function ReportsPage() {
     () => buildExtractItems({
       month, installments, fixed: fixedForMonth, incomes, varTxs, subscriptions, cardMap,
     }),
-    [month, installments, fixedForMonth, incomes, varTxs, subscriptions, cardMap],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver comentário em categoryDetails
+    [month, installments, fixedForMonth, incomes, varTxs, subscriptions, cardMap, customCategories],
   );
 
   // ── Render ────────────────────────────────────────────────────────────────

@@ -40,16 +40,16 @@ export default function ForecastCard({ fc }: { fc: MonthForecast }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between bg-success/8 rounded-lg px-3 py-2">
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center justify-between gap-2 bg-success/8 rounded-lg px-3 py-2">
             <span className="flex items-center gap-1 text-muted-foreground">
-              <TrendingUp size={10} className="text-success" /> Receitas
+              <TrendingUp size={10} className="text-success shrink-0" /> Receitas
             </span>
             <span className="font-semibold text-success tabular-nums">{formatCurrency(fc.totalIncome)}</span>
           </div>
-          <div className="flex items-center justify-between bg-destructive/8 rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between gap-2 bg-destructive/8 rounded-lg px-3 py-2">
             <span className="flex items-center gap-1 text-muted-foreground">
-              <TrendingDown size={10} className="text-destructive" /> Gastos
+              <TrendingDown size={10} className="text-destructive shrink-0" /> Gastos
             </span>
             <span className="font-semibold text-destructive tabular-nums">{formatCurrency(fc.totalExpense)}</span>
           </div>

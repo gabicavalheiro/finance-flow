@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { CustomCategory, getCustomCategories, isCustomCategory } from '@/lib/customCategories';
 
 interface CustomCategoryContextValue {
@@ -21,8 +23,17 @@ export function CustomCategoryProvider({ children }: { children: ReactNode }) {
     setCustomCategories(cats);
   }, []);
 
+  // Este provider fica acima do <App/> (main.tsx), então monta antes do Firebase Auth
+  // terminar de restaurar a sessão. getCustomCategories() precisa de auth.currentUser
+  // (firestorePaths.ts) — chamar reload() direto no mount buscava sem usuário ainda,
+  // a busca falhava e o cache em memória guardava lista vazia PRA SEMPRE (só se corrigia
+  // ao criar uma categoria nova, que invalida o cache). Por isso espera o auth avisar que
+  // já tem usuário antes de buscar, e também recarrega ao trocar de conta no mesmo device.
   useEffect(() => {
-    reload();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) reload(); else setCustomCategories([]);
+    });
+    return unsubscribe;
   }, [reload]);
 
   const findCustomCategory = useCallback(

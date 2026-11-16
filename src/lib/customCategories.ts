@@ -26,6 +26,14 @@ let _cache: CustomCategory[] | null = null;
 export async function getCustomCategories(): Promise<CustomCategory[]> {
   if (_cache !== null) return _cache;
 
+  // Login do Firebase resolve assíncrono — se alguém chamar isso antes do
+  // onAuthStateChanged disparar (ex.: um Provider que monta cedo demais),
+  // NÃO grava a lista vazia no cache: a próxima chamada, já autenticada,
+  // tenta de novo. Sem essa guarda, uma corrida no boot deixava o cache
+  // preso em `[]` pro resto da sessão (categorias próprias somem até o
+  // usuário criar/apagar alguma, o que é o único outro jeito de invalidar).
+  if (!auth.currentUser) return [];
+
   try {
     const snap = await getDocs(query(userCol('customCategories'), orderBy('createdAt')));
     _cache = snap.docs.map(d => d.data() as CustomCategory);
