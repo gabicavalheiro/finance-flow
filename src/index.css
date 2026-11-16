@@ -92,20 +92,23 @@
   * { @apply border-border; }
 
   html {
-    /* Escala base do app (tudo em rem acompanha).
-       Celular: 15px · Tablet/desktop: 14px — equivale a ~"zoom 90%" do navegador */
-    font-size: 93.75%;
+    /* Escala base do app (tudo em rem acompanha, então isso sobe o tamanho de TUDO
+       de uma vez, sem mexer nos breakpoints/layout responsivo).
+       Celular: 16px · Tablet/desktop: 15px */
+    font-size: 100%;
     -webkit-text-size-adjust: 100%;
   }
 
   @media (min-width: 768px) {
-    html { font-size: 87.5%; }
+    html { font-size: 93.75%; }
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
     text-rendering: optimizeLegibility;
+    line-height: 1.55; /* mais espaço entre linhas = mais fácil de ler (elementos com
+                           leading-* próprio do Tailwind continuam mandando neles) */
     overflow-x: clip; /* nunca deixa a página rolar para os lados */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

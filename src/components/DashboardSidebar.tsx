@@ -6,6 +6,7 @@ import { CreditCard as CardType, FixedIncome, Expense, FixedExpense, VariableTra
 import { computeInstallmentsForMonth, CardInvoice } from '@/lib/store';
 import { getBudgets, Budget } from '@/lib/budgets';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import { alignInstallmentsToInvoices } from '@/lib/invoiceAdjust';
 import BudgetSettingsDialog from '@/components/BudgetSettingsDialog';
 import { Subscription, monthlyAmount, subscriptionsAsInstallments } from '@/lib/subscriptions';
@@ -76,13 +77,17 @@ export default function DashboardSidebar({
     return map;
   }, [allInstAdj, fixedExpenses, varTxs, subscriptions]);
 
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts).
+  const { customCategories } = useCustomCategories();
   const budgetUsage = useMemo(() =>
     budgets.map(b => {
       const spent = spentByCategory[b.category] || 0;
       const pct   = b.amount > 0 ? Math.min((spent / b.amount) * 100, 100) : 0;
       const info  = resolveCategoryInfo(b.category);
       return { ...b, spent, pct, label: info.label, color: info.color };
-    }), [budgets, spentByCategory]);
+  // customCategories não é usado direto aqui, mas resolveCategoryInfo() lê o cache dele por baixo dos panos.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [budgets, spentByCategory, customCategories]);
 
   const events = useMemo(() => {
     const list: { id: string; label: string; date: string; sortDay: number; amount: number; type: 'income' | 'expense' }[] = [];

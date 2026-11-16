@@ -30,6 +30,7 @@ import {
 } from '@/lib/store';
 import { subscriptionsAsInstallments } from '@/lib/subscriptions';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import { cardSurface, CARD_BORDER } from '@/lib/cardStyle';
 import {
   invoiceFinalAmount, invoicePaidAmount, invoicePaymentStatus, INVOICE_STATUS_LABEL,
@@ -118,6 +119,10 @@ export default function CardInvoicePage() {
   const [invoice, setInvoice]       = useState<CardInvoice | undefined>();
   const [editing, setEditing]       = useState<Expense | null>(null);
   const [deleting, setDeleting]     = useState<Expense | null>(null);
+
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts) —
+  // os nomes de categoria aqui embaixo são resolvidos direto no JSX, não vêm de um useMemo.
+  useCustomCategories();
 
   const card = cards.find(c => c.id === cardId);
 

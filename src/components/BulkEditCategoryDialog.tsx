@@ -22,6 +22,7 @@ import {
   deleteExpense, deleteVariableTransaction,
 } from '@/lib/store';
 import { resolveCategoryInfo } from '@/lib/customCategories';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import CategorySelect from '@/components/CategorySelect';
 import CategoryIcon from '@/components/CategoryIcon';
 import { formatCurrency } from '@/lib/helpers';
@@ -76,6 +77,8 @@ export default function BulkEditCategoryDialog({
   const [mode, setMode]             = useState<'edit' | 'delete'>('edit');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts).
+  const { customCategories } = useCustomCategories();
   const cardMap     = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const expenseMap  = useMemo(() => new Map(expenses.map(e => [e.id, e])), [expenses]);
 
@@ -131,7 +134,9 @@ export default function BulkEditCategoryDialog({
       );
     }
     return items;
-  }, [allItems, filter, search]);
+  // customCategories não é usado direto aqui, mas categoryLabel() lê o cache dele por baixo dos panos.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allItems, filter, search, customCategories]);
 
   // ── Seleção ──────────────────────────────────────────────────────────────
   const allFilteredKeys = filtered.map(i => i.key);
@@ -141,7 +146,7 @@ export default function BulkEditCategoryDialog({
   const toggleItem = useCallback((key: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   }, []);

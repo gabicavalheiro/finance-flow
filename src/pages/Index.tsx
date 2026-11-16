@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { getActiveModuleIds } from '@/lib/modules';
 import { usePreferences, visibleSections, type HomeSectionId } from '@/lib/preferences';
 import { useFinanceData } from '@/contexts/FinanceDataContext';
+import { useCustomCategories } from '@/contexts/CustomCategoryContext';
 import BalanceBreakdownSheet from '@/components/BalanceBreakdownSheet';
 import { LoadingState, EmptyState } from '@/components/states/StateViews';
 import { TransactionRow } from '@/features/dashboard/components/TransactionRow';
@@ -71,6 +72,8 @@ export default function Dashboard() {
     version,
     refresh,
   } = useFinanceData();
+  // Só pra reagir quando as categorias próprias terminam de carregar (ver customCategories.ts).
+  const { customCategories } = useCustomCategories();
 
   const cards         = rawCards    ?? [];
   const expenses      = rawExpenses ?? [];
@@ -112,7 +115,9 @@ export default function Dashboard() {
   } = useMemo(() => computeMonthSummary({
     month, cards, expenses, fixedExpenses, incomes, subscriptions, varTxs, invoices,
     currentMonth: getCurrentMonth(),
-  }), [month, cards, expenses, fixedExpenses, incomes, subscriptions, varTxs, invoices]);
+  // customCategories não é usado direto aqui, mas resolveCategoryInfo() lê o cache dele por baixo dos panos.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [month, cards, expenses, fixedExpenses, incomes, subscriptions, varTxs, invoices, customCategories]);
   const getExpenseById = (id: string) => expenses.find(e => e.id === id);
 
   const [y, m] = month.split('-');

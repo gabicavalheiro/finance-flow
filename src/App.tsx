@@ -16,6 +16,7 @@ import QuickAddFAB from "@/components/QuickAddFAB";
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { FinanceDataProvider, useFinanceData } from './contexts/FinanceDataContext';
+import { CustomCategoryProvider } from '@/contexts/CustomCategoryContext';
 import { loadPreferences } from '@/lib/preferences';
 
 // ── Lazy imports — cada página vira um chunk separado ─────────────────────────
@@ -83,37 +84,43 @@ function AppRoutes() {
   const showFAB  = !FAB_HIDDEN_PATHS.includes(location.pathname);
 
   return (
-    <FinanceDataProvider>
-      <div className="flex min-h-dvh bg-background">
-        <AppNav />
-        <main className="flex-1 min-w-0 md:pl-64">
-          <ErrorBoundary resetKey={location.pathname}>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/"              element={<Index />} />
-              <Route path="/cards"         element={<CardsPage />} />
-              <Route path="/cards/:cardId/fatura" element={<CardInvoicePage />} />
-              <Route path="/fixed"         element={<FixedPage />} />
-              <Route path="/faturas"       element={<FaturaPage />} />
-              <Route path="/reports"       element={<ReportsPage />} />
-              <Route path="/goals"         element={<GoalsPage />} />
-              <Route path="/loans"         element={<LoansPage />} />
-              <Route path="/investments"   element={<InvestmentsPage />} />
-              <Route path="/subscriptions" element={<SubscriptionsPage />} />
-              <Route path="/classifier"    element={<ExpenseClassifierPage />} />
-              <Route path="/inteligencia"  element={<IntelligencePage />} />
-              <Route path="/settings"      element={<SettingsPage />} />
-              {/* /reset-password sem ?mode=resetPassword&oobCode=... (link já usado,
-                  página recarregada, etc.) — manda pra home em vez de dar 404. */}
-              <Route path="/reset-password" element={<Navigate to="/" replace />} />
-              <Route path="*"              element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          </ErrorBoundary>
-        </main>
-        {showFAB && <ConnectedFAB />}
-      </div>
-    </FinanceDataProvider>
+    // CustomCategoryProvider só monta aqui dentro (usuário já autenticado) — se ficasse lá em
+    // cima, no main.tsx, seu primeiro carregamento corria contra o onAuthStateChanged do
+    // Firebase e, perdendo a corrida, prendia o cache de categorias próprias vazio pro resto
+    // da sessão (só "destravava" quando o usuário criava/apagava uma categoria).
+    <CustomCategoryProvider>
+      <FinanceDataProvider>
+        <div className="flex min-h-dvh bg-background">
+          <AppNav />
+          <main className="flex-1 min-w-0 md:pl-64">
+            <ErrorBoundary resetKey={location.pathname}>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/"              element={<Index />} />
+                <Route path="/cards"         element={<CardsPage />} />
+                <Route path="/cards/:cardId/fatura" element={<CardInvoicePage />} />
+                <Route path="/fixed"         element={<FixedPage />} />
+                <Route path="/faturas"       element={<FaturaPage />} />
+                <Route path="/reports"       element={<ReportsPage />} />
+                <Route path="/goals"         element={<GoalsPage />} />
+                <Route path="/loans"         element={<LoansPage />} />
+                <Route path="/investments"   element={<InvestmentsPage />} />
+                <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                <Route path="/classifier"    element={<ExpenseClassifierPage />} />
+                <Route path="/inteligencia"  element={<IntelligencePage />} />
+                <Route path="/settings"      element={<SettingsPage />} />
+                {/* /reset-password sem ?mode=resetPassword&oobCode=... (link já usado,
+                    página recarregada, etc.) — manda pra home em vez de dar 404. */}
+                <Route path="/reset-password" element={<Navigate to="/" replace />} />
+                <Route path="*"              element={<NotFound />} />
+              </Routes>
+            </Suspense>
+            </ErrorBoundary>
+          </main>
+          {showFAB && <ConnectedFAB />}
+        </div>
+      </FinanceDataProvider>
+    </CustomCategoryProvider>
   );
 }
 
