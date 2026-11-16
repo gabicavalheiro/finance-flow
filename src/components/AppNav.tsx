@@ -2,7 +2,7 @@
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch,
   LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain, Tags,
-  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight, Settings,
+  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight, Settings, Shapes,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AVAILABLE_MODULES } from '@/lib/modules';
 
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain, Tags };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain, Tags, Shapes };
 
 const MAIN_TABS = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },
