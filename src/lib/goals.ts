@@ -1,5 +1,5 @@
 // ─── Módulo de Metas — migrado de Supabase/Postgres pra Firebase/Firestore ────
-import { getDocs, setDoc, updateDoc, deleteDoc, orderBy, query } from 'firebase/firestore';
+import { getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { userCol, userDoc } from './firestorePaths';
 
 
@@ -75,8 +75,12 @@ export function computeGoalStats(goal: Goal, monthlyBalance: number): GoalStats 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 export async function getGoals(): Promise<Goal[]> {
   try {
-    const snap = await getDocs(query(userCol('goals'), orderBy('priority'), orderBy('createdAt')));
-    return snap.docs.map(d => d.data() as Goal);
+    // Ordena no app: orderBy em dois campos exigiria um índice composto no Firestore,
+    // e sem ele a consulta falha (a tela de Metas ficava vazia).
+    const snap = await getDocs(userCol('goals'));
+    return snap.docs
+      .map(d => d.data() as Goal)
+      .sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2) || (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
   } catch (err) {
     console.error('getGoals:', err);
     return [];

@@ -10,6 +10,7 @@ export interface AppModule {
 }
 
 export const AVAILABLE_MODULES: AppModule[] = [
+  { id: 'purchase-check',     label: 'Posso comprar?', icon: 'ShoppingCart', path: '/posso-comprar' },
   { id: 'categories',         label: 'Categorias',    icon: 'Shapes',     path: '/categorias' },
   { id: 'subscriptions',      label: 'Assinaturas',   icon: 'Repeat2',    path: '/subscriptions' },
   { id: 'goals',              label: 'Metas',         icon: 'Target',     path: '/goals' },
