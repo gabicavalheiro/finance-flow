@@ -7,21 +7,21 @@ import { CreditCard } from '@/lib/types';
 // Símbolo da bandeira — só o ícone/wordmark, sem cor de marca (tudo branco translúcido)
 export function BrandSymbol({ brand }: { brand: string }) {
   if (brand === 'visa') return (
-    <span className="font-bold italic text-white text-lg tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>VISA</span>
+    <span className="font-bold italic text-card-ink text-lg tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>VISA</span>
   );
   if (brand === 'mastercard') return (
     <div className="flex items-center">
-      <div className="w-6 h-6 rounded-full border-[1.5px] border-white/70" />
-      <div className="w-6 h-6 rounded-full border-[1.5px] border-white/70 -ml-3" />
+      <div className="w-6 h-6 rounded-full border-[1.5px] border-card-ink/70" />
+      <div className="w-6 h-6 rounded-full border-[1.5px] border-card-ink/70 -ml-3" />
     </div>
   );
   if (brand === 'amex') return (
-    <span className="font-bold text-white text-xs tracking-widest">AMEX</span>
+    <span className="font-bold text-card-ink text-xs tracking-widest">AMEX</span>
   );
   if (brand === 'elo') return (
-    <span className="font-bold text-white text-lg" style={{ fontFamily: 'Georgia, serif' }}>elo</span>
+    <span className="font-bold text-card-ink text-lg" style={{ fontFamily: 'Georgia, serif' }}>elo</span>
   );
-  return <CreditCardIcon size={20} className="text-white/80" />;
+  return <CreditCardIcon size={20} className="text-card-ink/80" />;
 }
 
 export function CardCarousel({
@@ -135,7 +135,7 @@ export function CardCarousel({
               <div
                 key={card.id}
                 onClick={() => goTo(i)}
-                className="relative rounded-3xl overflow-hidden text-white cursor-pointer select-none card-glass"
+                className="relative rounded-3xl overflow-hidden text-card-ink cursor-pointer select-none card-glass"
                 style={{
                   flex: '0 0 min(88%, 400px)',
                   height: 190,
@@ -149,16 +149,16 @@ export function CardCarousel({
               >
                 {/* Badge vencimento */}
                 <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
-                  <p className="text-white/75 text-[10px] font-medium whitespace-nowrap">Vence dia {card.dueDay}</p>
+                  style={{ background: 'hsl(var(--card-ink) / 0.14)', backdropFilter: 'blur(8px)' }}>
+                  <p className="text-card-ink/75 text-[10px] font-medium whitespace-nowrap">Vence dia {card.dueDay}</p>
                 </div>
 
                 {/* Badge bloqueado */}
                 {card.active === false && (
                   <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-xl flex items-center gap-1"
-                    style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)' }}>
-                    <Lock size={9} className="text-white/85" />
-                    <p className="text-white/85 text-[10px] font-medium whitespace-nowrap">Bloqueado</p>
+                    style={{ background: 'hsl(var(--card-ink) / 0.12)', backdropFilter: 'blur(8px)' }}>
+                    <Lock size={9} className="text-card-ink/85" />
+                    <p className="text-card-ink/85 text-[10px] font-medium whitespace-nowrap">Bloqueado</p>
                   </div>
                 )}
 
@@ -167,18 +167,18 @@ export function CardCarousel({
                   <div className="flex items-start justify-between">
                     <div>
                       <BrandSymbol brand={card.brand} />
-                      <p className="text-white/70 text-xs mt-1.5 font-medium">{card.name}</p>
+                      <p className="text-card-ink/70 text-xs mt-1.5 font-medium">{card.name}</p>
                     </div>
                     {/* NFC */}
                     <div className="flex flex-col gap-0.5 mt-1 opacity-40">
                       {[14, 11, 8].map(w => (
-                        <div key={w} className="h-0.5 rounded-full bg-white" style={{ width: w }} />
+                        <div key={w} className="h-0.5 rounded-full bg-card-ink" style={{ width: w }} />
                       ))}
                     </div>
                   </div>
 
                   {/* Número */}
-                  <p className="text-white/50 font-mono text-sm tracking-[0.22em]">
+                  <p className="text-card-ink/50 font-mono text-sm tracking-[0.22em]">
                     •••• •••• •••• {card.lastDigits}
                   </p>
 
@@ -186,19 +186,19 @@ export function CardCarousel({
                   <div>
                     <div className="flex items-end justify-between mb-2">
                       <div>
-                        <p className="text-white/50 text-[11px] mb-0.5">Fatura</p>
-                        <p className="text-white font-display font-semibold text-xl tabular-nums leading-none">{formatCurrency(spent)}</p>
+                        <p className="text-card-ink/50 text-[11px] mb-0.5">Fatura</p>
+                        <p className="text-card-ink font-display font-semibold text-xl tabular-nums leading-none">{formatCurrency(spent)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-white/50 text-[11px] mb-0.5">Disponível</p>
-                        <p className="text-white/85 font-semibold text-sm tabular-nums leading-none">{formatCurrency(available)}</p>
+                        <p className="text-card-ink/50 text-[11px] mb-0.5">Disponível</p>
+                        <p className="text-card-ink/85 font-semibold text-sm tabular-nums leading-none">{formatCurrency(available)}</p>
                       </div>
                     </div>
-                    <div className="h-1 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                    <div className="h-1 w-full rounded-full" style={{ background: 'hsl(var(--card-ink) / 0.18)' }}>
                       <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${usedPct}%`, background: usedPct >= 90 ? 'hsl(0 75% 64%)' : 'rgba(255,255,255,0.8)' }} />
+                        style={{ width: `${usedPct}%`, background: usedPct >= 90 ? 'hsl(0 75% 64%)' : 'hsl(var(--card-ink) / 0.8)' }} />
                     </div>
-                    <p className="text-white/45 text-[10px] mt-1">{Math.round(usedPct)}% do limite</p>
+                    <p className="text-card-ink/45 text-[10px] mt-1">{Math.round(usedPct)}% do limite</p>
                   </div>
                 </div>
               </div>

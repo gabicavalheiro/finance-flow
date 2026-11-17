@@ -82,8 +82,8 @@ function FaturaCardItem({
       {/* Cabeçalho — vidro fosco, sem cor de bandeira */}
       <div className="px-4 py-3 flex items-center justify-between card-glass">
         <div>
-          <p className="font-semibold text-white text-sm">{card.name}</p>
-          <p className="text-white/70 text-xs">•••• {card.lastDigits}</p>
+          <p className="font-semibold text-card-ink text-sm">{card.name}</p>
+          <p className="text-card-ink/70 text-xs">•••• {card.lastDigits}</p>
           {isUnder && (
             <span className="mt-1 inline-block rounded-full bg-amber-400 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950">
               Pago parcial
@@ -96,8 +96,8 @@ function FaturaCardItem({
           )}
         </div>
         <div className="text-right">
-          <p className="text-white/70 text-[10px]">Calculado</p>
-          <p className="text-white font-bold text-sm">{formatCurrency(calculated)}</p>
+          <p className="text-card-ink/70 text-[10px]">Calculado</p>
+          <p className="text-card-ink font-bold text-sm">{formatCurrency(calculated)}</p>
         </div>
       </div>
 

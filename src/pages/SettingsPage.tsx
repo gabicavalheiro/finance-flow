@@ -195,7 +195,7 @@ export default function SettingsPage() {
           return (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
               className={cn('flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                tab === t.id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}>
+                tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
               <Icon size={13} aria-hidden /> {t.label}
             </button>
           );

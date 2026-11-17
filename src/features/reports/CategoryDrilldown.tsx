@@ -99,7 +99,7 @@ export default function CategoryDrilldown({ category, details, month, cards, onC
                   onClick={() => { setSelectMode(p => !p); setSelectedIds(new Set()); }}
                   className={cn(
                     'flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg transition-colors shrink-0',
-                    selectMode ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
+                    selectMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary',
                   )}
                 >
                   {selectMode ? <XIcon size={12} /> : <ListChecks size={12} />}

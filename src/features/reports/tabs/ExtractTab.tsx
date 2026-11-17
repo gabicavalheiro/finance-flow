@@ -308,7 +308,7 @@ function Chip({
         active && activeColor
           ? 'text-white border-transparent'
           : active
-          ? 'bg-primary/15 text-primary border-primary/30'
+          ? 'bg-primary text-primary-foreground border-primary'
           : 'bg-secondary text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40',
       )}
       style={active && activeColor ? { background: `hsl(${activeColor})` } : undefined}

@@ -275,9 +275,9 @@ export default function Dashboard() {
                 <button onClick={() => setSelectedCardId(null)}
                   className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: !selectedCardId ? 'hsl(var(--primary) / 0.1)' : 'hsl(var(--secondary))',
-                    border: !selectedCardId ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                    color: !selectedCardId ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                    background: !selectedCardId ? 'hsl(var(--primary))' : 'hsl(var(--secondary))',
+                    border: !selectedCardId ? '1px solid hsl(var(--primary))' : '1px solid transparent',
+                    color: !selectedCardId ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
                   }}>
                   Todos
                 </button>
@@ -288,9 +288,9 @@ export default function Dashboard() {
                     <button key={card.id} onClick={() => setSelectedCardId(isActive ? null : card.id)}
                       className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                       style={{
-                        background: isActive ? 'hsl(var(--primary) / 0.12)' : 'hsl(var(--secondary))',
-                        border: isActive ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                        color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                        background: isActive ? 'hsl(var(--primary))' : 'hsl(var(--secondary))',
+                        border: isActive ? '1px solid hsl(var(--primary))' : '1px solid transparent',
+                        color: isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
                       }}>
                       <CreditCardIcon size={11} /> {card.name}
                       {s > 0 && <span className="opacity-60 tabular-nums">{formatCurrency(s)}</span>}
@@ -398,7 +398,7 @@ export default function Dashboard() {
                 <button key={tab} onClick={() => setDashTab(tab)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={dashTab === tab
-                    ? { background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))', border: '1px solid hsl(var(--primary) / 0.3)' }
+                    ? { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', border: '1px solid hsl(var(--primary))' }
                     : { background: 'transparent', color: 'hsl(var(--muted-foreground))', border: '1px solid transparent' }
                   }>
                   {tab === 'geral' ? 'Geral' : 'Patrimônio'}
@@ -420,7 +420,7 @@ export default function Dashboard() {
             <Sheet>
               <SheetTrigger asChild>
                 <button type="button" aria-label="Abrir resumo e alertas" className="p-2 rounded-xl transition-colors"
-                  style={{ background: 'hsl(var(--primary) / 0.14)', border: '1px solid hsl(var(--primary) / 0.3)', color: 'hsl(var(--primary))' }}>
+                  style={{ background: 'hsl(var(--primary))', border: '1px solid hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}>
                   <ChartNoAxesCombined size={16} />
                 </button>
               </SheetTrigger>

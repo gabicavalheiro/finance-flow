@@ -53,7 +53,7 @@ function CardItem({
     <motion.div key={card.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
       {/* Face do cartão */}
       <div
-        className="rounded-2xl p-5 relative overflow-hidden text-white transition-all card-glass"
+        className="rounded-2xl p-5 relative overflow-hidden text-card-ink transition-all card-glass"
         style={isBlocked ? { filter: 'grayscale(0.85)', opacity: 0.72 } : undefined}
       >
         <div className="relative z-10">
@@ -63,7 +63,7 @@ function CardItem({
               <p className="text-base font-bold flex items-center gap-1.5">
                 {card.name}
                 {isBlocked && (
-                  <span className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black/30">
+                  <span className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-card-ink/15">
                     <Lock size={9} /> Bloqueado
                   </span>
                 )}
@@ -72,7 +72,7 @@ function CardItem({
             <div className="flex gap-1">
               <Link
                 to={`/cards/${card.id}/fatura?month=${month}`}
-                className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                className="p-1.5 rounded-lg bg-card-ink/15 hover:bg-card-ink/25 transition-colors"
                 aria-label="Ver lançamentos por fatura"
                 title="Ver fatura"
               >
@@ -80,15 +80,15 @@ function CardItem({
               </Link>
               <button
                 onClick={() => onToggleActive(card)}
-                className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
+                className="p-1.5 rounded-lg bg-card-ink/15 hover:bg-card-ink/25 transition-colors"
                 aria-label={isBlocked ? 'Reativar cartão' : 'Bloquear cartão'}
               >
                 {isBlocked ? <Unlock size={13} /> : <Lock size={13} />}
               </button>
-              <button onClick={() => onEdit(card)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
+              <button onClick={() => onEdit(card)} className="p-1.5 rounded-lg bg-card-ink/15 hover:bg-card-ink/25 transition-colors">
                 <Pencil size={13} />
               </button>
-              <button onClick={() => onDelete(card.id)} className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors">
+              <button onClick={() => onDelete(card.id)} className="p-1.5 rounded-lg bg-card-ink/15 hover:bg-card-ink/25 transition-colors">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -109,8 +109,8 @@ function CardItem({
             </div>
           </div>
 
-          <div className="mt-3 h-1.5 bg-white/20 rounded-full overflow-hidden">
-            <div className="h-full bg-white/80 rounded-full transition-all duration-500" style={{ width: `${usedPct}%` }} />
+          <div className="mt-3 h-1.5 bg-card-ink/20 rounded-full overflow-hidden">
+            <div className="h-full bg-card-ink/80 rounded-full transition-all duration-500" style={{ width: `${usedPct}%` }} />
           </div>
 
           <div className="flex items-center justify-between mt-1.5">

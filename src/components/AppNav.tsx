@@ -99,15 +99,10 @@ export default function AppNav() {
           'w-full flex items-center rounded-xl transition-all duration-200 relative group',
           collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
           active
-            ? 'text-primary font-semibold'
+            ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
             : 'text-sidebar-foreground/55 hover:text-sidebar-foreground',
         )}
-        style={{
-          background: active
-            ? 'linear-gradient(90deg, hsl(var(--primary) / 0.16) 0%, hsl(var(--primary) / 0.04) 100%)'
-            : undefined,
-          border: active ? '1px solid hsl(var(--primary) / 0.28)' : '1px solid transparent',
-        }}
+        style={{ border: active ? '1px solid hsl(var(--primary))' : '1px solid transparent' }}
         onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'hsl(var(--sidebar-accent))'; }}
         onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
       >
@@ -115,7 +110,7 @@ export default function AppNav() {
           className={cn(
             'flex items-center justify-center rounded-lg shrink-0 transition-all',
             collapsed ? 'w-8 h-8' : 'w-7 h-7',
-            active ? 'bg-primary/15' : '',
+            active ? 'bg-primary-foreground/15' : '',
           )}
         >
           <tab.icon size={16} strokeWidth={active ? 2.3 : 1.8} />
@@ -123,7 +118,7 @@ export default function AppNav() {
         {!collapsed && <span className="text-sm font-medium uppercase tracking-wide">{tab.label}</span>}
         {/* Dot quando ativo */}
         {active && !collapsed && (
-          <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-primary" />
+          <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-primary-foreground" />
         )}
       </motion.button>
     );
@@ -422,9 +417,9 @@ export default function AppNav() {
                       onClick={() => navigate(tab.path)}
                       className="flex flex-col items-center gap-2 py-3 rounded-2xl text-xs font-medium transition-all border"
                       style={{
-                        background: active ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--secondary))',
-                        border: active ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid transparent',
-                        color: active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                        background: active ? 'hsl(var(--primary))' : 'hsl(var(--secondary))',
+                        border: active ? '1px solid hsl(var(--primary))' : '1px solid transparent',
+                        color: active ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
                       }}
                     >
                       <tab.icon size={20} strokeWidth={active ? 2.2 : 1.7} />

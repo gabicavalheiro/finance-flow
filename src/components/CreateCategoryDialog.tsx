@@ -189,7 +189,7 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
                   onClick={() => setIcon(name)}
                   className={cn(
                     'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                    icon === name ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground hover:text-foreground',
+                    icon === name ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground',
                   )}
                 >
                   <Icon size={14} />

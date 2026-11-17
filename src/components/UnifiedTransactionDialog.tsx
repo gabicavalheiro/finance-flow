@@ -286,7 +286,7 @@ export default function UnifiedTransactionDialog({
                   className={cn(
                     'flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all',
                     method === 'card'
-                      ? 'border-primary bg-primary/10 text-primary'
+                      ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-border bg-secondary text-muted-foreground hover:text-foreground hover:border-muted-foreground/40',
                   )}
                 >
@@ -303,7 +303,7 @@ export default function UnifiedTransactionDialog({
                     className={cn(
                       'flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-all',
                       method === k
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'bg-primary text-primary-foreground border-primary'
                         : 'border-border bg-secondary text-muted-foreground hover:text-foreground hover:border-muted-foreground/40',
                     )}
                   >

@@ -314,7 +314,7 @@ export default function CardInvoicePage() {
           onValueChange={id => navigate(`/cards/${id}/fatura?month=${month}`, { replace: true })}
         >
           <SelectTrigger
-            className="h-10 w-auto max-w-full min-w-0 sm:min-w-[200px] rounded-full border-0 text-white font-semibold px-4 gap-2 card-glass"
+            className="h-10 w-auto max-w-full min-w-0 sm:min-w-[200px] rounded-full border-0 text-card-ink font-semibold px-4 gap-2 card-glass"
             aria-label="Trocar cartão"
           >
             <SelectValue />

@@ -173,7 +173,7 @@ export default function ForecastLab() {
             {PROFILES.map((p) => (
               <button key={p.id} type="button" onClick={() => setProfile(p.id)} aria-pressed={profile === p.id}
                 className={cn('rounded-xl border px-2 py-2 text-xs font-medium transition-colors',
-                  profile === p.id ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
+                  profile === p.id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
                 {p.label}
               </button>
             ))}
