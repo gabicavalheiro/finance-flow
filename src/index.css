@@ -144,8 +144,22 @@
     background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
     color: hsl(var(--gradient-foreground));
   }
-  .gradient-primary:hover:not(:disabled) { filter: brightness(1.06); }
-  .dark .gradient-primary:hover:not(:disabled) { filter: brightness(0.94); }
+
+  /* Hover/foco de botão: anel na cor de destaque do tema (branco no escuro, preto no
+     claro), separado do botão por um respiro da cor de fundo. Não mexe em fundo nem
+     texto, então o contraste do conteúdo fica igual. */
+  .hover-ring,
+  .gradient-primary {
+    transition-property: box-shadow, transform, background-color, color;
+    transition-duration: 150ms;
+  }
+  .hover-ring:hover:not(:disabled),
+  .hover-ring:focus-visible,
+  .gradient-primary:hover:not(:disabled),
+  .gradient-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  }
   .gradient-card-visa        { background: linear-gradient(135deg, hsl(220 70% 55%), hsl(200 80% 50%)); }
   .gradient-card-mastercard  { background: linear-gradient(135deg, hsl(0 80% 55%), hsl(30 90% 55%)); }
   .gradient-card-elo         { background: linear-gradient(135deg, hsl(45 90% 50%), hsl(30 85% 45%)); }

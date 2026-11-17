@@ -358,7 +358,7 @@ export default function DailyAlertsDialog({ month }: Props) {
                 </button>
                 <button
                   onClick={() => { setOpen(false); navigate('/reports'); }}
-                  className="flex-1 py-2.5 rounded-xl bg-foreground text-background hover:opacity-90 text-sm font-semibold transition-opacity shadow-lg shadow-black/30"
+                  className="flex-1 py-2.5 rounded-xl bg-foreground text-background hover-ring text-sm font-semibold shadow-lg shadow-black/30"
                 >
                   Ver previsões
                 </button>

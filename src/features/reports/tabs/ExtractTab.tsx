@@ -117,7 +117,7 @@ export default function ExtractTab({ month, setMonth, items }: Props) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium shrink-0 hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium shrink-0 hover-ring"
         >
           <Printer size={14} /> Imprimir / Salvar PDF
         </button>

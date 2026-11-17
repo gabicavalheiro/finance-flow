@@ -70,7 +70,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 exit={{ opacity: 0, y: 12, scale: 0.85 }}
                 transition={{ delay: 0.05 }}
                 onClick={() => open('income')}
-                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
+                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover-ring"
                 style={{ background: 'linear-gradient(135deg, hsl(152 69% 30%), hsl(192 80% 30%))' }}
               >
                 <ArrowUpCircle size={18} />
@@ -85,7 +85,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 exit={{ opacity: 0, y: 12, scale: 0.85 }}
                 transition={{ delay: 0 }}
                 onClick={() => open('expense')}
-                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
+                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover-ring"
                 style={{ background: 'linear-gradient(135deg, hsl(0 72% 45%), hsl(20 90% 40%))' }}
               >
                 <ArrowDownCircle size={18} />
@@ -100,7 +100,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
           onClick={() => setExpanded(v => !v)}
           whileTap={{ scale: 0.92 }}
           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all ${
-            expanded ? 'bg-secondary text-foreground border border-border' : 'gradient-primary'
+            expanded ? 'bg-secondary text-foreground border border-border hover-ring' : 'gradient-primary'
           }`}
           aria-label={expanded ? 'Fechar' : 'Novo lançamento'}
         >
