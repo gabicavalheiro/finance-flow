@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { generateId } from '@/lib/helpers';
 import { saveCustomCategory, CustomCategory } from '@/lib/customCategories';
+import { updateCustomCategory } from '@/lib/categoryAdmin';
 import { cn } from '@/lib/utils';
 
 const ICON_OPTIONS = [
@@ -52,9 +53,11 @@ interface Props {
   onClose: () => void;
   defaultType: 'expense' | 'income';
   onCreated: (cat: CustomCategory) => void;
+  /** Quando informado, o diálogo edita esta categoria em vez de criar uma nova. */
+  editing?: CustomCategory | null;
 }
 
-export default function CreateCategoryDialog({ open, onClose, defaultType, onCreated }: Props) {
+export default function CreateCategoryDialog({ open, onClose, defaultType, onCreated, editing }: Props) {
   const [label, setLabel]          = useState('');
   const [icon, setIcon]            = useState('MoreHorizontal');
   const [color, setColor]          = useState('0 0% 60%');
@@ -66,11 +69,22 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
     setCatType(defaultType);
   };
 
+  // Ao abrir em modo edição, carrega os dados da categoria
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setLabel(editing.label); setIcon(editing.icon); setColor(editing.color);
+      setCatType(editing.categoryType);
+    } else {
+      setCatType(defaultType);
+    }
+  }, [open, editing, defaultType]);
+
   const handleSave = async () => {
     if (!label.trim()) { toast.error('Informe o nome da categoria'); return; }
 
     const cat: CustomCategory = {
-      id: `custom_${generateId()}`,
+      id: editing?.id ?? `custom_${generateId()}`,
       label: label.trim(),
       icon,
       color,
@@ -79,8 +93,13 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
 
     setSaving(true);
     try {
-      await saveCustomCategory(cat);
-      toast.success(`Categoria "${cat.label}" criada!`);
+      if (editing) {
+        await updateCustomCategory(cat);
+        toast.success(`Categoria "${cat.label}" atualizada`);
+      } else {
+        await saveCustomCategory(cat);
+        toast.success(`Categoria "${cat.label}" criada!`);
+      }
       onCreated(cat);
       reset();
       onClose();
@@ -97,7 +116,7 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
     <Dialog open={open} onOpenChange={v => { if (!v) { reset(); onClose(); } }}>
       <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader>
-          <DialogTitle>Nova categoria</DialogTitle>
+          <DialogTitle>{editing ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
@@ -182,10 +201,9 @@ export default function CreateCategoryDialog({ open, onClose, defaultType, onCre
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="w-full"
-            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
+            className="w-full gradient-primary"
           >
-            {saving ? 'Salvando...' : 'Criar categoria'}
+            {saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar categoria'}
           </Button>
         </div>
       </DialogContent>

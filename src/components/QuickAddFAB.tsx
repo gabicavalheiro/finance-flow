@@ -56,8 +56,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 exit={{ opacity: 0, y: 12, scale: 0.85 }}
                 transition={{ delay: 0.1 }}
                 onClick={openImport}
-                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.7))', color: 'hsl(var(--background))' }}
+                className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full shadow-lg text-sm font-semibold transition-transform active:scale-95 gradient-primary"
               >
                 <FileSpreadsheet size={18} />
                 Importar planilha
@@ -72,7 +71,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 transition={{ delay: 0.05 }}
                 onClick={() => open('income')}
                 className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, hsl(152 69% 45%), hsl(192 80% 50%))' }}
+                style={{ background: 'linear-gradient(135deg, hsl(152 69% 30%), hsl(192 80% 30%))' }}
               >
                 <ArrowUpCircle size={18} />
                 Receita
@@ -87,7 +86,7 @@ export default function QuickAddFAB({ onAdded }: Props) {
                 transition={{ delay: 0 }}
                 onClick={() => open('expense')}
                 className="flex items-center gap-2.5 pl-3 pr-4 h-11 rounded-full text-white shadow-lg text-sm font-semibold transition-transform active:scale-95 hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, hsl(0 72% 51%), hsl(25 95% 53%))' }}
+                style={{ background: 'linear-gradient(135deg, hsl(0 72% 45%), hsl(20 90% 40%))' }}
               >
                 <ArrowDownCircle size={18} />
                 Despesa
@@ -100,12 +99,9 @@ export default function QuickAddFAB({ onAdded }: Props) {
         <motion.button
           onClick={() => setExpanded(v => !v)}
           whileTap={{ scale: 0.92 }}
-          className="w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center transition-all hover:brightness-110"
-          style={{
-            background: expanded
-              ? 'hsl(0 0% 24%)'
-              : 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))',
-          }}
+          className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all ${
+            expanded ? 'bg-secondary text-foreground border border-border' : 'gradient-primary'
+          }`}
           aria-label={expanded ? 'Fechar' : 'Novo lançamento'}
         >
           <motion.div

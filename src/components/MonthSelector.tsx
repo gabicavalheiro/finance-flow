@@ -99,7 +99,7 @@ export default function MonthSelector({ month, onChange }: Props) {
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full mt-2 left-0 right-0 rounded-2xl shadow-2xl overflow-hidden"
             style={{
-              background: 'linear-gradient(180deg, hsl(0 0% 12%) 0%, hsl(0 0% 8%) 100%)',
+              background: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
             }}
           >
@@ -110,12 +110,9 @@ export default function MonthSelector({ month, onChange }: Props) {
                 <button
                   key={y}
                   onClick={() => onChange(`${y}-${String(selMonth).padStart(2, '0')}`)}
-                  className="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-all"
-                  style={
-                    y === selYear
-                      ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))', color: '#fff' }
-                      : { background: 'transparent', color: 'hsl(var(--muted-foreground))' }
-                  }
+                  className={`shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    y === selYear ? 'gradient-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
                   {y}
                 </button>
@@ -136,14 +133,11 @@ export default function MonthSelector({ month, onChange }: Props) {
                       onChange(newMonth);
                       setShowPicker(false);
                     }}
-                    className="relative py-2 rounded-xl text-xs font-medium transition-all"
-                    style={
+                    className={`relative py-2 rounded-xl text-xs font-medium transition-all ${
                       isActive
-                        ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))', color: '#fff' }
-                        : { background: 'hsl(var(--secondary))', color: isToday ? 'hsl(0 0% 85%)' : 'hsl(var(--muted-foreground))' }
-                    }
-                    onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'; }}
-                    onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'; }}
+                        ? 'gradient-primary'
+                        : `bg-secondary hover:text-foreground ${isToday ? 'text-foreground' : 'text-muted-foreground'}`
+                    }`}
                   >
                     {m}
                     {isToday && !isActive && (

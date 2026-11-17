@@ -134,8 +134,7 @@ export default function AddFixedExpenseDialog({ onAdded }: Props) {
           <Button variant="outline" className="flex-1 border-border" onClick={() => { reset(); setOpen(false); }} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}>
+          <Button onClick={handleSubmit} disabled={saving} className="flex-1 gradient-primary">
             {saving ? 'Salvando...' : 'Adicionar'}
           </Button>
         </div>

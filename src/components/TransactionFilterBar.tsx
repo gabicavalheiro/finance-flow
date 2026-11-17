@@ -173,8 +173,7 @@ export default function TransactionFilterBar({
               )}
               <Button
                 onClick={onToggle}
-                className="flex-1 text-white text-sm"
-                style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
+                className="flex-1 text-sm gradient-primary"
               >
                 {activeCount > 0 ? 'Ver resultados' : 'Fechar'}
               </Button>
@@ -218,4 +217,4 @@ function Chip({
       {active && <Check size={10} className="shrink-0 opacity-80" />}
     </button>
   );
-}
+}

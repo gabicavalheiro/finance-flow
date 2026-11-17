@@ -10,6 +10,7 @@ export interface AppModule {
 }
 
 export const AVAILABLE_MODULES: AppModule[] = [
+  { id: 'categories',         label: 'Categorias',    icon: 'Shapes',     path: '/categorias' },
   { id: 'subscriptions',      label: 'Assinaturas',   icon: 'Repeat2',    path: '/subscriptions' },
   { id: 'goals',              label: 'Metas',         icon: 'Target',     path: '/goals' },
   { id: 'loans',              label: 'Empréstimos',   icon: 'Landmark',   path: '/loans' },

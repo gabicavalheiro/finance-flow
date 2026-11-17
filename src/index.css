@@ -6,8 +6,10 @@
 @layer base {
   :root {
     --radius: 0.75rem;
-    --gradient-start: 0 0% 15%;
-    --gradient-end: 0 0% 0%;
+    /* Botão de ação principal — sobrescrito por tema (.dark / .light) */
+    --gradient-start: 0 0% 20%;
+    --gradient-end: 0 0% 4%;
+    --gradient-foreground: 0 0% 100%;
     --success: 152 69% 45%;
     --warning: 38 92% 50%;
 
@@ -17,6 +19,11 @@
 
   /* ── DARK — grafite neutro, destaque branco ── */
   .dark {
+    /* No escuro o botão principal é claro (texto escuro) pra destacar do card */
+    --gradient-start:      0 0% 100%;
+    --gradient-end:        0 0% 82%;
+    --gradient-foreground: 0 0% 7%;
+
     --background:         0 0% 7%;
     --foreground:         0 0% 96%;
 
@@ -58,6 +65,10 @@
 
   /* ── LIGHT — neutro, destaque preto ── */
   .light {
+    --gradient-start:      0 0% 20%;
+    --gradient-end:        0 0% 4%;
+    --gradient-foreground: 0 0% 100%;
+
     --background:         0 0% 98%;
     --foreground:         0 0% 9%;
     --card:               0 0% 100%;
@@ -128,9 +139,13 @@
 }
 
 @layer utilities {
+  /* Botão/estado selecionado principal — contraste garantido nos dois temas */
   .gradient-primary {
     background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+    color: hsl(var(--gradient-foreground));
   }
+  .gradient-primary:hover:not(:disabled) { filter: brightness(1.06); }
+  .dark .gradient-primary:hover:not(:disabled) { filter: brightness(0.94); }
   .gradient-card-visa        { background: linear-gradient(135deg, hsl(220 70% 55%), hsl(200 80% 50%)); }
   .gradient-card-mastercard  { background: linear-gradient(135deg, hsl(0 80% 55%), hsl(30 90% 55%)); }
   .gradient-card-elo         { background: linear-gradient(135deg, hsl(45 90% 50%), hsl(30 85% 45%)); }

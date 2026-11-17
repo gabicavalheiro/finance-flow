@@ -56,7 +56,10 @@ export async function registerUser(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: name });
+    // O Firebase já loga o usuário no create — antes do nome ser salvo. Quem leu o perfil
+    // nesse intervalo (menu lateral) ficou sem nome, então avisamos pra recarregar.
+    await updateProfile(cred.user, { displayName: name.trim() });
+    window.dispatchEvent(new Event('ff-profile-updated'));
     return { ok: true };
   } catch (err) {
     return { ok: false, error: mapAuthError(err) };
@@ -142,7 +145,8 @@ export async function getUser(): Promise<AuthUser | null> {
   if (!user) return null;
   return {
     id: user.uid,
-    name: user.displayName ?? user.email?.split('@')[0] ?? 'Usuário',
+    // Nunca deriva do e-mail: sem nome cadastrado, a UI mostra "Usuário".
+    name: user.displayName?.trim() ?? '',
     email: user.email ?? '',
   };
 }

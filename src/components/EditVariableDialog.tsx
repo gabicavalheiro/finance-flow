@@ -83,11 +83,9 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
               <button
                 key={t}
                 onClick={() => handleTypeChange(t)}
-                className="flex-1 text-sm font-medium py-2 rounded-lg transition-all duration-200"
-                style={{
-                  background: type === t ? 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' : 'transparent',
-                  color: type === t ? '#fff' : 'hsl(240 5% 55%)',
-                }}
+                className={`flex-1 text-sm font-medium py-2 rounded-lg transition-all duration-200 ${
+                  type === t ? 'gradient-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 {t === 'expense' ? 'Gasto' : 'Ganho'}
               </button>
@@ -157,8 +155,7 @@ export default function EditVariableDialog({ transaction, open, onClose, onSaved
               Cancelar
             </Button>
             <Button
-              className="flex-1"
-              style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
+              className="flex-1 gradient-primary"
               onClick={handleSubmit}
               disabled={saving}
             >

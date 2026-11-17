@@ -194,8 +194,8 @@ export default function UnifiedTransactionDialog({
   };
 
   const accentGrad = isIncome
-    ? 'linear-gradient(135deg, hsl(152 69% 45%), hsl(192 80% 50%))'
-    : 'linear-gradient(135deg, hsl(0 72% 51%), hsl(25 95% 53%))';
+    ? 'linear-gradient(135deg, hsl(152 69% 30%), hsl(192 80% 30%))'
+    : 'linear-gradient(135deg, hsl(0 72% 45%), hsl(20 90% 40%))';
 
   // Todos os métodos variáveis (PaymentMethod completo, sem filtrar nada)
   const allVarMethods = Object.entries(PAYMENT_METHOD_CONFIG) as [PaymentMethod, { label: string }][];
@@ -224,8 +224,8 @@ export default function UnifiedTransactionDialog({
                   type === t ? 'text-white shadow-sm' : 'text-muted-foreground hover:text-foreground',
                 )}
                 style={type === t ? { background: t === 'expense'
-                  ? 'linear-gradient(135deg, hsl(0 72% 51%), hsl(25 95% 53%))'
-                  : 'linear-gradient(135deg, hsl(152 69% 45%), hsl(192 80% 50%))',
+                  ? 'linear-gradient(135deg, hsl(0 72% 45%), hsl(20 90% 40%))'
+                  : 'linear-gradient(135deg, hsl(152 69% 30%), hsl(192 80% 30%))',
                 } : {}}
               >
                 {t === 'expense' ? <ArrowDownCircle size={14} /> : <ArrowUpCircle size={14} />}
@@ -472,4 +472,4 @@ export default function UnifiedTransactionDialog({
       </DialogContent>
     </Dialog>
   );
-}
+}

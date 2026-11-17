@@ -2,11 +2,13 @@
 import {
   LayoutDashboard, CreditCard, CalendarCheck, BarChart3, FileSearch,
   LogOut, Sun, Moon, Landmark, TrendingUp, Target, Sparkles, Brain, Tags,
-  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight, Settings,
+  MoreHorizontal, LucideIcon, X, Repeat2, ChevronLeft, ChevronRight, Settings, Shapes,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { logoutUser, getUser } from '@/lib/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from 'next-themes';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AVAILABLE_MODULES } from '@/lib/modules';
 
-const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain, Tags };
+const MODULE_ICONS: Record<string, LucideIcon> = { Landmark, TrendingUp, Target, Repeat2, Brain, Tags, Shapes };
 
 const MAIN_TABS = [
   { path: '/',        label: 'Início',     icon: LayoutDashboard },
@@ -50,10 +52,14 @@ export default function AppNav() {
       setUserName(user?.name ?? '');
       setUserEmail(user?.email ?? '');
     });
-    loadUser();
-    // Configurações avisa quando o nome muda
+    // Recarrega quando a sessão é restaurada/troca de conta…
+    const unsubscribe = onAuthStateChanged(auth, () => { loadUser(); });
+    // …e quando o nome muda (cadastro terminou de salvar ou Configurações)
     window.addEventListener('ff-profile-updated', loadUser);
-    return () => window.removeEventListener('ff-profile-updated', loadUser);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('ff-profile-updated', loadUser);
+    };
   }, []);
 
   useEffect(() => { setMoreOpen(false); }, [location.pathname]);
@@ -77,7 +83,7 @@ export default function AppNav() {
   const isDark       = mounted ? theme === 'dark' : true;
   const moreIsActive = moreTabs.some(t => location.pathname === t.path);
   const initials     = userName ? userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'FF';
-  const firstName    = userName.split(' ')[0] || '';
+  const firstName    = userName.trim().split(/\s+/)[0] || '';
 
   // ── Item de navegação ──────────────────────────────────────────────────────
   const NavItem = ({ tab, delay = 0 }: { tab: { path: string; label: string; icon: LucideIcon }; delay?: number }) => {

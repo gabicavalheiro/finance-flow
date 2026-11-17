@@ -110,7 +110,7 @@ export default function AddIncomeDialog({ onAdded }: Props) {
             onClick={handleSubmit}
             disabled={saving}
             className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(152 69% 45%), hsl(210 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(152 69% 30%), hsl(210 70% 40%))' }}
           >
             {saving ? 'Adicionando...' : 'Adicionar'}
           </Button>
@@ -118,4 +118,4 @@ export default function AddIncomeDialog({ onAdded }: Props) {
       </DialogContent>
     </Dialog>
   );
-}
+}

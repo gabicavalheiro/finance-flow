@@ -99,7 +99,7 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
           </Button>
           <Button
             className="flex-1 text-white"
-            style={{ background: 'linear-gradient(135deg, hsl(152 69% 45%), hsl(210 70% 55%))' }}
+            style={{ background: 'linear-gradient(135deg, hsl(152 69% 30%), hsl(210 70% 40%))' }}
             onClick={handleSave}
             disabled={saving}
           >
@@ -109,4 +109,4 @@ export default function EditFixedIncomeDialog({ income, open, onClose, onSaved }
       </DialogContent>
     </Dialog>
   );
-}
+}

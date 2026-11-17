@@ -36,6 +36,7 @@ const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
 const ExpenseClassifierPage = lazy(() => import('./pages/ExpenseClassifierPage'));
 const IntelligencePage    = lazy(() => import('./pages/IntelligencePage'));
 const SettingsPage        = lazy(() => import('./pages/SettingsPage'));
+const CategoriesPage      = lazy(() => import('./pages/CategoriesPage'));
 
 // ── Fallback mínimo enquanto chunk carrega ────────────────────────────────────
 function PageLoader() {
@@ -69,7 +70,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 );
 
 // Páginas onde o FAB não aparece
-const FAB_HIDDEN_PATHS = ['/subscriptions', '/inteligencia', '/settings'];
+const FAB_HIDDEN_PATHS = ['/subscriptions', '/inteligencia', '/settings', '/categorias'];
 
 function ConnectedFAB() {
   const { refresh } = useFinanceData();
@@ -108,6 +109,7 @@ function AppRoutes() {
                 <Route path="/loans"         element={<LoansPage />} />
                 <Route path="/investments"   element={<InvestmentsPage />} />
                 <Route path="/subscriptions" element={<SubscriptionsPage />} />
+                <Route path="/categorias"    element={<CategoriesPage />} />
                 <Route path="/classifier"    element={<ExpenseClassifierPage />} />
                 <Route path="/inteligencia"  element={<IntelligencePage />} />
                 <Route path="/settings"      element={<SettingsPage />} />

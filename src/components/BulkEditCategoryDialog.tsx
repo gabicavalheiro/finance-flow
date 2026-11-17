@@ -329,12 +329,9 @@ export default function BulkEditCategoryDialog({
                   className={cn(
                     'px-3 py-1 rounded-lg text-xs font-medium transition-all border',
                     filter === tab.key
-                      ? 'text-white border-transparent'
+                      ? 'gradient-primary border-transparent'
                       : 'bg-secondary border-border text-muted-foreground hover:text-foreground',
                   )}
-                  style={filter === tab.key
-                    ? { background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }
-                    : undefined}
                 >
                   {tab.label}
                 </button>
@@ -505,8 +502,7 @@ export default function BulkEditCategoryDialog({
                 <Button
                   onClick={handleApply}
                   disabled={saving || selectedCount === 0}
-                  className="flex-1 text-white"
-                  style={{ background: 'linear-gradient(135deg, hsl(0 0% 32%), hsl(0 0% 12%))' }}
+                  className="flex-1 gradient-primary"
                 >
                   {saving
                     ? <><Loader2 size={14} className="animate-spin mr-1.5" /> Salvando...</>
@@ -561,4 +557,4 @@ export default function BulkEditCategoryDialog({
       </AlertDialog>
     </>
   );
-}
+}

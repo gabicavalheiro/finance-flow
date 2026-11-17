@@ -4,7 +4,7 @@ import {
   ShoppingBag, Home, Plane, Repeat, MoreHorizontal,
   Landmark, Zap, Briefcase, Laptop, Building2, TrendingUp,
   Gift, Star, Music, Coffee, Dumbbell, Wrench, Camera,
-  Baby, PawPrint, CircleDollarSign,
+  Baby, PawPrint, CircleDollarSign, Wallet, Dog, Shirt, Scissors, Pill,
 } from 'lucide-react';
 import { ExpenseCategory, IncomeCategory, CATEGORY_CONFIG, INCOME_CATEGORY_CONFIG } from '@/lib/types';
 import { isCustomCategory } from '@/lib/customCategories';
@@ -16,7 +16,7 @@ const iconMap: Record<string, React.ForwardRefExoticComponent<Omit<LucideProps, 
   ShoppingBag, Home, Plane, Repeat, MoreHorizontal,
   Landmark, Zap, Briefcase, Laptop, Building2, TrendingUp,
   Gift, Star, Music, Coffee, Dumbbell, Wrench, Camera,
-  Baby, PawPrint, CircleDollarSign,
+  Baby, PawPrint, CircleDollarSign, Wallet, Dog, Shirt, Scissors, Pill,
 };
 
 interface Props {
